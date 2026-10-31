@@ -22,8 +22,8 @@ Entry point: `KaplaPlanner.planner : KaplaCore.Planner` (pure core: `planPure`).
 | `Tests.lean` | end-to-end on `physicsMock` / `semanticMock` |
 
 Proven (standard axioms only):
-- `planPure_sound`: every returned candidate passed the physics check and uses at most N blocks.
-- `sequence_perm`: the steps contain exactly the input blocks, none lost or doubled.
+- `planPure_sound` (main theorem, in `specs/` + `comparator/planner.json`): every returned candidate passed the physics check and uses at most N blocks.
+- `sequence_perm` (main theorem, in `specs/` + `comparator/planner.json`): the steps contain exactly the input blocks, none lost or doubled.
 - `sequence_step_size`: every step places exactly one block.
 - `towerLayers_length`, `columnLayers_length`: motif block counts are exact.
 
