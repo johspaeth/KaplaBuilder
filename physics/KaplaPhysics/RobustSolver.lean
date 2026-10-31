@@ -20,7 +20,7 @@ Nothing here is trusted. The engine checks the result with `SolidCertificate`.
 
 namespace KaplaPhysics.RobustSolver
 
-open Solver (allSupports phaseOne LPResult)
+open Solver (allSupports phaseOne LPResult insertByHeight)
 
 /-- A contact in the planned build: plank `upper` rests on `lower` over `patch`. -/
 structure Contact where
@@ -37,12 +37,8 @@ def contacts (b : Build) : Array Contact := Id.run do
       if let some r := restPatch b i s then out := out.push ⟨i, s, r⟩
   return out
 
-/-- Insert `i` into `order`, keeping higher planks first. -/
-def insertByHeight (b : Build) (i : Nat) : List Nat → List Nat
-  | [] => [i]
-  | j :: js => if (b.get i).z ≥ (b.get j).z then i :: j :: js else j :: insertByHeight b i js
-
-/-- Propose a solidity certificate for errors up to `ε`, or give up. -/
+/-- Propose a solidity certificate for errors up to `ε` with one LP for the whole build,
+or give up. Slow for large builds. -/
 def proposeLoads (ε : Rat) (b : Build) (fuel : Nat := 100000) : Option (List Load) := Id.run do
   let n := b.length
   let cs := contacts b
@@ -133,6 +129,63 @@ def proposeLoads (ε : Rat) (b : Build) (fuel : Nat := 100000) : Option (List Lo
     else
       let (px, py) := point e
       some { upper := c.upper, lower := c.lower, force := load e, x := px, y := py,
-             mix := mixOf[c.upper]!.toList }
+             mix := mixOf[c.upper]! }
+
+/-- Fast version of `proposeLoads`: settle one plank at a time, from the top down. Each
+plank passes its own weight and the loads it carries to its supports, using a small LP
+with the same margins as above. It can miss certificates that the global LP finds (it
+never revisits a choice), so the engine falls back to `proposeLoads` for small builds. -/
+def proposeLoadsLocal (ε : Rat) (b : Build) (fuel : Nat := 10000) : Option (List Load) :=
+    Id.run do
+  let n := b.length
+  let mut inL := Array.replicate n (0 : Rat)    -- load from above
+  let mut inPx := Array.replicate n (0 : Rat)   -- load times its point
+  let mut inPy := Array.replicate n (0 : Rat)
+  let mut inG := Array.replicate n (Array.replicate n (0 : Rat))  -- load times its mix
+  let mut out : List Load := []
+  for i in (List.range n).foldr (insertByHeight b) [] do
+    let p := b.get i
+    let lin := inL[i]!
+    let sup := (allSupports n).filterMap fun s => (restPatch b i s).map (s, ·)
+    let k := sup.length
+    let mut cols := Array.replicate (5 * k) (Array.replicate (3 + 2 * k) (0 : Rat))
+    let mut rhs := #[1 + lin, p.centerX + inPx[i]!, p.centerY + inPy[i]!] ++
+      Array.replicate (2 * k) 0
+    for t in List.range k do
+      let (s, r) := sup[t]!
+      let onPlank := s != .ground
+      let μ1 : Rat := if onPlank then 2 * ε else 0
+      cols := cols.set! (5 * t) <| ((Array.replicate (3 + 2 * k) (0 : Rat))
+        |>.set! 0 1 |>.set! 1 (r.x0 + μ1) |>.set! 2 (r.y0 + μ1)
+        |>.set! (3 + 2 * t) (r.x1 - r.x0 - 2 * μ1) |>.set! (4 + 2 * t) (r.y1 - r.y0 - 2 * μ1))
+      cols := cols.set! (5 * t + 1) <| ((Array.replicate (3 + 2 * k) (0 : Rat))
+        |>.set! 1 1 |>.set! (3 + 2 * t) (-1))
+      cols := cols.set! (5 * t + 2) <| ((Array.replicate (3 + 2 * k) (0 : Rat))
+        |>.set! 2 1 |>.set! (4 + 2 * t) (-1))
+      cols := cols.set! (5 * t + 3) <| (Array.replicate (3 + 2 * k) (0 : Rat)).set! (3 + 2 * t) (-1)
+      cols := cols.set! (5 * t + 4) <| (Array.replicate (3 + 2 * k) (0 : Rat)).set! (4 + 2 * t) (-1)
+      if !onPlank then
+        -- On the ground the margin is `2ε · lin`, a known number here.
+        rhs := rhs.modify 1 (· - 2 * ε * lin) |>.modify 2 (· - 2 * ε * lin)
+          |>.set! (3 + 2 * t) (4 * ε * lin) |>.set! (4 + 2 * t) (4 * ε * lin)
+    let some x := (match phaseOne (3 + 2 * k) cols rhs fuel with
+      | .feasible x => some x
+      | _ => none) | return none
+    let total := 1 + lin
+    let g := ((Array.replicate n (0 : Rat)).set! i 1).zipWith (· + ·) inG[i]! |>.map (· / total)
+    for t in List.range k do
+      let (s, r) := sup[t]!
+      let L := x[5 * t]!
+      if L != 0 then
+        let μ := if s != .ground then 2 * ε * L else 2 * ε * lin
+        let px := (r.x0 * L + μ + x[5 * t + 1]!) / L
+        let py := (r.y0 * L + μ + x[5 * t + 2]!) / L
+        out := { upper := i, lower := s, force := L, x := px, y := py, mix := g } :: out
+        if let .plank j := s then
+          inL := inL.modify j (· + L)
+          inPx := inPx.modify j (· + L * px)
+          inPy := inPy.modify j (· + L * py)
+          inG := inG.modify j fun a => a.zipWith (fun u v => u + L * v) g
+  return some out
 
 end KaplaPhysics.RobustSolver

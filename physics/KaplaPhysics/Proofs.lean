@@ -20,15 +20,31 @@ theorem checkPushes_sound (b : Build) (ps : List Push) (h : checkPushes b ps = t
   exact ⟨ps, h.1, h.2⟩
 
 /-- Property 1: when the engine answers "stable", the build is stable (S2). -/
-theorem stabilityAnswer_stable_sound (b : Build) (h : stabilityAnswer b = .stable) :
+theorem globalAnswer_stable_sound (b : Build) (h : globalAnswer b = .stable) :
     Stable b := by
-  unfold stabilityAnswer at h
+  unfold globalAnswer at h
   split at h
   · split at h
     · exact checkPushes_sound b _ (by assumption)
     · cases h
   · split at h <;> cases h
   · cases h
+
+theorem fallbackAnswer_stable_sound (b : Build) (h : fallbackAnswer b = .stable) :
+    Stable b := by
+  unfold fallbackAnswer at h
+  split at h
+  · exact globalAnswer_stable_sound b h
+  · cases h
+
+theorem stabilityAnswer_stable_sound (b : Build) (h : stabilityAnswer b = .stable) :
+    Stable b := by
+  unfold stabilityAnswer at h
+  split at h
+  · split at h
+    · exact checkPushes_sound b _ (by assumption)
+    · exact fallbackAnswer_stable_sound b h
+  · exact fallbackAnswer_stable_sound b h
 
 /-! ## "Falls" answers are right -/
 
@@ -109,9 +125,9 @@ theorem fallCertificate_sound (b : Build) (ms : List Motion) (hc : FallCertifica
   grind
 
 /-- Property 2: when the engine answers "falls", the build is not stable (S3). -/
-theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls) :
+theorem globalAnswer_falls_sound (b : Build) (h : globalAnswer b = .falls) :
     ¬ Stable b := by
-  unfold stabilityAnswer at h
+  unfold globalAnswer at h
   split at h
   · split at h <;> cases h
   · split at h
@@ -119,15 +135,36 @@ theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls)
     · cases h
   · cases h
 
+theorem fallbackAnswer_falls_sound (b : Build) (h : fallbackAnswer b = .falls) :
+    ¬ Stable b := by
+  unfold fallbackAnswer at h
+  split at h
+  · exact globalAnswer_falls_sound b h
+  · cases h
+
+theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls) :
+    ¬ Stable b := by
+  unfold stabilityAnswer at h
+  split at h
+  · split at h
+    · cases h
+    · exact fallbackAnswer_falls_sound b h
+  · exact fallbackAnswer_falls_sound b h
+
 /-! ## "Solid" answers are right -/
 
 /-- If the solidity check passes, the build is solid. -/
-theorem solidAnswer_sound (ε : Rat) (b : Build) (h : solidAnswer ε b = true) :
-    SolidWithin ε b := by
-  unfold solidAnswer at h
+theorem passes_sound (ε : Rat) (b : Build) (o : Option (List Load))
+    (h : solidAnswer.passes ε b o = true) : SolidWithin ε b := by
+  unfold solidAnswer.passes at h
   split at h
   · exact solidCertificate_sound ε b _ (of_decide_eq_true h)
   · cases h
+
+theorem solidAnswer_sound (ε : Rat) (b : Build) (h : solidAnswer ε b = true) :
+    SolidWithin ε b := by
+  simp only [solidAnswer, Bool.or_eq_true, Bool.and_eq_true] at h
+  rcases h with h | ⟨_, h⟩ <;> exact passes_sound ε b _ h
 
 /-- Property 3: when the engine's verdict is "solid", the build is stable for every
 combination of placement errors up to `ε` (R3). -/

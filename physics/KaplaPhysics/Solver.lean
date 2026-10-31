@@ -178,4 +178,41 @@ def solve (b : Build) (fuel : Nat := 100000) : Proposal :=
     .falls <| (List.range n).map fun i =>
       { lift := -y[3 * i]!, tiltX := -y[3 * i + 1]!, tiltY := -y[3 * i + 2]! }
 
+/-- Insert `i` into `order`, keeping higher planks first. -/
+def insertByHeight (b : Build) (i : Nat) : List Nat → List Nat
+  | [] => [i]
+  | j :: js => if (b.get i).z ≥ (b.get j).z then i :: j :: js else j :: insertByHeight b i js
+
+/-- Fast version of `solve` for builds that stand: settle one plank at a time, from the top
+down. Each plank passes its weight and what it carries to the corners of its contact
+patches, using a small LP. It never revisits a choice, so it can miss pushes that the
+global LP finds; then the engine falls back to `solve`. -/
+def solveLocal (b : Build) (fuel : Nat := 10000) : Option (List Push) := Id.run do
+  let n := b.length
+  let mut inF := Array.replicate n (0 : Rat)   -- push from above
+  let mut inX := Array.replicate n (0 : Rat)   -- push times its x
+  let mut inY := Array.replicate n (0 : Rat)
+  let mut out : List Push := []
+  for i in (List.range n).foldr (insertByHeight b) [] do
+    let p := b.get i
+    let us := (allSupports n).flatMap fun s =>
+      match restPatch b i s with
+      | some r => r.corners.map fun (x, y) => (s, x, y)
+      | none => []
+    let cols := us.toArray.map fun (_, x, y) => #[1, x - p.centerX, y - p.centerY]
+    let rhs := #[1 + inF[i]!, inX[i]! - inF[i]! * p.centerX, inY[i]! - inF[i]! * p.centerY]
+    let some f := (match phaseOne 3 cols rhs fuel with
+      | .feasible f => some f
+      | _ => none) | return none
+    for k in List.range us.length do
+      let (s, x, y) := us[k]!
+      let fk := f[k]!
+      if fk != 0 then
+        out := { upper := i, lower := s, x, y, force := fk } :: out
+        if let .plank j := s then
+          inF := inF.modify j (· + fk)
+          inX := inX.modify j (· + fk * x)
+          inY := inY.modify j (· + fk * y)
+  return some out
+
 end KaplaPhysics.Solver

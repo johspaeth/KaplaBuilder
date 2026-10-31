@@ -63,20 +63,39 @@ inductive Answer where
 def checkPushes (b : Build) (ps : List Push) : Bool :=
   decide (∀ p ∈ ps, p.Allowed b) && decide (∀ i < b.length, Balanced b ps i)
 
-/-- Ask the solver, then check what it proposes. -/
-def stabilityAnswer (b : Build) : Answer :=
+/-- Builds up to this many planks also get the global LPs, which are slow but find more
+answers than the top-down solvers. -/
+def globalLimit : Nat := 40
+
+/-- Ask the global solver, then check what it proposes. -/
+def globalAnswer (b : Build) : Answer :=
   match Solver.solve b with
   | .stands ps => if checkPushes b ps then .stable else .unknown
   | .falls ms => if decide (FallCertificate b ms) then .falls else .unknown
   | .gaveUp => .unknown
 
+/-- The global answer for small builds, "unknown" for large ones. -/
+def fallbackAnswer (b : Build) : Answer :=
+  if b.length ≤ globalLimit then globalAnswer b else .unknown
+
+/-- Ask the fast top-down solver; if it finds no pushes that pass the check, ask the global
+solver (small builds only). -/
+def stabilityAnswer (b : Build) : Answer :=
+  match Solver.solveLocal b with
+  | some ps => if checkPushes b ps then .stable else fallbackAnswer b
+  | none => fallbackAnswer b
+
 /-- Is the build solid for placement errors up to `ε`? Ask the untrusted solver for a
 certificate, then check it. "No" can mean "not solid" or "the cautious check could not
 show it". -/
 def solidAnswer (ε : Rat) (b : Build) : Bool :=
-  match RobustSolver.proposeLoads ε b with
-  | some ls => decide (SolidCertificate ε b ls)
-  | none => false
+  passes (RobustSolver.proposeLoadsLocal ε b) ||
+    (b.length ≤ globalLimit && passes (RobustSolver.proposeLoads ε b))
+where
+  /-- The proposed certificate exists and passes the check. -/
+  passes : Option (List Load) → Bool
+    | some ls => decide (SolidCertificate ε b ls)
+    | none => false
 
 /-- R4. The three answers, plus "unknown" if a check fails. -/
 inductive Verdict where

@@ -30,7 +30,7 @@ structure Load where
   force : Rat
   x : Rat
   y : Rat
-  mix : List Rat
+  mix : Array Rat
   deriving Repr, DecidableEq
 
 /-- The size of a number, ignoring its sign. -/
@@ -81,17 +81,28 @@ the lower plank. -/
 def Load.upOn (i : Nat) (l : Load) : Rat :=
   (if l.upper = i then l.force else 0) - (if l.lower = .plank i then l.force else 0)
 
-/-- The loads balance plank `i` for every error (S1 with errors):
+/-- Load `l` touches plank `i`: `i` is its upper or its lower plank. -/
+def Load.Touches (i : Nat) (l : Load) : Bool := l.upper == i || l.lower == .plank i
+
+/-- The loads `near` balance plank `i` for every error (S1 with errors):
 1. the net load up is its weight, 1;
 2. the net turning effect, measured from the origin, equals that of its weight at its
    planned centre;
 3. for each plank `m`, the load points move with `m`'s error exactly as plank `i`'s centre
    does: fully if `m = i`, not at all otherwise. -/
+def BalancedNear (b : Build) (near : List Load) (i : Nat) : Prop :=
+  (near.map fun l => l.upOn i).sum = 1 ∧
+  (near.map fun l => l.upOn i * l.x).sum = (b.get i).centerX ∧
+  (near.map fun l => l.upOn i * l.y).sum = (b.get i).centerY ∧
+  ∀ m < b.length, (near.map fun l => l.upOn i * l.mix.getD m 0).sum = if m = i then 1 else 0
+
+instance (b : Build) (near : List Load) (i : Nat) : Decidable (BalancedNear b near i) := by
+  unfold BalancedNear; infer_instance
+
+/-- The loads balance plank `i` for every error. Only loads that touch plank `i` matter,
+so only those are summed. -/
 def BalancedLoads (b : Build) (ls : List Load) (i : Nat) : Prop :=
-  (ls.map fun l => l.upOn i).sum = 1 ∧
-  (ls.map fun l => l.upOn i * l.x).sum = (b.get i).centerX ∧
-  (ls.map fun l => l.upOn i * l.y).sum = (b.get i).centerY ∧
-  ∀ m < b.length, (ls.map fun l => l.upOn i * l.mix.getD m 0).sum = if m = i then 1 else 0
+  BalancedNear b (ls.filter (Load.Touches i)) i
 
 instance (b : Build) (ls : List Load) (i : Nat) : Decidable (BalancedLoads b ls i) := by
   unfold BalancedLoads; infer_instance

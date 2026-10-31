@@ -97,7 +97,7 @@ theorem spread_allowed (b : Build) (r : Rect) (p : Push)
 /-! ## Loads under errors -/
 
 /-- The weighted sum of the planks' errors along one axis. -/
-def mixSum (n : Nat) (mix : List Rat) (e : Nat → Rat) : Rat :=
+def mixSum (n : Nat) (mix : Array Rat) (e : Nat → Rat) : Rat :=
   ((List.range n).map fun m => mix.getD m 0 * e m).sum
 
 /-- The push a load gives when the planks land with errors `d`. -/
@@ -195,12 +195,42 @@ theorem solid_allowed (ε : Rat) (b : Build) (ls : List Load) (d : Nat → Rat �
     (by have := hv.2.2.1; cases h : l.lower <;> simp_all [Support.InBuild, Load.at])
     hr hx hy hx0 hx1 hy0 hy1 p hp
 
+/-- Loads that do not touch plank `i` do not lift it. -/
+theorem upOn_of_not_touches (i : Nat) (l : Load) (h : l.Touches i = false) : l.upOn i = 0 := by
+  simp only [Load.Touches, Bool.or_eq_false_iff, beq_eq_false_iff_ne] at h
+  simp [Load.upOn, h.1, h.2]; grind
+
+/-- Summing over the loads that touch plank `i` is the same as summing over all loads. -/
+theorem sum_near (ls : List Load) (i : Nat) (f : Load → Rat) :
+    ((ls.filter (Load.Touches i)).map fun l => l.upOn i * f l).sum
+      = (ls.map fun l => l.upOn i * f l).sum := by
+  induction ls with
+  | nil => simp
+  | cons l ls ih =>
+    by_cases h : l.Touches i = true
+    · simp [h, ih]
+    · simp only [Bool.not_eq_true] at h
+      simp [h, ih, upOn_of_not_touches i l h]; grind
+
+/-- `BalancedLoads`, with the sums taken over all loads. -/
+theorem balancedLoads_full (b : Build) (ls : List Load) (i : Nat) (hb : BalancedLoads b ls i) :
+    (ls.map fun l => l.upOn i).sum = 1 ∧
+    (ls.map fun l => l.upOn i * l.x).sum = (b.get i).centerX ∧
+    (ls.map fun l => l.upOn i * l.y).sum = (b.get i).centerY ∧
+    ∀ m < b.length, (ls.map fun l => l.upOn i * l.mix.getD m 0).sum = if m = i then 1 else 0 := by
+  obtain ⟨h1, h2, h3, h4⟩ := hb
+  refine ⟨?_, ?_, ?_, fun m hm => ?_⟩
+  · have := sum_near ls i (fun _ => 1); simp only [Rat.mul_one] at this; rw [← this]; exact h1
+  · rw [← sum_near]; exact h2
+  · rw [← sum_near]; exact h3
+  · rw [← sum_near]; exact h4 m hm
+
 /-- The planks' errors, weighted by how the loads on plank `i` move with them, add up to
 plank `i`'s own error. -/
 theorem mix_total (b : Build) (ls : List Load) (i : Nat) (hi : i < b.length) (e : Nat → Rat)
     (hb : BalancedLoads b ls i) :
     (ls.map fun l => l.upOn i * mixSum b.length l.mix e).sum = e i := by
-  obtain ⟨_, _, _, hm⟩ := hb
+  obtain ⟨_, _, _, hm⟩ := balancedLoads_full b ls i hb
   calc (ls.map fun l => l.upOn i * mixSum b.length l.mix e).sum
       = (ls.map fun l => ((List.range b.length).map fun m =>
           l.upOn i * l.mix.getD m 0 * e m).sum).sum := by
@@ -228,7 +258,7 @@ theorem solid_balanced (ε : Rat) (b : Build) (ls : List Load) (d : Nat → Rat 
     exact ⟨r, hr, hx, hy⟩
   have mx := mix_total b ls i hi (fun m => (d m).1) hb
   have my := mix_total b ls i hi (fun m => (d m).2) hb
-  obtain ⟨h1, h2, h3, _⟩ := hb
+  obtain ⟨h1, h2, h3, _⟩ := balancedLoads_full b ls i hb
   have cx : ((b.shift d).get i).centerX = (b.get i).centerX + (d i).1 := by
     rw [shift_get b d i hi]; simp only [Plank.centerX]; grind
   have cy : ((b.shift d).get i).centerY = (b.get i).centerY + (d i).2 := by

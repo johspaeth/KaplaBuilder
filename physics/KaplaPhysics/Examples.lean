@@ -90,10 +90,10 @@ itself) and let the kernel check it. -/
 /-- E2: the bottom plank carries 2 to the ground at its middle, which moves with the
 average of both planks' errors; the top plank carries 1 at its own centre. -/
 def e2Certificate : List Load :=
-  [⟨0, .ground, 2, 10, 3 / 2, [1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 25 / 2, 3 / 2, [0, 1]⟩]
+  [⟨0, .ground, 2, 10, 3 / 2, #[1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 25 / 2, 3 / 2, #[0, 1]⟩]
 
 example : Solid e2 := solidCertificate_sound _ _ e2Certificate (by decide +kernel)
-example : Solid e6 := solidCertificate_sound _ _ [⟨0, .ground, 1, 3 / 2, 1 / 2, [1]⟩]
+example : Solid e6 := solidCertificate_sound _ _ [⟨0, .ground, 1, 3 / 2, 1 / 2, #[1]⟩]
   (by decide +kernel)
 
 /-! ## The rules reject bad answers -/
@@ -117,7 +117,7 @@ example : ¬ Balanced e2 [⟨1, .plank 0, 15, 0, 1⟩] 1 := by decide +kernel
 /-- E2's certificate does not fit E3: the top load is too close to the edge of the plank
 below, so it could leave the patch. -/
 example : ¬ SolidCertificate placementError e3
-    [⟨0, .ground, 2, 45 / 4, 3 / 2, [1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 15, 3 / 2, [0, 1]⟩] := by
+    [⟨0, .ground, 2, 45 / 4, 3 / 2, #[1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 15, 3 / 2, #[0, 1]⟩] := by
   decide +kernel
 
 /-- An unstable build is not called stable: E4 is not stable, so no answer "stable". -/

@@ -56,6 +56,11 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 - Reachability (K3, property 5), single-column rule (property 6), contacts match the
   face overlap as point sets (property 7), friction (property 8), square tower for every
   `n` (property 9; today checked for 8 levels).
-- Speed: both LPs use a dense simplex; builds near 200 planks are not yet measured.
-  Checking the robust solver's output inside the Lean kernel is slow beyond one plank, so
+- Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses
+  the global LPs only for builds of at most 40 planks. Measured with the interpreter on a
+  200-plank square tower: exact check 1.4 s, solid verdict 2.4 s. `checkPlan` checks
+  every prefix separately, so a 200-step plan takes minutes; reusing work between steps
+  is still to do. Large builds that fall get "unknown" (the fall certificate needs the
+  global LP).
+- Checking the robust solver's output inside the Lean kernel is slow beyond one plank, so
   the kernel examples for E2 and E6 check a written-out certificate.
