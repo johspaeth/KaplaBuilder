@@ -2,9 +2,8 @@ import KaplaPhysics.Proofs
 
 /-! # Worked examples (section 12 of `spec/physics-rules.md`)
 
-Each `#guard` fails the build if the engine disagrees with the table in the spec. The
-"Real (R4)" column (solid or risky) needs the placement-error check, which is not built
-yet; here we check the "Exact (S2)" column and buildability (K4 at exact positions). -/
+Each `#guard` fails the build if the engine disagrees with the table in the spec: the
+"Exact (S2)" column, the "Real (R4)" column (with ε = 2 mm), and buildability (K4). -/
 
 namespace KaplaPhysics.Examples
 
@@ -55,11 +54,23 @@ def e12 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 9, 0, 1⟩, ⟨.flatY, 9, 
 #guard stabilityAnswer e11 == .falls
 #guard stabilityAnswer e12 == .stable
 
--- Buildability, every step (K4 at exact positions, K5).
-#guard checkPlan 200 (squareTower 8)
-#guard checkPlan 200 e7
-#guard !checkPlan 200 e12          -- B falls before C can hold it down
-#guard !checkPlan 1 e2             -- more planks than allowed
+-- Placement errors (R4), with ε = 2 mm.
+#guard verdict placementError e1 == .solid
+#guard verdict placementError e2 == .solid
+#guard verdict placementError e3 == .risky
+#guard verdict placementError e4 == .falls
+#guard verdict placementError e6 == .solid
+#guard verdict placementError e7 == .risky
+#guard verdict placementError (squareTower 8) == .solid
+#guard verdict placementError e9 == .risky
+#guard verdict placementError e10 == .falls
+#guard verdict placementError e11 == .falls
+
+-- Buildability, every step (K4, K5).
+#guard checkPlan placementError 200 (squareTower 8)
+#guard !checkPlan placementError 200 e7     -- stands on paper, but risky
+#guard !checkPlan placementError 200 e12    -- B falls before C can hold it down
+#guard !checkPlan placementError 1 e2       -- more planks than allowed
 #guard stabilityAnswer (e12.take 2) == .falls
 
 /-! ## The main theorems apply to real inputs (their hypotheses can be met) -/
@@ -69,7 +80,21 @@ example : Stable e3 := stabilityAnswer_stable_sound e3 (by decide +kernel)
 example : ¬ Stable e4 := stabilityAnswer_falls_sound e4 (by decide +kernel)
 example : ¬ Stable e10 := stabilityAnswer_falls_sound e10 (by decide +kernel)
 example : ¬ Stable (e12.take 2) := stabilityAnswer_falls_sound _ (by decide +kernel)
-example : StandsAtEveryStep 200 e7 := checkPlan_sound 200 e7 (by decide +kernel)
+example : Solid e1 := verdict_solid_sound placementError e1 (by decide +kernel)
+example : SafePlan placementError 200 e1 := checkPlan_sound placementError 200 e1 (by decide +kernel)
+
+/-! Running the robust solver inside the kernel is slow for more than one plank, so for E2
+and E6 we write out the certificate the solver finds (the `#guard`s above run the solver
+itself) and let the kernel check it. -/
+
+/-- E2: the bottom plank carries 2 to the ground at its middle, which moves with the
+average of both planks' errors; the top plank carries 1 at its own centre. -/
+def e2Certificate : List Load :=
+  [⟨0, .ground, 2, 10, 3 / 2, [1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 25 / 2, 3 / 2, [0, 1]⟩]
+
+example : Solid e2 := solidCertificate_sound _ _ e2Certificate (by decide +kernel)
+example : Solid e6 := solidCertificate_sound _ _ [⟨0, .ground, 1, 3 / 2, 1 / 2, [1]⟩]
+  (by decide +kernel)
 
 /-! ## The rules reject bad answers -/
 
@@ -89,11 +114,18 @@ example : checkPushes e4
 /-- Pushes that only carry the weight but let the plank turn do not balance it (S1). -/
 example : ¬ Balanced e2 [⟨1, .plank 0, 15, 0, 1⟩] 1 := by decide +kernel
 
+/-- E2's certificate does not fit E3: the top load is too close to the edge of the plank
+below, so it could leave the patch. -/
+example : ¬ SolidCertificate placementError e3
+    [⟨0, .ground, 2, 45 / 4, 3 / 2, [1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 15, 3 / 2, [0, 1]⟩] := by
+  decide +kernel
+
 /-- An unstable build is not called stable: E4 is not stable, so no answer "stable". -/
 example : stabilityAnswer e4 ≠ .stable := by decide +kernel
 
-/-- A plan whose middle step falls is rejected, and it really does not stand at every step. -/
-example : ¬ StandsAtEveryStep 200 e12 := fun h =>
-  stabilityAnswer_falls_sound (e12.take 2) (by decide +kernel) (h.2 2 (by decide) (by decide)).2
+/-- A plan whose middle step falls is not safe. -/
+example : ¬ SafePlan placementError 200 e12 := fun h =>
+  stabilityAnswer_falls_sound (e12.take 2) (by decide +kernel)
+    (solid_stable _ _ (by decide +kernel) (h.2 2 (by decide) (by decide)).2)
 
 end KaplaPhysics.Examples

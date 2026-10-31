@@ -1,4 +1,4 @@
-import KaplaPhysics.Solver
+import KaplaPhysics.RobustSolver
 
 /-! # The physics engine: untrusted solver, checked answers
 
@@ -9,7 +9,10 @@ import KaplaPhysics.Solver
 * "falls": the proposed motion is a *fall certificate* (below). Then no allowed pushes
   can balance the build (`Proofs.lean`: `stabilityAnswer_falls_sound`).
 * "unknown": the proposal did not pass the check. This should not happen; it is never
-  reported as stable. -/
+  reported as stable.
+
+`verdict` adds placement errors (R4): "solid" when a solidity certificate passes
+(`Robust.lean`), "risky" when the build only stands at the exact positions. -/
 
 namespace KaplaPhysics
 
@@ -67,11 +70,38 @@ def stabilityAnswer (b : Build) : Answer :=
   | .falls ms => if decide (FallCertificate b ms) then .falls else .unknown
   | .gaveUp => .unknown
 
-/-- Check a build plan: at most `maxPlanks` planks, and after every step the build so far
-is well-formed and the engine answers "stable". -/
-def checkPlan (maxPlanks : Nat) (steps : Build) : Bool :=
+/-- Is the build solid for placement errors up to `ε`? Ask the untrusted solver for a
+certificate, then check it. "No" can mean "not solid" or "the cautious check could not
+show it". -/
+def solidAnswer (ε : Rat) (b : Build) : Bool :=
+  match RobustSolver.proposeLoads ε b with
+  | some ls => decide (SolidCertificate ε b ls)
+  | none => false
+
+/-- R4. The three answers, plus "unknown" if a check fails. -/
+inductive Verdict where
+  /-- Stands even with placement errors up to `ε`. -/
+  | solid
+  /-- Stands at the exact positions; not shown to stand with errors. -/
+  | risky
+  /-- Does not stand even at the exact positions. -/
+  | falls
+  | unknown
+  deriving Repr, DecidableEq
+
+/-- The engine's verdict for a build, for placement errors up to `ε`. -/
+def verdict (ε : Rat) (b : Build) : Verdict :=
+  if solidAnswer ε b then .solid
+  else match stabilityAnswer b with
+    | .stable => .risky
+    | .falls => .falls
+    | .unknown => .unknown
+
+/-- Check a build plan (K4, K5): at most `maxPlanks` planks, and after every step the
+build so far is well-formed and solid for placement errors up to `ε`. -/
+def checkPlan (ε : Rat) (maxPlanks : Nat) (steps : Build) : Bool :=
   decide (steps.length ≤ maxPlanks) &&
     (List.range steps.length).all fun k =>
-      decide (WellFormed (steps.take (k + 1))) && stabilityAnswer (steps.take (k + 1)) == .stable
+      decide (WellFormed (steps.take (k + 1))) && solidAnswer ε (steps.take (k + 1))
 
 end KaplaPhysics

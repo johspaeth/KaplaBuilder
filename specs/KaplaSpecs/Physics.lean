@@ -2,7 +2,7 @@ import KaplaPhysics.Engine
 
 /-! # Spec for KaplaPhysics (human-owned)
 
-Rules: `spec/physics-rules.md`. What "well-formed", "stable" and "stands at every step"
+Rules: `spec/physics-rules.md`. What "well-formed", "stable", "solid" and "safe plan"
 mean is in `physics/KaplaPhysics/Rules.lean`; the engine is in
 `physics/KaplaPhysics/Engine.lean`. Proofs live in `physics/KaplaPhysics/Proofs.lean`.
 `sorry` is expected in this file only. -/
@@ -21,10 +21,25 @@ theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls)
     ¬ Stable b := by
   sorry
 
-/-- Property 4, at the exact positions: when the engine accepts a plan, it uses at most
-`maxPlanks` planks, and after every step the build so far is well-formed and stable. -/
-theorem checkPlan_sound (maxPlanks : Nat) (steps : Build)
-    (h : checkPlan maxPlanks steps = true) : StandsAtEveryStep maxPlanks steps := by
+/-- Property 3 ("solid" is right): when the verdict is "solid", the build is stable for
+every combination of placement errors up to `ε` (R3). -/
+theorem verdict_solid_sound (ε : Rat) (b : Build) (h : verdict ε b = .solid) :
+    SolidWithin ε b := by
+  sorry
+
+/-- When the verdict is "risky", the build is stable at the exact positions (R4). -/
+theorem verdict_risky_sound (ε : Rat) (b : Build) (h : verdict ε b = .risky) : Stable b := by
+  sorry
+
+/-- When the verdict is "falls", the build is not stable (R4). -/
+theorem verdict_falls_sound (ε : Rat) (b : Build) (h : verdict ε b = .falls) : ¬ Stable b := by
+  sorry
+
+/-- Property 4 ("the plan is safe"): when the engine accepts a plan, it uses at most
+`maxPlanks` planks, and after every step the build so far is well-formed and solid for
+placement errors up to `ε` (K4, K5). -/
+theorem checkPlan_sound (ε : Rat) (maxPlanks : Nat) (steps : Build)
+    (h : checkPlan ε maxPlanks steps = true) : SafePlan ε maxPlanks steps := by
   sorry
 
 end KaplaPhysics

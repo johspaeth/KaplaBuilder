@@ -15,11 +15,13 @@ appear in the docstrings.
 | File | What it does | Trusted? |
 |---|---|---|
 | `Geometry.lean` | planks, the six poses, rectangles (W1–W3, B1–B5) | yes: read it |
-| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), `StandsAtEveryStep` (K1, K4, K5) | yes: read it |
-| `Solver.lean` | exact-fraction simplex that *proposes* pushes or a fall motion | no: every proposal is checked |
-| `Engine.lean` | `FallCertificate`, `checkPushes`, `stabilityAnswer`, `checkPlan` | checked by the proofs |
-| `Proofs.lean` | the main theorems (statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
-| `Examples.lean` | worked examples E1–E12 as `#guard`s; concrete instances of every theorem; bad answers the rules reject | tests |
+| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors and `SolidWithin` (R1–R3), `SafePlan` (K1, K4, K5) | yes: read it |
+| `Solver.lean` | exact-fraction simplex; proposes pushes or a fall motion | no: every proposal is checked |
+| `Robust.lean` | `SolidCertificate`: loads whose points move with the errors | checked by the proofs |
+| `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
+| `Engine.lean` | `stabilityAnswer`, `verdict` (solid / risky / falls), `checkPlan` | checked by the proofs |
+| `Sums.lean`, `RobustProofs.lean`, `Proofs.lean` | the proofs (main statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
+| `Examples.lean` | worked examples E1–E12 as `#guard`s; concrete instances of the theorems; bad answers the rules reject | tests |
 
 ## Main theorems
 
@@ -27,19 +29,33 @@ appear in the docstrings.
 - `stabilityAnswer_falls_sound`: answer "falls" ⇒ `¬ Stable b` (property 2). The solver
   hands over a motion of the planks that lifts no plank into its support yet lowers the
   total weight; the checker confirms it, and the proof shows no balancing pushes can exist.
-- `checkPlan_sound`: an accepted plan is well-formed and stable after every step, with at
-  most N planks (property 4, at the exact positions).
+- `verdict_solid_sound`: verdict "solid" ⇒ stable for **every** combination of placement
+  errors up to ε (property 3). The certificate gives each contact a fixed load at a point
+  that moves with the errors; the proof spreads each load over the corners of the real
+  contact patch (F4) and shows balance for every error.
+- `verdict_risky_sound`, `verdict_falls_sound`: "risky" ⇒ stable at the exact positions;
+  "falls" ⇒ not stable.
+- `checkPlan_sound`: an accepted plan has at most N planks and is well-formed and
+  **solid** after every step (property 4, K4).
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.
 
-The statements mention `stabilityAnswer`, which calls the solver, so the solver is in the
-spec surface, but nothing depends on it being right: a wrong proposal only gives "unknown".
+The statements mention `verdict` and `checkPlan`, which call the solvers, so the solvers
+are in the spec surface. Nothing depends on them being right: a wrong proposal only gives
+"risky" or "unknown".
+
+**Cautious, never optimistic (R3).** "Risky" means "not shown to be solid". A solid build
+can get "risky" when no certificate of the simple kind exists (fixed loads per contact).
+A "solid" verdict is always right.
+
+Placement errors are taken over the whole R1 box (every plank within ε along `x` and `y`).
+R5 only removes some of these errors, so "solid" here implies solid under R5.
 
 ## Not done yet
 
-- R1–R5 placement errors ("solid" vs "risky", property 3). K4 asks for solid; today
-  `checkPlan` checks stability at the exact positions only.
 - Reachability (K3, property 5), single-column rule (property 6), contacts match the
   face overlap as point sets (property 7), friction (property 8), square tower for every
   `n` (property 9; today checked for 8 levels).
-- Speed: the simplex is dense; large builds (~200 planks) are not yet measured.
+- Speed: both LPs use a dense simplex; builds near 200 planks are not yet measured.
+  Checking the robust solver's output inside the Lean kernel is slow beyond one plank, so
+  the kernel examples for E2 and E6 check a written-out certificate.

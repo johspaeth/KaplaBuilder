@@ -1,4 +1,6 @@
 import KaplaPhysics.Engine
+import KaplaPhysics.Sums
+import KaplaPhysics.RobustProofs
 
 /-! # Proofs of the physics theorems
 
@@ -8,77 +10,6 @@ names and statements here match them exactly. -/
 namespace KaplaPhysics
 
 open Solver (Motion allSupports)
-
-/-! ## Sums of lists of fractions -/
-
-section Sums
-
-variable {α β : Type}
-
-theorem sum_map_add (l : List α) (f g : α → Rat) :
-    (l.map fun a => f a + g a).sum = (l.map f).sum + (l.map g).sum := by
-  induction l with
-  | nil => simp <;> grind
-  | cons a l ih => simp only [List.map_cons, List.sum_cons, ih]; grind
-
-theorem sum_map_sub (l : List α) (f g : α → Rat) :
-    (l.map fun a => f a - g a).sum = (l.map f).sum - (l.map g).sum := by
-  induction l with
-  | nil => simp <;> grind
-  | cons a l ih => simp only [List.map_cons, List.sum_cons, ih]; grind
-
-theorem sum_map_mul_left (l : List α) (c : Rat) (f : α → Rat) :
-    (l.map fun a => c * f a).sum = c * (l.map f).sum := by
-  induction l with
-  | nil => simp <;> grind
-  | cons a l ih => simp only [List.map_cons, List.sum_cons, ih]; grind
-
-theorem sum_map_zero (l : List α) : (l.map fun _ => (0 : Rat)).sum = 0 := by
-  induction l with
-  | nil => simp <;> grind
-  | cons a l ih => simp only [List.map_cons, List.sum_cons, ih]; grind
-
-theorem sum_map_congr (l : List α) (f g : α → Rat) (h : ∀ a ∈ l, f a = g a) :
-    (l.map f).sum = (l.map g).sum := by
-  rw [List.map_congr_left h]
-
-theorem sum_map_nonneg (l : List α) (f : α → Rat) (h : ∀ a ∈ l, 0 ≤ f a) :
-    0 ≤ (l.map f).sum := by
-  induction l with
-  | nil => simp <;> grind
-  | cons a l ih =>
-    simp only [List.map_cons, List.sum_cons]
-    have h1 := h a (by simp)
-    have h2 := ih fun x hx => h x (by simp [hx])
-    grind
-
-/-- Two sums can be done in either order. -/
-theorem sum_map_sum_comm (l₁ : List α) (l₂ : List β) (F : α → β → Rat) :
-    (l₁.map fun a => (l₂.map fun b => F a b).sum).sum
-      = (l₂.map fun b => (l₁.map fun a => F a b).sum).sum := by
-  induction l₂ with
-  | nil => simp [sum_map_zero]
-  | cons b l₂ ih =>
-    simp only [List.map_cons, List.sum_cons]
-    rw [sum_map_add, ih]
-
-/-- Summing over `0, ..., n-1` a term that is zero except at `a < n` gives the term at `a`. -/
-theorem sum_range_single (n a : Nat) (ha : a < n) (f : Nat → Rat) :
-    ((List.range n).map fun i => if a = i then f i else 0).sum = f a := by
-  induction n with
-  | zero => omega
-  | succ n ih =>
-    rw [List.range_succ, List.map_append, List.sum_append]
-    by_cases h : a = n
-    · subst h
-      have : ((List.range a).map fun i => if a = i then f i else 0).sum = 0 := by
-        rw [sum_map_congr _ _ (fun _ => 0)]
-        · exact sum_map_zero _
-        · intro i hi; simp at hi; simp; omega
-      simp [this] <;> grind
-    · rw [ih (by omega)]; simp [h] <;> grind
-
-end Sums
 
 /-! ## "Stable" answers are right -/
 
@@ -188,17 +119,55 @@ theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls)
     · cases h
   · cases h
 
-/-! ## Accepted plans stand at every step -/
+/-! ## "Solid" answers are right -/
 
-/-- Property 4 (at the exact positions): an accepted plan uses at most `maxPlanks` planks,
-and after every step the build so far is well-formed and stable. -/
-theorem checkPlan_sound (maxPlanks : Nat) (steps : Build)
-    (h : checkPlan maxPlanks steps = true) : StandsAtEveryStep maxPlanks steps := by
+/-- If the solidity check passes, the build is solid. -/
+theorem solidAnswer_sound (ε : Rat) (b : Build) (h : solidAnswer ε b = true) :
+    SolidWithin ε b := by
+  unfold solidAnswer at h
+  split at h
+  · exact solidCertificate_sound ε b _ (of_decide_eq_true h)
+  · cases h
+
+/-- Property 3: when the engine's verdict is "solid", the build is stable for every
+combination of placement errors up to `ε` (R3). -/
+theorem verdict_solid_sound (ε : Rat) (b : Build) (h : verdict ε b = .solid) :
+    SolidWithin ε b := by
+  unfold verdict at h
+  split at h
+  · exact solidAnswer_sound ε b (by assumption)
+  · split at h <;> cases h
+
+/-- When the verdict is "risky", the build is stable at the exact positions (S2). -/
+theorem verdict_risky_sound (ε : Rat) (b : Build) (h : verdict ε b = .risky) : Stable b := by
+  unfold verdict at h
+  split at h
+  · cases h
+  · split at h
+    · exact stabilityAnswer_stable_sound b (by assumption)
+    all_goals cases h
+
+/-- When the verdict is "falls", the build is not stable (S3). -/
+theorem verdict_falls_sound (ε : Rat) (b : Build) (h : verdict ε b = .falls) : ¬ Stable b := by
+  unfold verdict at h
+  split at h
+  · cases h
+  · split at h
+    · cases h
+    · exact stabilityAnswer_falls_sound b (by assumption)
+    · cases h
+
+/-! ## Accepted plans are safe at every step -/
+
+/-- Property 4: an accepted plan uses at most `maxPlanks` planks, and after every step the
+build so far is well-formed and solid for placement errors up to `ε` (K4, K5). -/
+theorem checkPlan_sound (ε : Rat) (maxPlanks : Nat) (steps : Build)
+    (h : checkPlan ε maxPlanks steps = true) : SafePlan ε maxPlanks steps := by
   simp only [checkPlan, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
-    List.mem_range, beq_iff_eq] at h
+    List.mem_range] at h
   refine ⟨h.1, fun k hk1 hk2 => ?_⟩
   obtain ⟨hw, hs⟩ := h.2 (k - 1) (by omega)
   rw [show k - 1 + 1 = k by omega] at hw hs
-  exact ⟨hw, stabilityAnswer_stable_sound _ hs⟩
+  exact ⟨hw, solidAnswer_sound ε _ hs⟩
 
 end KaplaPhysics

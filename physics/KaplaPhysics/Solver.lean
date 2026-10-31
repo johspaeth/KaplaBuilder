@@ -123,19 +123,26 @@ def Table.run (t : Table) (ncols rhs : Nat) : Nat → Option Table
       | none => none
       | some r => (t.pivot r j).run ncols rhs fuel
 
-/-- Propose pushes that balance every plank, or a motion showing that none exist. -/
-def solve (b : Build) (fuel : Nat := 100000) : Proposal := Id.run do
-  let n := b.length
-  let m := 3 * n
-  let us := unknowns b
-  let k := us.size
-  let cols := us.map (column b m)
+/-- The result of phase one on `A x = rhs, x ≥ 0`. -/
+inductive LPResult where
+  /-- A solution `x`. -/
+  | feasible (x : Array Rat)
+  /-- Numbers `y`, one per row, with `yᵀA ≤ 0` and `yᵀrhs > 0`: no solution exists. -/
+  | infeasible (y : Array Rat)
+  | gaveUp
+
+/-- Phase one of the simplex method for `A x = rhs, x ≥ 0`. `cols` holds the columns of
+`A`, each with `m` entries. Rows with a negative right side are flipped first. -/
+def phaseOne (m : Nat) (cols : Array (Array Rat)) (rhsIn : Array Rat) (fuel : Nat := 100000) :
+    LPResult := Id.run do
+  let k := cols.size
   let rhs := k + m
-  -- Row `r` is `[A_r | e_r | b_r]`; the right side is 1 on force rows, 0 elsewhere.
+  let flip := (Array.range m).map fun r => if rhsIn[r]! < 0 then (-1 : Rat) else 1
+  -- Row `r` is `flip_r * [A_r | e_r | rhs_r]` with the helper `e_r` not flipped.
   let rows := (Array.range m).map fun r =>
-    let a := cols.map (·[r]!)
+    let a := cols.map fun c => flip[r]! * c[r]!
     let e := (Array.range m).map fun r' => if r' == r then (1 : Rat) else 0
-    (a ++ e).push (if r % 3 == 0 then 1 else 0)
+    (a ++ e).push (flip[r]! * rhsIn[r]!)
   -- All helper variables start in the basis, each with cost 1.
   let cost := (Array.range (rhs + 1)).map fun j =>
     if k ≤ j && j < rhs then (0 : Rat) else -(rows.foldl (fun s row => s + row[j]!) 0)
@@ -143,18 +150,32 @@ def solve (b : Build) (fuel : Nat := 100000) : Proposal := Id.run do
   | none => return .gaveUp
   | some t =>
     if t.cost[rhs]! == 0 then
-      let pushes := (List.range m).filterMap fun r =>
+      let mut x := Array.replicate k (0 : Rat)
+      for r in List.range m do
         let j := t.basis[r]!
-        if j < k then
-          let u : Unknown := us[j]!
-          some { upper := u.upper, lower := u.lower, x := u.x, y := u.y,
-                 force := t.rows[r]![rhs]! }
-        else none
-      return .stands pushes
+        if j < k then x := x.set! j t.rows[r]![rhs]!
+      return .feasible x
     else
-      -- The reduced cost of helper column `r` is `1 - y_r`; the motion is `-y`.
-      let y := fun r => 1 - t.cost[k + r]!
-      return .falls <| (List.range n).map fun i =>
-        { lift := -y (3 * i), tiltX := -y (3 * i + 1), tiltY := -y (3 * i + 2) }
+      -- The reduced cost of helper column `r` is `1 - y_r` (for the flipped rows).
+      return .infeasible <| (Array.range m).map fun r => flip[r]! * (1 - t.cost[k + r]!)
+
+/-- Propose pushes that balance every plank, or a motion showing that none exist. -/
+def solve (b : Build) (fuel : Nat := 100000) : Proposal :=
+  let n := b.length
+  let m := 3 * n
+  let us := unknowns b
+  -- The right side is 1 on force rows (each plank weighs 1), 0 on turning rows.
+  let rhs := (Array.range m).map fun r => if r % 3 == 0 then (1 : Rat) else 0
+  match phaseOne m (us.map (column b m)) rhs fuel with
+  | .gaveUp => .gaveUp
+  | .feasible x =>
+    .stands <| (List.range us.size).filterMap fun j =>
+      let u : Unknown := us[j]!
+      if x[j]! == 0 then none
+      else some { upper := u.upper, lower := u.lower, x := u.x, y := u.y, force := x[j]! }
+  | .infeasible y =>
+    -- `yᵀA ≤ 0` and `yᵀrhs > 0`; the motion is `-y`.
+    .falls <| (List.range n).map fun i =>
+      { lift := -y[3 * i]!, tiltX := -y[3 * i + 1]!, tiltY := -y[3 * i + 2]! }
 
 end KaplaPhysics.Solver

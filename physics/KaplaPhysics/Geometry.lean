@@ -71,7 +71,7 @@ structure Rect where
   x1 : Rat
   y0 : Rat
   y1 : Rat
-  deriving Repr, DecidableEq
+  deriving Repr, DecidableEq, Inhabited
 
 namespace Rect
 

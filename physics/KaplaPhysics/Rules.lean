@@ -124,15 +124,42 @@ end KaplaPhysics
 
 namespace KaplaPhysics
 
+/-! ## Placement errors (R1–R3) -/
+
+/-- R1. The default placement error: 2 mm, which is 10/39 of a unit. -/
+def placementError : Rat := 10 / 39
+
+/-- R1, R2. The build after plank `i` lands `(d i).1` off along `x` and `(d i).2` off
+along `y`. Heights do not change. -/
+def Build.shift (b : Build) (d : Nat → Rat × Rat) : Build :=
+  b.mapIdx fun i p => { p with x := p.x + (d i).1, y := p.y + (d i).2 }
+
+/-- Example: moving plank 1 of E2 by 1/4 along `x`. -/
+example : Build.shift [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 5, 0, 1⟩] (fun i => if i = 1 then (1/4, 0) else (0, 0))
+    = [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 21/4, 0, 1⟩] := by decide +kernel
+
+/-- R1. Every plank of a build of `n` planks lands at most `ε` off along `x` and at most
+`ε` off along `y`. -/
+def SmallShift (ε : Rat) (n : Nat) (d : Nat → Rat × Rat) : Prop :=
+  ∀ i < n, -ε ≤ (d i).1 ∧ (d i).1 ≤ ε ∧ -ε ≤ (d i).2 ∧ (d i).2 ≤ ε
+
+/-- R3. The build is solid: it is stable for every combination of placement errors of
+at most `ε`.
+
+R5 (a plank pushed against its neighbour moves with it) only removes some of these
+combinations, so a build that is solid here is also solid under R5. -/
+def SolidWithin (ε : Rat) (b : Build) : Prop :=
+  ∀ d, SmallShift ε b.length d → Stable (b.shift d)
+
+/-- R3 with the default error of 2 mm. -/
+def Solid (b : Build) : Prop := SolidWithin placementError b
+
 /-! ## Build plans (K1, K4, K5) -/
 
-/-- K1, K4, K5 at the exact positions: the plan places one plank per step, uses at most
-`maxPlanks` planks, and after every step the build so far is well-formed and stable.
-
-(K4 asks for more: *solid*, that is stable under placement errors, R3. That check is not
-built yet.) -/
-def StandsAtEveryStep (maxPlanks : Nat) (steps : Build) : Prop :=
+/-- K1, K4, K5: the plan places one plank per step, uses at most `maxPlanks` planks, and
+after every step the build so far is well-formed and solid (placement error up to `ε`). -/
+def SafePlan (ε : Rat) (maxPlanks : Nat) (steps : Build) : Prop :=
   steps.length ≤ maxPlanks ∧
-    ∀ k, 1 ≤ k → k ≤ steps.length → WellFormed (steps.take k) ∧ Stable (steps.take k)
+    ∀ k, 1 ≤ k → k ≤ steps.length → WellFormed (steps.take k) ∧ SolidWithin ε (steps.take k)
 
 end KaplaPhysics
