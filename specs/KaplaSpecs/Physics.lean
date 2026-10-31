@@ -42,4 +42,43 @@ theorem checkPlan_sound (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan ε maxPlanks steps = true) : SafePlan ε maxPlanks steps := by
   sorry
 
+/-- Property 5 ("reachable" is right): when the checker finds a direction, the plank can
+come in along it in a straight line from far away and drop into place without sharing
+inside space with any plank already placed (K3). -/
+theorem reachDir_sound (placed : Build) (p : Plank) (h : Rat) (d : Dir)
+    (hd : reachDir? placed p h = some d) : StraightPath placed p h d.vec := by
+  sorry
+
+/-- Property 5 for a plan: when no step is listed as hard to reach, every step can be put
+in place by a straight path and a drop. -/
+theorem hardToReach_nil_sound (h : Rat) (steps : Build) (hn : hardToReach h steps = []) :
+    EveryStepReachable h steps := by
+  sorry
+
+/-- Property 7 (contacts are right): the overlap of two rectangles holds exactly the points
+that lie in both. -/
+theorem Rect.inter_contains (r s : Rect) (x y : Rat) :
+    (r.inter s).Contains x y ↔ r.Contains x y ∧ s.Contains x y := by
+  sorry
+
+/-- Property 7: a rectangle has an area bigger than zero exactly when some point lies
+strictly inside it (C3). -/
+theorem Rect.hasArea_iff (r : Rect) :
+    r.HasArea ↔ ∃ x y, r.x0 < x ∧ x < r.x1 ∧ r.y0 < y ∧ y < r.y1 := by
+  sorry
+
+/-- Property 7: plank `i` rests on plank `j` over `r` exactly when `i`'s bottom is at the
+height of `j`'s top, `r` is the overlap of their footprints, and `r` has an area (C1, C2). -/
+theorem restPatch_plank_iff (b : Build) (i j : Nat) (r : Rect) :
+    restPatch b i (.plank j) = some r ↔
+      (b.get i).z = (b.get j).top ∧ r = (b.get i).footprint.inter (b.get j).footprint ∧
+        r.HasArea := by
+  sorry
+
+/-- Property 7: plank `i` rests on the ground over `r` exactly when its bottom is at `z = 0`
+and `r` is its whole footprint (C1, C2). -/
+theorem restPatch_ground_iff (b : Build) (i : Nat) (r : Rect) :
+    restPatch b i .ground = some r ↔ (b.get i).z = 0 ∧ r = (b.get i).footprint := by
+  sorry
+
 end KaplaPhysics

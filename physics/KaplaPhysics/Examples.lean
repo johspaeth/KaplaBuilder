@@ -73,6 +73,23 @@ def e12 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 9, 0, 1⟩, ⟨.flatY, 9, 
 #guard !checkPlan placementError 1 e2       -- more planks than allowed
 #guard stabilityAnswer (e12.take 2) == .falls
 
+-- Reaching the spot (K3), with a drop gap of 1 unit.
+#guard hardToReach dropGap (squareTower 8) == []
+#guard hardToReach dropGap e9 == []
+#guard reachDir? [] ⟨.flatX, 0, 0, 0⟩ dropGap == some .fromAbove
+
+/-- A slot with no gap above: a plank already sits right where the new plank must be
+lifted to before its drop. No straight path works (the spec's "real problem" case). -/
+def slotPlaced : Build := [⟨.flatX, 0, 0, 1⟩]
+/-- The plank that should go into the slot under `slotPlaced`. -/
+def slotPlank : Plank := ⟨.flatX, 0, 0, 0⟩
+
+#guard reachDir? slotPlaced slotPlank dropGap == none
+
+/-- A plank under a roof on two walls can still slide in from the open side. -/
+def underRoof : Build := [⟨.edgeY, 0, 0, 0⟩, ⟨.edgeY, 14, 0, 0⟩, ⟨.flatX, 0, 0, 3⟩]
+#guard reachDir? underRoof ⟨.flatY, 6, 0, 0⟩ dropGap == some .fromPlusY
+
 /-! ## The main theorems apply to real inputs (their hypotheses can be met) -/
 
 example : Stable e2 := stabilityAnswer_stable_sound e2 (by decide +kernel)
@@ -95,6 +112,11 @@ def e2Certificate : List Load :=
 example : Solid e2 := solidCertificate_sound _ _ e2Certificate (by decide +kernel)
 example : Solid e6 := solidCertificate_sound _ _ [⟨0, .ground, 1, 3 / 2, 1 / 2, #[1]⟩]
   (by decide +kernel)
+
+example : StraightPath underRoof ⟨.flatY, 6, 0, 0⟩ dropGap Dir.fromPlusY.vec :=
+  reachDir_sound _ _ _ _ (by decide +kernel)
+example : EveryStepReachable dropGap (squareTower 2) :=
+  hardToReach_nil_sound _ _ (by decide +kernel)
 
 /-! ## The rules reject bad answers -/
 
@@ -127,5 +149,11 @@ example : stabilityAnswer e4 ≠ .stable := by decide +kernel
 example : ¬ SafePlan placementError 200 e12 := fun h =>
   stabilityAnswer_falls_sound (e12.take 2) (by decide +kernel)
     (solid_stable _ _ (by decide +kernel) (h.2 2 (by decide) (by decide)).2)
+
+/-- Coming straight down into the slot is not a valid path: the plank above is in the way. -/
+example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
+  intro ⟨_, _, _, hdrop⟩
+  exact hdrop 1 (by decide +kernel) (by decide +kernel) ⟨.flatX, 0, 0, 1⟩ (by simp [slotPlaced])
+    (by decide +kernel)
 
 end KaplaPhysics.Examples

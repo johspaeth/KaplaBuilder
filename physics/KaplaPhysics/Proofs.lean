@@ -11,6 +11,56 @@ namespace KaplaPhysics
 
 open Solver (Motion allSupports)
 
+/-! ## Contacts are right (property 7, C1–C3) -/
+
+/-- The overlap of two rectangles holds exactly the points that lie in both. -/
+theorem Rect.inter_contains (r s : Rect) (x y : Rat) :
+    (r.inter s).Contains x y ↔ r.Contains x y ∧ s.Contains x y := by
+  simp only [Rect.inter, Rect.Contains]
+  grind
+
+/-- A rectangle has an area bigger than zero exactly when some point lies strictly inside
+it (C3: a line or a point is not enough). -/
+theorem Rect.hasArea_iff (r : Rect) :
+    r.HasArea ↔ ∃ x y, r.x0 < x ∧ x < r.x1 ∧ r.y0 < y ∧ y < r.y1 := by
+  constructor
+  · intro ⟨hx, hy⟩
+    exact ⟨(r.x0 + r.x1) / 2, (r.y0 + r.y1) / 2, by grind, by grind, by grind, by grind⟩
+  · rintro ⟨x, y, h1, h2, h3, h4⟩
+    exact ⟨by grind, by grind⟩
+
+/-- C1, C2: plank `i` rests on plank `j` over the patch `r` exactly when `i`'s bottom is at
+the height of `j`'s top, `r` is the overlap of their footprints, and `r` has an area. -/
+theorem restPatch_plank_iff (b : Build) (i j : Nat) (r : Rect) :
+    restPatch b i (.plank j) = some r ↔
+      (b.get i).z = (b.get j).top ∧ r = (b.get i).footprint.inter (b.get j).footprint ∧
+        r.HasArea := by
+  simp only [restPatch]
+  split
+  · rename_i h
+    constructor
+    · intro e; cases e; exact ⟨h.1, rfl, h.2⟩
+    · rintro ⟨_, rfl, _⟩; rfl
+  · rename_i h
+    constructor
+    · intro e; cases e
+    · rintro ⟨hz, rfl, ha⟩; exact absurd ⟨hz, ha⟩ h
+
+/-- C1, C2: plank `i` rests on the ground over the patch `r` exactly when its bottom is at
+`z = 0` and `r` is its whole footprint. -/
+theorem restPatch_ground_iff (b : Build) (i : Nat) (r : Rect) :
+    restPatch b i .ground = some r ↔ (b.get i).z = 0 ∧ r = (b.get i).footprint := by
+  simp only [restPatch]
+  split
+  · rename_i h
+    constructor
+    · intro e; cases e; exact ⟨h, rfl⟩
+    · rintro ⟨_, rfl⟩; rfl
+  · rename_i h
+    constructor
+    · intro e; cases e
+    · rintro ⟨hz, _⟩; exact absurd hz h
+
 /-! ## "Stable" answers are right -/
 
 /-- If the push check passes, the build is stable (S2). -/
@@ -206,5 +256,45 @@ theorem checkPlan_sound (ε : Rat) (maxPlanks : Nat) (steps : Build)
   obtain ⟨hw, hs⟩ := h.2 (k - 1) (by omega)
   rw [show k - 1 + 1 = k by omega] at hw hs
   exact ⟨hw, solidAnswer_sound ε _ hs⟩
+
+/-! ## Reaching the spot (property 5, K3) -/
+
+theorem dropMisses_sound (p q : Plank) (h : Rat) (hm : DropMisses p h q) (s : Rat)
+    (hs0 : 0 ≤ s) (hsh : s ≤ h) : ¬ Overlap (p.moveBy 0 0 s) q := by
+  simp only [DropMisses, OverlapXY] at hm
+  simp only [Overlap, Plank.moveBy, Plank.x1, Plank.y1, Plank.top]
+  simp only [Plank.x1, Plank.y1, Plank.top] at hm
+  grind
+
+theorem rayMisses_sound (d : Dir) (p q : Plank) (h : Rat) (hm : RayMisses d p h q) (t : Rat)
+    (ht : 0 ≤ t) :
+    ¬ Overlap (p.moveBy (t * d.vec.1) (t * d.vec.2.1) (h + t * d.vec.2.2)) q := by
+  cases d <;> simp only [RayMisses, OverlapXY, OverlapZ] at hm <;>
+    simp only [Dir.vec, Overlap, Plank.moveBy, Plank.x1, Plank.y1, Plank.top] <;>
+    simp only [Plank.x1, Plank.y1, Plank.top] at hm <;> grind
+
+/-- Property 5 ("reachable" is right): a direction the checker accepts gives a straight
+path and a drop that touch no placed plank (K3). -/
+theorem reachDir_sound (placed : Build) (p : Plank) (h : Rat) (d : Dir)
+    (hd : reachDir? placed p h = some d) : StraightPath placed p h d.vec := by
+  have hm := List.find?_some hd
+  simp only [decide_eq_true_eq] at hm
+  refine ⟨by cases d <;> decide, by cases d <;> decide +kernel, ?_, ?_⟩
+  · intro t ht q hq; exact rayMisses_sound d p q h (hm q hq).2 t ht
+  · intro s hs0 hsh q hq; exact dropMisses_sound p q h (hm q hq).1 s hs0 hsh
+
+/-- Every step that `hardToReach` does not list can be put in place by a straight path. -/
+theorem hardToReach_sound (h : Rat) (steps : Build) (k : Nat) (hk : k < steps.length)
+    (hn : k ∉ hardToReach h steps) : Reachable (steps.take k) (steps.get k) h := by
+  simp only [hardToReach, List.mem_filter, List.mem_range, Option.isNone_iff_eq_none,
+    not_and] at hn
+  cases hr : reachDir? (steps.take k) (steps.get k) h with
+  | none => exact absurd hr (hn hk)
+  | some d => exact ⟨d.vec, reachDir_sound _ _ _ d hr⟩
+
+/-- When no step is hard to reach, every step can be put in place (K3 for a plan). -/
+theorem hardToReach_nil_sound (h : Rat) (steps : Build) (hn : hardToReach h steps = []) :
+    EveryStepReachable h steps := fun k hk =>
+  hardToReach_sound h steps k hk (by simp [hn])
 
 end KaplaPhysics

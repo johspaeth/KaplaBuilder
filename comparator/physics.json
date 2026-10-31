@@ -7,7 +7,13 @@
     "KaplaPhysics.verdict_solid_sound",
     "KaplaPhysics.verdict_risky_sound",
     "KaplaPhysics.verdict_falls_sound",
-    "KaplaPhysics.checkPlan_sound"
+    "KaplaPhysics.checkPlan_sound",
+    "KaplaPhysics.reachDir_sound",
+    "KaplaPhysics.hardToReach_nil_sound",
+    "KaplaPhysics.Rect.inter_contains",
+    "KaplaPhysics.Rect.hasArea_iff",
+    "KaplaPhysics.restPatch_plank_iff",
+    "KaplaPhysics.restPatch_ground_iff"
   ],
   "permitted_axioms": [
     "propext",

@@ -83,6 +83,9 @@ def HasArea (r : Rect) : Prop := r.x0 < r.x1 ∧ r.y0 < r.y1
 
 instance (r : Rect) : Decidable r.HasArea := by unfold HasArea; infer_instance
 
+/-- The point `(x, y)` lies in the rectangle (edges included). -/
+def Contains (r : Rect) (x y : Rat) : Prop := r.x0 ≤ x ∧ x ≤ r.x1 ∧ r.y0 ≤ y ∧ y ≤ r.y1
+
 /-- The four corners of the rectangle. -/
 def corners (r : Rect) : List (Rat × Rat) :=
   [(r.x0, r.y0), (r.x1, r.y0), (r.x0, r.y1), (r.x1, r.y1)]

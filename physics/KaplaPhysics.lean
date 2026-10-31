@@ -6,6 +6,7 @@ import KaplaPhysics.Sums
 import KaplaPhysics.Robust
 import KaplaPhysics.RobustSolver
 import KaplaPhysics.RobustProofs
+import KaplaPhysics.Reach
 import KaplaPhysics.Engine
 import KaplaPhysics.Proofs
 import KaplaPhysics.Examples

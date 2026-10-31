@@ -163,3 +163,39 @@ def SafePlan (ε : Rat) (maxPlanks : Nat) (steps : Build) : Prop :=
     ∀ k, 1 ≤ k → k ≤ steps.length → WellFormed (steps.take k) ∧ SolidWithin ε (steps.take k)
 
 end KaplaPhysics
+
+namespace KaplaPhysics
+
+/-! ## Reaching the spot (K2, K3) -/
+
+/-- The plank moved by `dx`, `dy`, `dz`. -/
+def Plank.moveBy (p : Plank) (dx dy dz : Rat) : Plank :=
+  { p with x := p.x + dx, y := p.y + dy, z := p.z + dz }
+
+/-- K3. The gap `h` for the final drop: 1 unit (7.8 mm). -/
+def dropGap : Rat := 1
+
+/-- K2, K3. A straight path that places `p` among the planks already `placed`: the plank,
+in its final pose, comes in a straight line from far away along direction `v` to a point
+`h` above its spot, then drops `h` straight down.
+1. `v` is not zero (so the path starts far away) and never points down (it stays above
+   the table);
+2. on the straight line, at every distance `t ≥ 0` back along `v`, the plank shares no
+   inside space with a placed plank;
+3. during the drop, at every height `s` between `0` and `h`, the same holds.
+Touching a placed plank at a face, edge or corner is allowed. -/
+def StraightPath (placed : Build) (p : Plank) (h : Rat) (v : Rat × Rat × Rat) : Prop :=
+  v ≠ (0, 0, 0) ∧ 0 ≤ v.2.2 ∧
+  (∀ t, 0 ≤ t → ∀ q ∈ placed, ¬ Overlap (p.moveBy (t * v.1) (t * v.2.1) (h + t * v.2.2)) q) ∧
+  (∀ s, 0 ≤ s → s ≤ h → ∀ q ∈ placed, ¬ Overlap (p.moveBy 0 0 s) q)
+
+/-- K3. Plank `p` can be put in place among `placed` by some straight path and a drop. -/
+def Reachable (placed : Build) (p : Plank) (h : Rat) : Prop :=
+  ∃ v, StraightPath placed p h v
+
+/-- K3 for a whole plan: every step's plank can be put in place, with the planks of the
+earlier steps already there. -/
+def EveryStepReachable (h : Rat) (steps : Build) : Prop :=
+  ∀ k < steps.length, Reachable (steps.take k) (steps.get k) h
+
+end KaplaPhysics

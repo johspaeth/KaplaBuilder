@@ -1,4 +1,5 @@
 import KaplaPhysics.RobustSolver
+import KaplaPhysics.Reach
 
 /-! # The physics engine: untrusted solver, checked answers
 
