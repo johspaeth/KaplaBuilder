@@ -8,7 +8,6 @@ import KaplaPlanner.Sequencer
 import KaplaPlanner.PreCheck
 import KaplaPlanner.Search
 import KaplaPlanner.Planner
-import KaplaPlanner.Proofs
 import KaplaPlanner.Tests
 
 /-! # KaplaPlanner: Construction planner (owner: person C, see docs/WORKSPLIT.md §6)

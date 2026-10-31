@@ -16,8 +16,7 @@ column, or a single upright block.
 4. **Score** with the semantic engine, and **rank**.
 
 Only plans that passed the physics check and use at most `N` blocks are returned
-(`planPure_sound`, a main theorem: statement in `specs/KaplaSpecs/Planner.lean`, proof in
-`Proofs.lean`). -/
+(`planPure_sound`). -/
 
 namespace KaplaPlanner
 open KaplaCore
@@ -115,5 +114,17 @@ def planPure (req : PlanRequest) (phys : PhysicsEngine) (sem : SemanticEngine) :
     List Candidate :=
   let all := evaluate req phys sem (proposals req.target req.blocks) req.maxChecks
   ((all.filter (acceptable req.blocks)).mergeSort better).take req.maxCandidates
+
+/-- Every candidate the planner returns passed the physics check and uses at most `N`
+blocks. -/
+theorem planPure_sound (req : PlanRequest) (phys : PhysicsEngine) (sem : SemanticEngine) :
+    ∀ c ∈ planPure req phys sem, c.physics.ok = true ∧ c.plan.blockCount ≤ req.blocks := by
+  intro c hc
+  simp only [planPure] at hc
+  have h := List.mem_of_mem_take hc
+  rw [List.mem_mergeSort] at h
+  have := (List.mem_filter.mp h).2
+  simp only [acceptable, Bool.and_eq_true, decide_eq_true_eq] at this
+  exact this
 
 end KaplaPlanner

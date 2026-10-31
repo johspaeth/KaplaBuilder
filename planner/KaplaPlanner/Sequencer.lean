@@ -7,12 +7,11 @@ is bottom-up: sort by height, and keep the motif's order within one layer. One b
 step. If the physics check rejects a step, the repair loop changes the plan (see
 `Search.lean`).
 
-Proven:
+Proven here:
 - the steps contain exactly the input blocks: none lost, none added, none doubled
-  (`sequence_perm`, a main theorem: statement in `specs/KaplaSpecs/Planner.lean`, proof in
-  `Proofs.lean`);
-- every step places exactly one block (`sequence_step_size`, below), so it never needs
-  more hands than the builder has. -/
+  (`sequence_perm`);
+- every step places exactly one block (`sequence_step_size`), so it never needs more
+  hands than the builder has. -/
 
 namespace KaplaPlanner
 open KaplaCore
@@ -34,6 +33,12 @@ def sequence (phase : String) (bs : List GridBlock) : List GridStep :=
 
 /-- All blocks of the steps, in order. -/
 def GridStep.allBlocks (steps : List GridStep) : List GridBlock := steps.flatMap (·.blocks)
+
+/-- The steps contain exactly the input blocks, only in a different order. -/
+theorem sequence_perm (phase : String) (bs : List GridBlock) :
+    (GridStep.allBlocks (sequence phase bs)).Perm bs := by
+  simp only [GridStep.allBlocks, sequence, List.flatMap_map, List.flatMap_singleton']
+  exact List.mergeSort_perm _ _
 
 /-- Every step places exactly one block. -/
 theorem sequence_step_size (phase : String) (bs : List GridBlock) :
