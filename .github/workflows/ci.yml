@@ -1,0 +1,75 @@
+# Merge gate for main. The only required status check is "CI OK" (job `ci-ok`),
+# which is green only if every job below is green.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Outside $HOME: the `lake check` / `lake comparator` sandbox hides home directories.
+  ELAN_HOME: /opt/elan
+
+jobs:
+  rules:
+    name: Rules (imports, forbidden words)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/check_imports.sh
+      - run: scripts/check_forbidden.sh
+
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [KaplaCore, KaplaPhysics, KaplaSemantics, KaplaPlanner, KaplaWeb, kapla]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-lean
+      # Warnings fail the build: this catches `sorry` and unused/deprecated code.
+      - run: lake build ${{ matrix.target }} --fail-level=warning
+
+  verify:
+    name: Kernel check + Comparator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-lean
+      - name: Install sandbox (bubblewrap)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
+          # Ubuntu 24.04 blocks unprivileged user namespaces, which bwrap needs.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - name: Spec statements elaborate
+        run: lake build KaplaSpecs
+      - name: lake check (replay everything through the kernel, standard axioms only)
+        run: lake check
+      - name: lake comparator (proofs prove exactly the specs)
+        run: |
+          shopt -s nullglob
+          for cfg in comparator/*.json; do
+            echo "::group::comparator $cfg"
+            lake comparator --config "$cfg"
+            echo "::endgroup::"
+          done
+
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [rules, build, verify]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo '${{ toJSON(needs) }}'
+          [[ "${{ needs.rules.result }}" == success && \
+             "${{ needs.build.result }}" == success && \
+             "${{ needs.verify.result }}" == success ]]

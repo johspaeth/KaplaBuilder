@@ -1,0 +1,53 @@
+# KaplaBuilder: one Lake workspace, one folder per component.
+# Each component is its own library, so each can be built alone:
+#   lake build KaplaPhysics
+# See README.md for the rules (who may import what, what CI checks).
+name = "KaplaBuilder"
+version = "0.1.0"
+# Everything except the spec challenges (they contain `sorry` on purpose).
+defaultTargets = ["KaplaCore", "KaplaPhysics", "KaplaSemantics", "KaplaPlanner", "KaplaWeb", "kapla"]
+
+[leanOptions]
+autoImplicit = false
+
+# Shared contract: types, JSON, basic geometry, engine interfaces, mocks.
+[[lean_lib]]
+name = "KaplaCore"
+srcDir = "core"
+globs = ["KaplaCore.*"]
+
+# A: Physics engine.
+[[lean_lib]]
+name = "KaplaPhysics"
+srcDir = "physics"
+globs = ["KaplaPhysics.*"]
+
+# B: Semantic engine.
+[[lean_lib]]
+name = "KaplaSemantics"
+srcDir = "semantics"
+globs = ["KaplaSemantics.*"]
+
+# C: Construction planner.
+[[lean_lib]]
+name = "KaplaPlanner"
+srcDir = "planner"
+globs = ["KaplaPlanner.*"]
+
+# D: Web and integration.
+[[lean_lib]]
+name = "KaplaWeb"
+srcDir = "web"
+globs = ["KaplaWeb.*"]
+
+# Human-owned theorem statements, checked with `lake comparator`.
+[[lean_lib]]
+name = "KaplaSpecs"
+srcDir = "specs"
+globs = ["KaplaSpecs.+"]
+
+# D: the CLI, the only place where the real engines meet.
+[[lean_exe]]
+name = "kapla"
+srcDir = "app"
+root = "Main"
