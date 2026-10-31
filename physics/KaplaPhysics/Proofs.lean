@@ -1,6 +1,7 @@
 import KaplaPhysics.Engine
 import KaplaPhysics.Sums
 import KaplaPhysics.RobustProofs
+import KaplaPhysics.ColumnProofs
 
 /-! # Proofs of the physics theorems
 
@@ -256,6 +257,14 @@ theorem checkPlan_sound (ε : Rat) (maxPlanks : Nat) (steps : Build)
   obtain ⟨hw, hs⟩ := h.2 (k - 1) (by omega)
   rw [show k - 1 + 1 = k by omega] at hw hs
   exact ⟨hw, solidAnswer_sound ε _ hs⟩
+
+/-! ## The simple rule for a column (property 6) -/
+
+/-- Property 6: for a single column of planks, "stable" (S2) means exactly the simple
+rule: at every level, the combined centre of mass of everything from that level up is over
+the patch below that level. -/
+theorem column_stable_iff (b : Build) (hc : IsColumn b) : Stable b ↔ ColumnRule b :=
+  ⟨stable_columnRule b hc, columnRule_stable b⟩
 
 /-! ## Reaching the spot (property 5, K3) -/
 

@@ -73,6 +73,12 @@ def e12 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 9, 0, 1⟩, ⟨.flatY, 9, 
 #guard !checkPlan placementError 1 e2       -- more planks than allowed
 #guard stabilityAnswer (e12.take 2) == .falls
 
+-- The simple rule for columns (section 7): the engine agrees with it on E2, E3, E4, E7.
+#guard [e1, e2, e3, e4, e7].all fun b => decide (IsColumn b)
+#guard !decide (IsColumn e9)                       -- a bridge is not a column
+#guard [e1, e2, e3, e7].all fun b => decide (ColumnRule b) && stabilityAnswer b == .stable
+#guard !decide (ColumnRule e4) && stabilityAnswer e4 == .falls
+
 -- Reaching the spot (K3), with a drop gap of 1 unit.
 #guard hardToReach dropGap (squareTower 8) == []
 #guard hardToReach dropGap e9 == []
@@ -117,6 +123,12 @@ example : StraightPath underRoof ⟨.flatY, 6, 0, 0⟩ dropGap Dir.fromPlusY.vec
   reachDir_sound _ _ _ _ (by decide +kernel)
 example : EveryStepReachable dropGap (squareTower 2) :=
   hardToReach_nil_sound _ _ (by decide +kernel)
+
+/-- E3 is stable by the simple column rule alone, with no solver involved. -/
+example : Stable e3 := (column_stable_iff e3 (by decide +kernel)).mpr (by decide +kernel)
+/-- E4 falls by the simple column rule: the top plank's centre is past the edge. -/
+example : ¬ Stable e4 := fun h =>
+  absurd ((column_stable_iff e4 (by decide +kernel)).mp h) (by decide +kernel)
 
 /-! ## The rules reject bad answers -/
 

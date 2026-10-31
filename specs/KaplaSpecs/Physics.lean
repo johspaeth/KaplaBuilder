@@ -55,6 +55,12 @@ theorem hardToReach_nil_sound (h : Rat) (steps : Build) (hn : hardToReach h step
     EveryStepReachable h steps := by
   sorry
 
+/-- Property 6 (matches the simple rule): for a single column of planks, "stable" means
+exactly that at every level the combined centre of mass of everything from that level up
+is over the patch below that level. -/
+theorem column_stable_iff (b : Build) (hc : IsColumn b) : Stable b ↔ ColumnRule b := by
+  sorry
+
 /-- Property 7 (contacts are right): the overlap of two rectangles holds exactly the points
 that lie in both. -/
 theorem Rect.inter_contains (r s : Rect) (x y : Rat) :

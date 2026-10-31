@@ -7,6 +7,8 @@ import KaplaPhysics.Robust
 import KaplaPhysics.RobustSolver
 import KaplaPhysics.RobustProofs
 import KaplaPhysics.Reach
+import KaplaPhysics.Column
+import KaplaPhysics.ColumnProofs
 import KaplaPhysics.Engine
 import KaplaPhysics.Proofs
 import KaplaPhysics.Examples

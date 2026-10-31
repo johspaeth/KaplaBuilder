@@ -19,9 +19,10 @@ appear in the docstrings.
 | `Solver.lean` | exact-fraction simplex; proposes pushes or a fall motion | no: every proposal is checked |
 | `Robust.lean` | `SolidCertificate`: loads whose points move with the errors | checked by the proofs |
 | `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
+| `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `Reach.lean` | K3 checker: tries five straight paths (from above, from each side) plus the drop | checked by the proofs |
 | `Engine.lean` | `stabilityAnswer`, `verdict` (solid / risky / falls), `checkPlan` | checked by the proofs |
-| `Sums.lean`, `RobustProofs.lean`, `Proofs.lean` | the proofs (main statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
+| `Sums.lean`, `RobustProofs.lean`, `ColumnProofs.lean`, `Proofs.lean` | the proofs (main statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
 | `Examples.lean` | worked examples E1–E12 as `#guard`s; concrete instances of the theorems; bad answers the rules reject | tests |
 
 ## Main theorems
@@ -41,6 +42,10 @@ appear in the docstrings.
 - `reachDir_sound`, `hardToReach_nil_sound`: a step the checker does not flag can be put
   in place along a straight path from far away plus a drop of `h`, never sharing inside
   space with a placed plank (property 5, K3). Flagged steps are warnings only.
+- `column_stable_iff`: for a single column, `Stable` holds exactly when at every level the
+  combined centre of mass of everything from that level up is over the patch below it
+  (property 6). Both directions are proven, so the definition of `Stable` is checked
+  against the simple rule a reviewer can verify by hand.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 
@@ -59,8 +64,8 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 
 ## Not done yet
 
-- Single-column rule (property 6), friction (property 8), square tower for every `n`
-  (property 9; today checked for 8 levels).
+- Friction (property 8), square tower for every `n` (property 9; today checked for 8
+  levels).
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
 - Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses
   the global LPs only for builds of at most 40 planks. Measured with the interpreter on a
