@@ -9,10 +9,10 @@
 
 ## 2. Toolchain and versions
 
-- Pin `lean-toolchain` and every dependency's git rev; commit `lake-manifest.json`. Mathlib must match the toolchain exactly. Translation tools pin their own Lean and library versions: use theirs.
+- Pin `lean-toolchain` and every dependency's git rev; commit `lake-manifest.json`. Translation tools pin their own Lean and library versions: use theirs.
 - Pick the toolchain from the libraries you need, before writing code. Libraries lag core Lean, and two libraries pinned to different versions can't share a project.
 - `lake update` bumps everything. Run it only on purpose.
-- Mathlib: fetch the build cache with `lake exe cache get`; building it from source takes hours. Not depending on Mathlib at all keeps builds light and upgrades easy, and core plus Batteries is often enough for program verification.
+- **This project does not depend on Mathlib.** Use Lean core (which includes `Rat`) and, if needed, Batteries. This keeps builds light and upgrades easy. Do not add Mathlib as a dependency.
 - What breaks across versions: proofs that rely on reduction (`rfl`, `decide`, `simp` closing a goal by computing), definitions by well-founded recursion (they don't unfold by `rfl`), renamed lemmas, changed simp sets.
 
 ## 3. Builds
@@ -21,7 +21,7 @@
 - Never run two `lake` processes, or lake and a REPL, in one checkout at once.
 - A successful build can still contain `sorry`. Read the warnings.
 - Raise `maxHeartbeats` only on the declaration that needs it, with a comment. Needing much more usually means the proof should be split.
-- A proof is only considered final once it passes Comparator.  This is built into Lean 4.35., which is what you should use.
+- A proof is only considered final once it passes Comparator. This is built into Lean 4.35, which is what you should use. `lake comparator` and `lake check` run on Linux only, so on macOS run them in CI or a Linux container.
 
 ## 4. Specs people can review
 
@@ -67,7 +67,7 @@
 
 ## 9. Tools
 
-Check each README for the supported subset, maturity and pinned Lean version (ideally 4.53).
+Check each README for the supported subset, maturity and pinned Lean version (ideally 4.35).
 
 - **Programs written in Lean**: Velvet (Dafny-style contracts and loop invariants, contract tester); core `vcgen` (v4.35, experimental, replaces `mvcgen`); iris-lean (separation logic).
 - **Protocols, state machines**: Veil (SMT invariant checking, model checking, interactive proofs; set `veil.smt.trust false` to get checked proofs).
@@ -156,4 +156,4 @@ example : ∀ (x : Nat) (l : List Nat), (insertSorted x l).length = l.length + 1
   plausible
 ```
 
-[1](https://en.wikipedia.org/wiki/Simplified_Technical_English)
+[1]: https://en.wikipedia.org/wiki/Simplified_Technical_English
