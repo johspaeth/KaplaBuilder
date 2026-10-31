@@ -9,7 +9,7 @@ and theorems should name the rule they implement.
 
 ## 1. The one question
 
-Players design a build in the app. Then a **person builds it for real**, with
+A user designs a build in the app. Then a **person builds it for real**, with
 real Kapla planks, by following the app's step-by-step plan.
 
 So the engine answers this question: **"If a person places these planks in this
@@ -216,7 +216,7 @@ both planks. The app should suggest a different order for that step.
 *Why K4:* a design can stand when finished but fall halfway. A plank that is
 held down by a counterweight falls if it is placed before the counterweight
 (example E12). The app must find an order where every step is solid, or tell
-the player that no such order exists.
+the user that no such order exists.
 
 ## 10. What we do not model
 
@@ -292,13 +292,10 @@ so two planks can end up `2ε` ≈ 0.51 units (4 mm) off from each other.
    design task for the engine.
 2. **Final drop gap.** What gap `h` do we use for the final drop in K3
    (1 unit ≈ 8 mm?).
-3. **Challenge modes (optional game goals).** Should the app give players
-   targets, such as "longest overhang off the table edge" or "longest bridge
-   with 20 planks", where only a *Solid* build counts? This changes only the
-   game, not the physics.
-
 Decided:
 
+- This is a build-planning tool, not a game. No players, scores or
+  challenges.
 - 3D from the start, no 2D version.
 - Side-by-side planks: the builder pushes them together (R5).
 - No room for fingers in the reachability check, for now.
