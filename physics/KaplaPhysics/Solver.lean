@@ -186,8 +186,9 @@ def insertByHeight (b : Build) (i : Nat) : List Nat → List Nat
 /-- Fast version of `solve` for builds that stand: settle one plank at a time, from the top
 down. Each plank passes its weight and what it carries to the corners of its contact
 patches, using a small LP. It never revisits a choice, so it can miss pushes that the
-global LP finds; then the engine falls back to `solve`. -/
-def solveLocal (b : Build) (fuel : Nat := 10000) : Option (List Push) := Id.run do
+global LP finds; then the engine falls back to `solve`. On failure it returns the plank
+where it got stuck. -/
+def solveLocal (b : Build) (fuel : Nat := 10000) : Except Nat (List Push) := Id.run do
   let n := b.length
   let mut inF := Array.replicate n (0 : Rat)   -- push from above
   let mut inX := Array.replicate n (0 : Rat)   -- push times its x
@@ -203,7 +204,7 @@ def solveLocal (b : Build) (fuel : Nat := 10000) : Option (List Push) := Id.run 
     let rhs := #[1 + inF[i]!, inX[i]! - inF[i]! * p.centerX, inY[i]! - inF[i]! * p.centerY]
     let some f := (match phaseOne 3 cols rhs fuel with
       | .feasible f => some f
-      | _ => none) | return none
+      | _ => none) | return .error i
     for k in List.range us.length do
       let (s, x, y) := us[k]!
       let fk := f[k]!
@@ -213,6 +214,59 @@ def solveLocal (b : Build) (fuel : Nat := 10000) : Option (List Push) := Id.run 
           inF := inF.modify j (· + fk)
           inX := inX.modify j (· + fk * x)
           inY := inY.modify j (· + fk * y)
-  return some out
+  return .ok out
+
+/-- Plank `i` and every plank that rests on it, directly or through other planks. -/
+def above (b : Build) (i : Nat) : List Nat := Id.run do
+  let n := b.length
+  let mut inSet := (Array.replicate n false).set! i true
+  -- Planks above rest on planks below, so one pass from the bottom up finds them all.
+  for k in ((List.range n).foldr (insertByHeight b) []).reverse do
+    if !inSet[k]! then
+      if (List.range n).any fun j => inSet[j]! && (restPatch b k (.plank j)).isSome then
+        inSet := inSet.set! k true
+  return (List.range n).filter fun k => inSet[k]!
+
+/-- Look for a fall certificate that moves only the planks in `free`; the other planks stay
+still and act like the ground. When no plank outside `free` rests on a plank inside it
+(true for `above b i`, and for all planks at least as high as some height), such a motion
+is a fall certificate for the whole build. The engine checks it either way. -/
+def solveFree (b : Build) (free : List Nat) (fuel : Nat := 100000) : Option (List Motion) :=
+  let n := b.length
+  let pos : Array Nat := free.foldl (fun (a : Array Nat) k => a.set! k (free.idxOf k))
+    (Array.replicate n 0)
+  let isFree : Array Bool := free.foldl (fun (a : Array Bool) k => a.set! k true)
+    (Array.replicate n false)
+  let m := 3 * free.length
+  let us := (unknowns b).filter fun u => isFree[u.upper]!
+  let col := fun (u : Unknown) => Id.run do
+    let mut c := Array.replicate m (0 : Rat)
+    let p := b.get u.upper
+    let r := 3 * pos[u.upper]!
+    c := c.set! r 1 |>.set! (r + 1) (u.x - p.centerX) |>.set! (r + 2) (u.y - p.centerY)
+    if let .plank j := u.lower then
+      if isFree[j]! then
+        let q := b.get j
+        let r := 3 * pos[j]!
+        c := c.modify r (· - 1) |>.modify (r + 1) (· - (u.x - q.centerX))
+          |>.modify (r + 2) (· - (u.y - q.centerY))
+    return c
+  let rhs := (Array.range m).map fun r => if r % 3 == 0 then (1 : Rat) else 0
+  match phaseOne m (us.map col) rhs fuel with
+  | .infeasible y =>
+    some <| (List.range n).map fun k =>
+      if isFree[k]! then
+        let r := 3 * pos[k]!
+        { lift := -y[r]!, tiltX := -y[r + 1]!, tiltY := -y[r + 2]! }
+      else {}
+  | _ => none
+
+/-- Look for a fall certificate around plank `i`, where the top-down solver got stuck:
+first moving `i` and the planks resting on it, then moving every plank at least as high
+as `i`. -/
+def solveAbove (b : Build) (i : Nat) : Option (List Motion) :=
+  match solveFree b (above b i) with
+  | some ms => some ms
+  | none => solveFree b ((List.range b.length).filter fun k => (b.get k).z ≥ (b.get i).z)
 
 end KaplaPhysics.Solver

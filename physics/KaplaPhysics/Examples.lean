@@ -54,6 +54,10 @@ def e12 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 9, 0, 1⟩, ⟨.flatY, 9, 
 #guard stabilityAnswer e11 == .falls
 #guard stabilityAnswer e12 == .stable
 
+-- A large build that falls (51 planks, above the global-LP limit): a 25-level tower with
+-- an overhanging plank on top. The fall certificate moves only the top plank.
+#guard stabilityAnswer (squareTower 25 ++ [⟨.flatX, 8, 0, 25⟩]) == .falls
+
 -- Placement errors (R4), with ε = 2 mm.
 #guard verdict placementError e1 == .solid
 #guard verdict placementError e2 == .solid

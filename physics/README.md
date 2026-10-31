@@ -73,7 +73,8 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
   the global LPs only for builds of at most 40 planks. Measured with the interpreter on a
   200-plank square tower: exact check 1.4 s, solid verdict 2.4 s. `checkPlan` checks
   every prefix separately, so a 200-step plan takes minutes; reusing work between steps
-  is still to do. Large builds that fall get "unknown" (the fall certificate needs the
-  global LP).
+  is still to do. For large builds that fall, the engine looks for a fall certificate that
+  moves only the planks at and above the place where the top-down solver got stuck (the
+  rest stay still, like the ground); it can still answer "unknown" if that is not enough.
 - Checking the robust solver's output inside the Lean kernel is slow beyond one plank, so
   the kernel examples for E2 and E6 check a written-out certificate.

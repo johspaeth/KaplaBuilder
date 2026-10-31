@@ -76,16 +76,23 @@ def globalAnswer (b : Build) : Answer :=
   | .falls ms => if decide (FallCertificate b ms) then .falls else .unknown
   | .gaveUp => .unknown
 
-/-- The global answer for small builds, "unknown" for large ones. -/
-def fallbackAnswer (b : Build) : Answer :=
-  if b.length ≤ globalLimit then globalAnswer b else .unknown
+/-- For a large build where the top-down solver got stuck at plank `i`: look for a fall
+certificate that moves only `i` and the planks above it, and check it. -/
+def fallAboveAnswer (b : Build) (i : Nat) : Answer :=
+  match Solver.solveAbove b i with
+  | some ms => if decide (FallCertificate b ms) then .falls else .unknown
+  | none => .unknown
+
+/-- The global answer for small builds; for large ones, a fall check around plank `i`. -/
+def fallbackAnswer (b : Build) (i : Nat) : Answer :=
+  if b.length ≤ globalLimit then globalAnswer b else fallAboveAnswer b i
 
 /-- Ask the fast top-down solver; if it finds no pushes that pass the check, ask the global
-solver (small builds only). -/
+solver (small builds) or look for a fall certificate where it got stuck (large builds). -/
 def stabilityAnswer (b : Build) : Answer :=
   match Solver.solveLocal b with
-  | some ps => if checkPushes b ps then .stable else fallbackAnswer b
-  | none => fallbackAnswer b
+  | .ok ps => if checkPushes b ps then .stable else fallbackAnswer b 0
+  | .error i => fallbackAnswer b i
 
 /-- Is the build solid for placement errors up to `ε`? Ask the untrusted solver for a
 certificate, then check it. "No" can mean "not solid" or "the cautious check could not

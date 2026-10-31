@@ -81,12 +81,17 @@ theorem globalAnswer_stable_sound (b : Build) (h : globalAnswer b = .stable) :
   · split at h <;> cases h
   · cases h
 
-theorem fallbackAnswer_stable_sound (b : Build) (h : fallbackAnswer b = .stable) :
+theorem fallAboveAnswer_ne_stable (b : Build) (i : Nat) : fallAboveAnswer b i ≠ .stable := by
+  unfold fallAboveAnswer; split
+  · split <;> simp
+  · simp
+
+theorem fallbackAnswer_stable_sound (b : Build) (i : Nat) (h : fallbackAnswer b i = .stable) :
     Stable b := by
   unfold fallbackAnswer at h
   split at h
   · exact globalAnswer_stable_sound b h
-  · cases h
+  · exact absurd h (fallAboveAnswer_ne_stable b i)
 
 theorem stabilityAnswer_stable_sound (b : Build) (h : stabilityAnswer b = .stable) :
     Stable b := by
@@ -94,8 +99,8 @@ theorem stabilityAnswer_stable_sound (b : Build) (h : stabilityAnswer b = .stabl
   split at h
   · split at h
     · exact checkPushes_sound b _ (by assumption)
-    · exact fallbackAnswer_stable_sound b h
-  · exact fallbackAnswer_stable_sound b h
+    · exact fallbackAnswer_stable_sound b 0 h
+  · exact fallbackAnswer_stable_sound b _ h
 
 /-! ## "Falls" answers are right -/
 
@@ -186,12 +191,21 @@ theorem globalAnswer_falls_sound (b : Build) (h : globalAnswer b = .falls) :
     · cases h
   · cases h
 
-theorem fallbackAnswer_falls_sound (b : Build) (h : fallbackAnswer b = .falls) :
+theorem fallAboveAnswer_falls_sound (b : Build) (i : Nat) (h : fallAboveAnswer b i = .falls) :
+    ¬ Stable b := by
+  unfold fallAboveAnswer at h
+  split at h
+  · split at h
+    · exact fallCertificate_sound b _ (of_decide_eq_true (by assumption))
+    · cases h
+  · cases h
+
+theorem fallbackAnswer_falls_sound (b : Build) (i : Nat) (h : fallbackAnswer b i = .falls) :
     ¬ Stable b := by
   unfold fallbackAnswer at h
   split at h
   · exact globalAnswer_falls_sound b h
-  · cases h
+  · exact fallAboveAnswer_falls_sound b i h
 
 theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls) :
     ¬ Stable b := by
@@ -199,8 +213,8 @@ theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls)
   split at h
   · split at h
     · cases h
-    · exact fallbackAnswer_falls_sound b h
-  · exact fallbackAnswer_falls_sound b h
+    · exact fallbackAnswer_falls_sound b 0 h
+  · exact fallbackAnswer_falls_sound b _ h
 
 /-! ## "Solid" answers are right -/
 
