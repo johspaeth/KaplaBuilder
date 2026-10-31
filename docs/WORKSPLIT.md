@@ -93,9 +93,9 @@ flowchart TB
 
 | Library | May import | Must **not** import |
 |---|---|---|
-| `KaplaCore` | Lean core, Batteries, Mathlib | anything else in this repo |
-| `KaplaPhysics` (A) | `KaplaCore`, Mathlib | Semantics, Planner, Web |
-| `KaplaSemantics` (B) | `KaplaCore`, Mathlib | Physics, Planner, Web |
+| `KaplaCore` | Lean core, Batteries | anything else in this repo |
+| `KaplaPhysics` (A) | `KaplaCore` | Semantics, Planner, Web |
+| `KaplaSemantics` (B) | `KaplaCore` | Physics, Planner, Web |
 | `KaplaPlanner` (C) | `KaplaCore` | Physics, Semantics, Web |
 | `KaplaWeb` (D) | `KaplaCore` | Physics, Semantics, Planner |
 | `kapla` exe (D) | everything | — |

@@ -248,7 +248,7 @@ use. Claude's shape output already distinguishes roofs from walls.
   moved and scaled, and labelled with semantic tags (tower, wall, roof:gable/cone/hip,
   trunk, …).
 - **Voxelizer** (verified against the meaning of the DSL): it samples the shape at grid
-  centres with spacing h (default 7.8 mm) and produces `T_s : Finset (ℤ³)`.
+  centres with spacing h (default 7.8 mm) and produces a finite set `T_s` of integer grid points (a sorted, duplicate-free list with a proven membership test).
 - **Score**: volumetric IoU, the share of grid points shared by the blocks and the target
   `|V(bp) ∩ T_s| / |V(bp) ∪ T_s|`. For image input it is combined with **silhouette IoU**
   against the input mask. The score is maximized over the scale s.
@@ -289,7 +289,7 @@ kapla check blueprint.json [--profile child]
 kapla serve --port 8080
 ```
 
-Trusted base: the Lean kernel, Mathlib, the **spec files** (`Physics/Spec`, `Human/Spec`,
+Trusted base: the Lean kernel, Lean core (and Batteries, if used), the **spec files** (`Physics/Spec`, `Human/Spec`,
 `Geometry` definitions, `Score` definitions), and the Lean compiler. The parameters of
 the HumanModel are *assumptions about people*. They are validated empirically (M10), not
 proven.
@@ -300,7 +300,7 @@ proven.
 
 | # | Deliverable | Verified |
 |---|---|---|
-| M0 | Lake project, Mathlib pinned, CI (`lake build`, axiom audit, no `sorry`) | — |
+| M0 | Lake project on Lean 4.35 (core only, **no Mathlib**), CI (`lake build`, axiom audit, no `sorry`) | — |
 | M1 | Yaw-only geometry, nominal equilibrium checker with `checkEquilibrium_sound`; examples include a stack, a rotated stack and a rejected overhang | ✅ |
 | M2 | **Human Model I**: robust certificates (relative error, drift cap, shift budgets) with `robust_sound`; press load cases; build steps; hand access; clearance; parallel supports | ✅ |
 | M3 | **Tilted blocks + friction** in the nominal checker; roof motifs (stepped, leaning-rafter gable, tipi); two-hand steps | ✅ (nominal + margins enforced) |
@@ -321,4 +321,4 @@ proven.
 | Tolerance | ✅ HumanModel, default "adult" profile: εrel = 3 mm relative to supports, eabs = 10 mm drift cap |
 | Rotations | ✅ any rotation about the vertical axis from M1; tilted blocks for roofs in M3 (core) |
 | Real-world buildability | ✅ H1–H9 are part of the verified `Valid` spec |
-| Toolchain | latest stable Lean + Mathlib, pinned at M0 |
+| Toolchain | ✅ Lean 4.35, pinned. **No Mathlib**: core Lean (which includes `Rat`) plus Batteries if needed. Proofs must pass `lake comparator` (Linux CI). |
