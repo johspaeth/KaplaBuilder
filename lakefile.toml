@@ -6,9 +6,18 @@ name = "KaplaBuilder"
 version = "0.1.0"
 # Everything except the spec challenges (they contain `sorry` on purpose).
 defaultTargets = ["KaplaCore", "KaplaPhysics", "KaplaSemantics", "KaplaPlanner", "KaplaWeb", "kapla"]
+testDriver = "tests"
+
 
 [leanOptions]
 autoImplicit = false
+
+# Proofs use Mathlib tactics (linarith, ring, nlinarith, field_simp, positivity).
+# NOTE: CLAUDE.md says "no Mathlib"; this PR asks the team to decide (see PR description).
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.35.0"
 
 # Shared contract: types, JSON, basic geometry, engine interfaces, mocks.
 [[lean_lib]]
@@ -51,3 +60,14 @@ globs = ["KaplaSpecs.+"]
 name = "kapla"
 srcDir = "app"
 root = "Main"
+
+# Contract tests against fixtures/ (`lake test`).
+[[lean_lib]]
+name = "KaplaTests"
+srcDir = "tests"
+globs = ["KaplaTests.*"]
+
+[[lean_exe]]
+name = "tests"
+srcDir = "tests"
+root = "KaplaTests.Main"

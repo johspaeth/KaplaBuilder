@@ -50,8 +50,28 @@ kapla check blueprint.json [--profile child]
 kapla serve --port 8080
 ```
 
-Today `make run` only prints the list of components (scaffold). To look at a blueprint:
-`lake exe kapla view web/examples/house.json --out out/house` (format: [web/README.md](web/README.md)).
+Working today:
+
+```sh
+lake exe cache get                                                   # Mathlib, prebuilt
+lake exe kapla build --blocks 40 --prompt duck --out out/duck        # → out/duck/index.html
+lake exe kapla check fixtures/plans/overhang_bad.json                # ✗ step 2: block 2 …
+lake exe kapla view web/examples/house.json --out out/house          # page for any blueprint
+lake test                                                            # contract tests (fixtures/)
+scripts/axiom_audit.sh                                               # soundness path: standard axioms only
+```
+
+## Status
+
+| | Status |
+|---|---|
+| Core | `Q`/`Q3` exact rationals, exact Pythagorean yaw `Rot`, `Pose`, plan/report types + JSON, Shape DSL and its meaning (`Shape.mem`), engine interfaces, mocks |
+| Physics (verified) | `Valid H N plan`: ≤ N blocks, ≤ `hands` blocks per step (H7), nothing below ground, no overlaps, no tight gaps (H6), **stands after every step** (H3) and **while pressing** the new block (H4). Separately `Robust H plan`: every misplacement within `epsRel` of the block a block is lined up with and `eAbs` overall still stands, with and without the press (H1/H2, sideways shifts). `certify`/`certifyRobust` return proofs; `scripts/axiom_audit.sh` checks the soundness theorems |
+| Robust limits | The robust certificate shifts all forces under a block together, which is cautious: small builds (duck@40) certify, tall cabin towers do not; they are delivered as nominal and the page says so. Rotation errors, reach (H5) and parallel supports (H8) are not checked yet |
+| Semantics | voxelizer, IoU, per-part coverage, score ceiling, built-in targets (tower, wall, house, tree, duck, castle, …); proofs of the score are still open |
+| Planner (untrusted) | layer planner (log cabin / running bond), tree, stepped roof, count-driven scale search, repair loop, sequencer with alignment references |
+| Web | `kapla build` page (3D view, step cards, guarantees) and `kapla view` for any blueprint |
+| Not yet | Claude frontend, `kapla serve`, LP-based certificates, tilted blocks |
 
 ## Quick start
 

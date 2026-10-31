@@ -1,0 +1,7 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "tag",
+  "tag": "tower",
+  "shape": {"type": "box", "size": [117, 117, 312]}},
+ "name": "tower"}

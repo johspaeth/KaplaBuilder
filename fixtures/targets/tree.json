@@ -1,0 +1,15 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "union",
+  "of":
+  [{"type": "tag",
+    "tag": "trunk",
+    "shape": {"type": "cylinder", "r": 12, "h": 120}},
+   {"type": "tag",
+    "tag": "crown",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cone", "r": 70, "h": 160},
+     "by": [0, 0, 100]}}]},
+ "name": "tree"}

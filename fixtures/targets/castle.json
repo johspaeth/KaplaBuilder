@@ -1,0 +1,60 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "union",
+  "of":
+  [{"type": "tag",
+    "tag": "wall",
+    "shape":
+    {"type": "diff",
+     "b": {"type": "box", "size": [420, 303, 160]},
+     "a": {"type": "box", "size": [468, 351, 156]}}},
+   {"type": "tag",
+    "tag": "tower",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cylinder", "r": 40, "h": 250},
+     "by": [-234, -176, 0]}},
+   {"type": "tag",
+    "tag": "tower",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cylinder", "r": 40, "h": 250},
+     "by": [234, -176, 0]}},
+   {"type": "tag",
+    "tag": "tower",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cylinder", "r": 40, "h": 250},
+     "by": [-234, 176, 0]}},
+   {"type": "tag",
+    "tag": "tower",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cylinder", "r": 40, "h": 250},
+     "by": [234, 176, 0]}},
+   {"type": "tag",
+    "tag": "roof:cone",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cone", "r": 50, "h": 100},
+     "by": [-234, -176, 250]}},
+   {"type": "tag",
+    "tag": "roof:cone",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cone", "r": 50, "h": 100},
+     "by": [234, -176, 250]}},
+   {"type": "tag",
+    "tag": "roof:cone",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cone", "r": 50, "h": 100},
+     "by": [-234, 176, 250]}},
+   {"type": "tag",
+    "tag": "roof:cone",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cone", "r": 50, "h": 100},
+     "by": [234, 176, 250]}}]},
+ "name": "castle"}

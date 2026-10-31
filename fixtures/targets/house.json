@@ -1,0 +1,15 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "union",
+  "of":
+  [{"type": "tag",
+    "tag": "wall",
+    "shape": {"type": "box", "size": [234, 156, 117]}},
+   {"type": "tag",
+    "tag": "roof:gable",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "wedge", "size": [250, 172], "h": 90},
+     "by": [0, 0, 117]}}]},
+ "name": "house"}

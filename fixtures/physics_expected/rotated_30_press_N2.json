@@ -1,0 +1,6 @@
+{"robust": false,
+ "profile": "adult",
+ "plan": "rotated_30_press",
+ "ok": false,
+ "diagnostics": [{"pressTips": {"step": 1, "corner": 0}}],
+ "blocks": 2}

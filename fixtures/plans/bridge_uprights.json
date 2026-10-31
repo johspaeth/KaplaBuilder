@@ -1,0 +1,19 @@
+{"steps":
+ [{"refs": [],
+   "phase": "",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [-47, 0, "117/2"]}],
+   "approach": "fromAbove"},
+  {"refs": [],
+   "phase": "",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [47, 0, "117/2"]}],
+   "approach": "fromAbove"},
+  {"refs": [],
+   "phase": "",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [0, 0, "1209/10"]}],
+   "approach": "fromAbove"}]}

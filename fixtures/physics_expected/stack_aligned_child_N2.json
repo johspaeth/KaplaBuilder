@@ -1,0 +1,6 @@
+{"robust": true,
+ "profile": "child",
+ "plan": "stack_aligned",
+ "ok": true,
+ "diagnostics": [],
+ "blocks": 2}

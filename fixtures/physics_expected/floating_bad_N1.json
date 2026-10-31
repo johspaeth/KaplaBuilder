@@ -1,0 +1,6 @@
+{"robust": false,
+ "profile": "adult",
+ "plan": "floating_bad",
+ "ok": false,
+ "diagnostics": [{"unstable": {"step": 0, "block": 0}}],
+ "blocks": 1}

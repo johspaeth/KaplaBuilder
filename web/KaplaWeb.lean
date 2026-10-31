@@ -1,6 +1,7 @@
 import KaplaWeb.Basic
 import KaplaWeb.Blueprint
 import KaplaWeb.Page
+import KaplaWeb.Render
 
 /-! # KaplaWeb: Web and integration (owner: person D, see docs/WORKSPLIT.md §6)
 

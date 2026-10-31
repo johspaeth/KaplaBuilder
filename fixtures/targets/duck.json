@@ -1,0 +1,21 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "union",
+  "of":
+  [{"type": "tag",
+    "tag": "body",
+    "shape": {"type": "box", "size": [160, 90, 60]}},
+   {"type": "tag",
+    "tag": "head",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "cylinder", "r": 30, "h": 55},
+     "by": [55, 0, 60]}},
+   {"type": "tag",
+    "tag": "beak",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "box", "size": [30, 20, 10]},
+     "by": [95, 0, 90]}}]},
+ "name": "duck"}

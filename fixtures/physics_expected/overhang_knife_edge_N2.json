@@ -1,0 +1,6 @@
+{"robust": false,
+ "profile": "adult",
+ "plan": "overhang_knife_edge",
+ "ok": false,
+ "diagnostics": [{"pressTips": {"step": 1, "corner": 1}}],
+ "blocks": 2}

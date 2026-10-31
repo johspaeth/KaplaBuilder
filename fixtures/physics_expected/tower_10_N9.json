@@ -1,0 +1,6 @@
+{"robust": false,
+ "profile": "adult",
+ "plan": "tower_10",
+ "ok": false,
+ "diagnostics": [{"tooManyBlocks": {"limit": 9, "count": 10}}],
+ "blocks": 9}

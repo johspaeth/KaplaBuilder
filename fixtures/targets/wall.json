@@ -1,0 +1,7 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "tag",
+  "tag": "wall",
+  "shape": {"type": "box", "size": [585, "117/5", 156]}},
+ "name": "wall"}

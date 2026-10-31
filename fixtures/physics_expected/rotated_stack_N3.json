@@ -1,0 +1,6 @@
+{"robust": false,
+ "profile": "adult",
+ "plan": "rotated_stack",
+ "ok": true,
+ "diagnostics": [],
+ "blocks": 3}

@@ -1,0 +1,7 @@
+{"steps":
+ [{"refs": [],
+   "phase": "",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [0, 0, "117/2"]}],
+   "approach": "fromAbove"}]}

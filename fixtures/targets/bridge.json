@@ -1,0 +1,24 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "union",
+  "of":
+  [{"type": "tag",
+    "tag": "pillar",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "box", "size": [47, 117, 117]},
+     "by": [-117, 0, 0]}},
+   {"type": "tag",
+    "tag": "pillar",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "box", "size": [47, 117, 117]},
+     "by": [117, 0, 0]}},
+   {"type": "tag",
+    "tag": "deck",
+    "shape":
+    {"type": "translate",
+     "shape": {"type": "box", "size": [351, 117, 16]},
+     "by": [0, 0, 117]}}]},
+ "name": "bridge"}

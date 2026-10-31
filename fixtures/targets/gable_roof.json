@@ -1,0 +1,7 @@
+{"unitMM": 1,
+ "silhouette": null,
+ "shape":
+ {"type": "tag",
+  "tag": "roof:gable",
+  "shape": {"type": "wedge", "size": [234, 156], "h": 100}},
+ "name": "gable roof"}

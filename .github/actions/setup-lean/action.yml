@@ -19,3 +19,7 @@ runs:
         fi
         echo "$ELAN_HOME/bin" >> "$GITHUB_PATH"
         "$ELAN_HOME/bin/lake" --version
+    # Mathlib: download prebuilt .olean files instead of compiling Mathlib (hours).
+    - name: Mathlib cache
+      shell: bash
+      run: lake exe cache get

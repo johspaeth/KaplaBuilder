@@ -1,0 +1,14 @@
+{"steps":
+ [{"refs": [],
+   "phase": "",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [0, 0, "39/10"]}],
+   "approach": "fromAbove"},
+  {"refs": [],
+   "phase": "two hands",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [61, 0, "117/10"]},
+    {"up": "flat", "rot": {"s": 0, "c": 1}, "center": [24, 0, "39/2"]}],
+   "approach": "fromAbove"}]}

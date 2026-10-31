@@ -1,0 +1,7 @@
+{"robust": false,
+ "profile": "child",
+ "plan": "cantilever_2hands",
+ "ok": false,
+ "diagnostics":
+ [{"tooManyHands": {"step": 1}}, {"pressTips": {"step": 1, "corner": 1}}],
+ "blocks": 3}

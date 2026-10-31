@@ -1,0 +1,6 @@
+{"robust": false,
+ "profile": "adult",
+ "plan": "cantilever_order_bad",
+ "ok": false,
+ "diagnostics": [{"unstable": {"step": 1, "block": 1}}],
+ "blocks": 3}

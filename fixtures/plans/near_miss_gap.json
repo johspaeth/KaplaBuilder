@@ -1,0 +1,13 @@
+{"steps":
+ [{"refs": [],
+   "phase": "",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [0, 0, "39/10"]}],
+   "approach": "fromAbove"},
+  {"refs": [],
+   "phase": "",
+   "grip": "longSides",
+   "blocks":
+   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [0, "122/5", "39/10"]}],
+   "approach": "fromAbove"}]}
