@@ -132,4 +132,26 @@ def checkPlan (ε : Rat) (maxPlanks : Nat) (steps : Build) : Bool :=
     (List.range steps.length).all fun k =>
       decide (WellFormed (steps.take (k + 1))) && solidAnswer ε (steps.take (k + 1))
 
+/-- What the engine says about one step of a plan, for the planner and the web page. -/
+structure StepReport where
+  /-- Step number, from 0. -/
+  step : Nat
+  /-- The plank this step places. -/
+  plank : Plank
+  /-- The build after this step is well-formed (P1–P3). -/
+  wellFormed : Bool
+  /-- Solid, risky or falls, for the build after this step (R4). -/
+  verdict : Verdict
+  /-- A straight path that puts the plank in place, or `none`: "may be hard to reach" (K3). -/
+  reach : Option Dir
+  deriving Repr
+
+/-- A report for every step of a plan. The guarantees come from `checkPlan` and
+`hardToReach`; this report only explains them, step by step. -/
+def planReport (ε h : Rat) (steps : Build) : List StepReport :=
+  (List.range steps.length).map fun k =>
+    let b := steps.take (k + 1)
+    { step := k, plank := steps.get k, wellFormed := decide (WellFormed b),
+      verdict := verdict ε b, reach := reachDir? (steps.take k) (steps.get k) h }
+
 end KaplaPhysics

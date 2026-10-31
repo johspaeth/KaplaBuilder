@@ -83,6 +83,10 @@ def e12 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 9, 0, 1⟩, ⟨.flatY, 9, 
 #guard [e1, e2, e3, e7].all fun b => decide (ColumnRule b) && stabilityAnswer b == .stable
 #guard !decide (ColumnRule e4) && stabilityAnswer e4 == .falls
 
+-- Step-by-step report: E12's second step falls, the third would be solid again.
+#guard (planReport placementError dropGap e12).map (·.verdict) == [.solid, .falls, .solid]
+#guard (planReport placementError dropGap e7).map (·.verdict) == [.solid, .solid, .risky]
+
 -- Reaching the spot (K3), with a drop gap of 1 unit.
 #guard hardToReach dropGap (squareTower 8) == []
 #guard hardToReach dropGap e9 == []
