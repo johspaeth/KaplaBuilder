@@ -294,8 +294,6 @@ so two planks can end up `2ε` ≈ 0.51 units (4 mm) off from each other.
    (1 unit ≈ 8 mm?).
 Decided:
 
-- This is a build-planning tool, not a game. No players, scores or
-  challenges.
 - 3D from the start, no 2D version.
 - Side-by-side planks: the builder pushes them together (R5).
 - No room for fingers in the reachability check, for now.
