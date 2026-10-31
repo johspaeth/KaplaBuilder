@@ -1,0 +1,10 @@
+{
+  "challenge_module": "KaplaSpecs.Physics",
+  "solution_module": "KaplaPhysics.Proofs",
+  "theorem_names": [
+    "KaplaPhysics.stabilityAnswer_stable_sound",
+    "KaplaPhysics.stabilityAnswer_falls_sound",
+    "KaplaPhysics.checkPlan_sound"
+  ],
+  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
+}
