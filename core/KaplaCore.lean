@@ -1,10 +1,4 @@
 import KaplaCore.Basic
-import KaplaCore.Block
-import KaplaCore.Plan
-import KaplaCore.Target
-import KaplaCore.Report
-import KaplaCore.Engine
-import KaplaCore.Mocks
 import KaplaCore.Proofs
 
 /-! # KaplaCore: the shared contract (see docs/WORKSPLIT.md §3)
