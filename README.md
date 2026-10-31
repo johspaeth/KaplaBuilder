@@ -50,7 +50,8 @@ kapla check blueprint.json [--profile child]
 kapla serve --port 8080
 ```
 
-Today `make run` only prints the list of components (scaffold).
+Today `make run` only prints the list of components (scaffold). To look at a blueprint:
+`lake exe kapla view web/examples/house.json --out out/house` (format: [web/README.md](web/README.md)).
 
 ## Quick start
 
