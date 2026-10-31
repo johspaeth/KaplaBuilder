@@ -7,6 +7,13 @@ The planner answers one question: *which blocks go where, and in which order?* I
 search. It is **not trusted**: the physics checker decides if a plan is safe. A planner bug
 can give a worse plan. It cannot give a plan that falls down.
 
+**The output is a list of build steps**, not just a finished figure. The finished figure
+is only the last step. A person follows the steps one by one, so **the figure must stand
+after every step**, not only at the end. Example: a skyscraper is built from the bottom
+up, and each floor must stand before the next one goes on. The physics engine checks
+every step (every prefix of the plan, see `Valid` in docs/DESIGN.md §3). The planner must
+find an order that passes.
+
 ---
 
 ## 1. Inputs, outputs, and what we call
@@ -130,10 +137,23 @@ hundred. The estimate is "volume of the region covered". The real score comes fr
 semantic engine later.
 
 ### 3.5 Sequence
-- Order: sort blocks by bottom z, then by distance from the centre. A block's supports
-  then always come before it.
+The sequencer turns a set of blocks into build steps. Every step must stand, so this is a
+**search, not just a sort**.
+
+- Start order: sort blocks by bottom z, then by distance from the centre. A block's
+  supports then always come before it. This is enough for simple cases such as a tower.
+- Bottom-up is not always enough. Cases where the order must change:
+  - **Counterweight first** (H3): an overhang stands only once the block that holds its
+    back end down is in place. The two blocks can be at the same height.
+  - **Press while placing** (H4): the hand presses on the new block. A block that stands
+    can still tip the overhang below it while it is pressed.
+  - **Hand access** (H5): if a higher block is placed first, a lower block next to it may
+    no longer be reachable. Sometimes a lower block must wait.
+  - **Pairs** (H7): two leaning blocks (A-frame) stand only together. They go into one
+    two-hand step.
+- When physics rejects step k, the repair loop (§3.7) first tries a new order.
 - Steps: one block per step by default. Use a two-block step only where a motif says so
-  (A-frame pairs). Never more than `HumanModel.hands`.
+  (A-frame pairs) or repair needs it. Never more than `HumanModel.hands`.
 - Grip: long sides for flat blocks, the top end for upright blocks.
 - Approach: lower from above. Slide in sideways only when something blocks the path from
   above (later).
@@ -153,7 +173,7 @@ These checks are cheap and catch most planner bugs. The real physics check may b
 
 | Diagnostic | Edit, in order of preference |
 |---|---|
-| `Unstable(step, block)` / `PressTips` | shorten the overhang; add a counterweight block; drop the block |
+| `Unstable(step, block)` / `PressTips` | **reorder first**: place the counterweight earlier, or join two blocks into one two-hand step; then shorten the overhang; add a counterweight block; drop the block |
 | `Slides(step, contact)` | steeper pitch; add a stopper block (roofs, later) |
 | `Unreachable(step)` | move the step earlier; change the approach |
 | `TooManyHands(step)` | split the step |
@@ -208,7 +228,11 @@ reliable and count for the "verification" judging axis. Each would go in
 4. **Motif cost**: `(m.blocks p).length = m.cost p` for every motif, so the budget step is
    correct by construction.
 5. **Supports first** (grid blocks): in the sequenced order, each block rests on the ground
-   or on a block placed earlier.
+   or on a block placed earlier. This catches the "skyscraper built top-down" mistake
+   before physics runs.
+
+That every step *stands* is not a planner theorem. It is the physics guarantee
+(`certify_sound`), because only the physics engine knows forces and balance.
 
 Each gets a satisfiable `example` and a rejected bad output, as `CLAUDE.md` §4 asks.
 
@@ -228,9 +252,10 @@ Each gets a satisfiable `example` and a rejected bad output, as `CLAUDE.md` §4 
 
 The planner develops against these. They are *not* trusted and are deliberately simple.
 
-- **PhysicsMock.check**: grid poses only. After every step, for every block, its centre of
-  mass must lie over the bounding box of the blocks it rests on (or the ground). Also
-  checks block count ≤ N and steps ≤ hands. It returns the matching `Diagnostic`s.
+- **PhysicsMock.check**: grid poses only. After **every step** (not only at the end), for
+  every block, its centre of mass must lie over the bounding box of the blocks it rests on
+  (or the ground). Also checks block count ≤ N and steps ≤ hands. It returns the matching
+  `Diagnostic`s. Without the per-step check the planner would learn bad orders on mocks.
 - **SemanticMock.score**: IoU on a coarse voxel grid (cell = one block thickness) between
   the blocks and the union of the target part boxes. Per-part scores come from the same
   grid.
