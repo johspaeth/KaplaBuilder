@@ -9,6 +9,7 @@
     "KaplaPhysics.verdict_falls_sound",
     "KaplaPhysics.checkPlan_sound",
     "KaplaPhysics.column_stable_iff",
+    "KaplaPhysics.stable_withFriction",
     "KaplaPhysics.reachDir_sound",
     "KaplaPhysics.hardToReach_nil_sound",
     "KaplaPhysics.Rect.inter_contains",

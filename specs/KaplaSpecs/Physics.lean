@@ -61,6 +61,12 @@ is over the patch below that level. -/
 theorem column_stable_iff (b : Build) (hc : IsColumn b) : Stable b ↔ ColumnRule b := by
   sorry
 
+/-- Property 8 (friction cannot hurt): a build that is stable without friction is stable
+with any friction coefficient `μ ≥ 0` (F3). -/
+theorem stable_withFriction (μ : Rat) (hμ : 0 ≤ μ) (b : Build) (h : Stable b) :
+    StableWithFriction μ b := by
+  sorry
+
 /-- Property 7 (contacts are right): the overlap of two rectangles holds exactly the points
 that lie in both. -/
 theorem Rect.inter_contains (r s : Rect) (x y : Rat) :

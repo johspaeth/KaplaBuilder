@@ -15,7 +15,7 @@ appear in the docstrings.
 | File | What it does | Trusted? |
 |---|---|---|
 | `Geometry.lean` | planks, the six poses, rectangles (W1–W3, B1–B5) | yes: read it |
-| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors and `SolidWithin` (R1–R3), `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3) | yes: read it |
+| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors and `SolidWithin` (R1–R3), `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
 | `Solver.lean` | exact-fraction simplex; proposes pushes or a fall motion | no: every proposal is checked |
 | `Robust.lean` | `SolidCertificate`: loads whose points move with the errors | checked by the proofs |
 | `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
@@ -46,6 +46,9 @@ appear in the docstrings.
   combined centre of mass of everything from that level up is over the patch below it
   (property 6). Both directions are proven, so the definition of `Stable` is checked
   against the simple rule a reviewer can verify by hand.
+- `stable_withFriction`: a build that is stable without friction is stable with any
+  friction coefficient μ ≥ 0, in a model with sideways contact pushes and all six balance
+  conditions (property 8, F3).
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 
@@ -64,8 +67,7 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 
 ## Not done yet
 
-- Friction (property 8), square tower for every `n` (property 9; today checked for 8
-  levels).
+- Square tower for every `n` (property 9; today checked for 8 levels).
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
 - Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses
   the global LPs only for builds of at most 40 planks. Measured with the interpreter on a

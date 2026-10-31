@@ -130,6 +130,10 @@ example : Stable e3 := (column_stable_iff e3 (by decide +kernel)).mpr (by decide
 example : ¬ Stable e4 := fun h =>
   absurd ((column_stable_iff e4 (by decide +kernel)).mp h) (by decide +kernel)
 
+/-- E2 stands with wood-on-wood friction too (μ = 0.4). -/
+example : StableWithFriction (2 / 5) e2 :=
+  stable_withFriction _ (by decide +kernel) e2 (stabilityAnswer_stable_sound e2 (by decide +kernel))
+
 /-! ## The rules reject bad answers -/
 
 /-- A pull (negative push) is not allowed (F2). -/
@@ -167,5 +171,9 @@ example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
   intro ⟨_, _, _, hdrop⟩
   exact hdrop 1 (by decide +kernel) (by decide +kernel) ⟨.flatX, 0, 0, 1⟩ (by simp [slotPlaced])
     (by decide +kernel)
+
+/-- A sideways push bigger than `μ` times the up-push is not allowed. -/
+example : ¬ (FrictionPush.mk ⟨1, .plank 0, 5, 0, 1⟩ 1 0).Allowed (2 / 5) e2 :=
+  fun h => absurd h.2.2.1 (by decide +kernel)
 
 end KaplaPhysics.Examples

@@ -266,6 +266,35 @@ the patch below that level. -/
 theorem column_stable_iff (b : Build) (hc : IsColumn b) : Stable b ↔ ColumnRule b :=
   ⟨stable_columnRule b hc, columnRule_stable b⟩
 
+/-! ## Friction cannot hurt (property 8, F3) -/
+
+theorem upOn_eq_side (i : Nat) (p : Push) : p.upOn i = p.side i * p.force := by
+  simp only [Push.upOn, Push.side]; split <;> split <;> grind
+
+/-- Property 8: a build that is stable without friction is stable with friction
+coefficient `μ ≥ 0`: use the same pushes with no sideways part. -/
+theorem stable_withFriction (μ : Rat) (hμ : 0 ≤ μ) (b : Build) (h : Stable b) :
+    StableWithFriction μ b := by
+  obtain ⟨ps, hall, hbal⟩ := h
+  refine ⟨ps.map fun p => ⟨p, 0, 0⟩, ?_, ?_⟩
+  · intro q hq
+    simp only [List.mem_map] at hq
+    obtain ⟨p, hp, rfl⟩ := hq
+    have hf := (hall p hp).1
+    have := Rat.mul_nonneg hμ hf
+    exact ⟨hall p hp, by grind, by grind, by grind, by grind⟩
+  · intro i hi
+    obtain ⟨h1, h2, h3⟩ := hbal i hi
+    simp only [BalancedWithFriction, List.map_map, Function.comp_def]
+    refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
+    · rw [← h1]; apply sum_map_congr; intro p _; rw [upOn_eq_side]
+    · rw [sum_map_congr _ _ (fun _ => 0) (fun _ _ => by grind), sum_map_zero]
+    · rw [sum_map_congr _ _ (fun _ => 0) (fun _ _ => by grind), sum_map_zero]
+    · rw [← h3]; apply sum_map_congr; intro p _; rw [upOn_eq_side]; grind
+    · rw [sum_map_congr _ _ (fun p => -(p.upOn i * (p.x - (b.get i).centerX)))
+        (fun p _ => by rw [upOn_eq_side]; grind), sum_map_neg, h2]; grind
+    · rw [sum_map_congr _ _ (fun _ => 0) (fun _ _ => by grind), sum_map_zero]
+
 /-! ## Reaching the spot (property 5, K3) -/
 
 theorem dropMisses_sound (p q : Plank) (h : Rat) (hm : DropMisses p h q) (s : Rat)

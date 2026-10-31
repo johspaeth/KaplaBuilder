@@ -199,3 +199,62 @@ def EveryStepReachable (h : Rat) (steps : Build) : Prop :=
   ∀ k < steps.length, Reachable (steps.take k) (steps.get k) h
 
 end KaplaPhysics
+
+namespace KaplaPhysics
+
+/-! ## Friction (F3, property 8)
+
+The engine never uses friction. This model adds it, so we can prove that ignoring it is
+safe: a build that is stable without friction is stable with any amount of it. -/
+
+/-- A push with friction: besides pushing `upper` up by `force` at `(x, y)`, the contact
+pushes `upper` sideways by `fx` along `x` and `fy` along `y`. The lower plank gets the
+opposite pushes (Newton's third law). -/
+structure FrictionPush where
+  push : Push
+  fx : Rat
+  fy : Rat
+  deriving Repr
+
+/-- The push is allowed with friction coefficient `μ`: the up-push is allowed (F2, F4),
+and each sideways push is at most `μ` times the up-push. -/
+def FrictionPush.Allowed (μ : Rat) (b : Build) (p : FrictionPush) : Prop :=
+  p.push.Allowed b ∧ -(μ * p.push.force) ≤ p.fx ∧ p.fx ≤ μ * p.push.force ∧
+    -(μ * p.push.force) ≤ p.fy ∧ p.fy ≤ μ * p.push.force
+
+/-- `+1` if plank `i` is the upper plank of the push, `-1` if it is the lower, else `0`. -/
+def Push.side (i : Nat) (p : Push) : Rat :=
+  (if p.upper = i then 1 else 0) - (if p.lower = .plank i then 1 else 0)
+
+/-- Height of a push: the bottom of its upper plank. -/
+def Push.height (b : Build) (p : Push) : Rat := (b.get p.upper).z
+
+/-- Height of plank `i`'s centre. -/
+def Plank.centerZ (p : Plank) : Rat := p.z + p.pose.size.dz / 2
+
+/-- Plank `i` is balanced by pushes with friction: all six conditions of S1.
+1. net push up is 1 (its weight); net push along `x` and along `y` is 0;
+2. no turning about the `x`, `y` and `z` axes through its centre. -/
+def BalancedWithFriction (b : Build) (ps : List FrictionPush) (i : Nat) : Prop :=
+  let c := b.get i
+  let s := fun (p : FrictionPush) => p.push.side i
+  let dx := fun (p : FrictionPush) => p.push.x - c.centerX
+  let dy := fun (p : FrictionPush) => p.push.y - c.centerY
+  let dz := fun (p : FrictionPush) => p.push.height b - c.centerZ
+  (ps.map fun p => s p * p.push.force).sum = 1 ∧
+  (ps.map fun p => s p * p.fx).sum = 0 ∧
+  (ps.map fun p => s p * p.fy).sum = 0 ∧
+  -- turning about `x`: `dy · up − dz · fy`
+  (ps.map fun p => s p * (dy p * p.push.force - dz p * p.fy)).sum = 0 ∧
+  -- turning about `y`: `dz · fx − dx · up`
+  (ps.map fun p => s p * (dz p * p.fx - dx p * p.push.force)).sum = 0 ∧
+  -- turning about `z`: `dx · fy − dy · fx`
+  (ps.map fun p => s p * (dx p * p.fy - dy p * p.fx)).sum = 0
+
+/-- F3 with friction coefficient `μ`: some allowed pushes with friction balance every
+plank. -/
+def StableWithFriction (μ : Rat) (b : Build) : Prop :=
+  ∃ ps : List FrictionPush, (∀ p ∈ ps, p.Allowed μ b) ∧
+    ∀ i < b.length, BalancedWithFriction b ps i
+
+end KaplaPhysics

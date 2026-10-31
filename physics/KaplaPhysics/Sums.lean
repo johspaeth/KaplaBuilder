@@ -103,6 +103,12 @@ theorem sum_mul_le (L : List Nat) (c e : Nat → Rat) (ε : Rat)
       have hmax : max (c m) (-(c m)) = -(c m) := by grind
       rw [hmax]; grind
 
+theorem sum_map_neg (l : List α) (f : α → Rat) :
+    (l.map fun a => -(f a)).sum = -(l.map f).sum := by
+  induction l with
+  | nil => simp
+  | cons a l ih => simp only [List.map_cons, List.sum_cons, ih]; grind
+
 end Sums
 
 end KaplaPhysics
