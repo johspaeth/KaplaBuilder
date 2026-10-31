@@ -1,0 +1,21 @@
+name: Set up Lean
+description: Install elan and the toolchain pinned in lean-toolchain (cached).
+runs:
+  using: composite
+  steps:
+    - name: Prepare ELAN_HOME
+      shell: bash
+      run: sudo mkdir -p "$ELAN_HOME" && sudo chown "$USER" "$ELAN_HOME"
+    - uses: actions/cache@v4
+      with:
+        path: ${{ env.ELAN_HOME }}
+        key: elan-${{ runner.os }}-${{ hashFiles('lean-toolchain') }}
+    - name: Install elan + toolchain
+      shell: bash
+      run: |
+        if [ ! -x "$ELAN_HOME/bin/elan" ]; then
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --no-modify-path --default-toolchain none
+        fi
+        echo "$ELAN_HOME/bin" >> "$GITHUB_PATH"
+        "$ELAN_HOME/bin/lake" --version

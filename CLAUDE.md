@@ -1,5 +1,13 @@
 # CLAUDE.md: Lean verification for Vibecheck hackathon
 
+## 0. This repository
+
+- One Lake workspace, one folder per component: `core/` (KaplaCore), `physics/`, `semantics/`, `planner/`, `web/`, `app/` (the `kapla` CLI), `specs/` (human-owned statements), `comparator/` (spec ↔ proof configs). Full table and rules: `README.md`.
+- Work only in the folder of the component you were asked about. Components import only `KaplaCore`, never each other. Do not edit `core/`, `specs/` or `comparator/` unless asked; they are shared contracts.
+- Build your part: `lake build KaplaPhysics` (etc.). Before you finish: `make check`.
+- `main` merges only via PR with the **CI OK** check green: builds with `--fail-level=warning` (so no `sorry`), import rules, forbidden words (`scripts/check_forbidden.sh`), `lake check`, `lake comparator`. Do not weaken the CI, the scripts, or the lakefile to make a check pass.
+- A main theorem gets its statement in `specs/KaplaSpecs/<Component>.lean` (with `sorry`), its proof under the same name in the component folder, and a `comparator/<component>.json`.
+
 ## 1. Approaches
 
 - **Write the program in Lean and prove it there.** Nothing to translate, nothing extra to trust.

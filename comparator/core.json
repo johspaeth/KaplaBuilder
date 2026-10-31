@@ -1,0 +1,6 @@
+{
+  "challenge_module": "KaplaSpecs.Core",
+  "solution_module": "KaplaCore.Proofs",
+  "theorem_names": ["KaplaCore.Q3.add_comm"],
+  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
+}
