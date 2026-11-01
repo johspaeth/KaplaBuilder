@@ -114,6 +114,14 @@ def Table.holds (t : Table) (b : GBlock) : Bool :=
   t.x0 ≤ b.x && b.x + b.sx ≤ t.x0 + t.nx && t.y0 ≤ b.y && b.y + b.sy ≤ t.y0 + t.ny &&
     0 ≤ b.z && b.z + b.sz ≤ t.nz
 
+/-- Does the block have a cell in a bubble? -/
+def Table.touchesBubble (t : Table) (b : GBlock) : Bool := Id.run do
+  for z in intRange b.z (b.z + b.sz - 1) do
+    for y in intRange b.y (b.y + b.sy - 1) do
+      for x in intRange b.x (b.x + b.sx - 1) do
+        if t.maskAt (x, y, z) != 0 then return true
+  return false
+
 /-- The flat ways a block of course `z` may lie. -/
 def orientsAt (cabin : Option Bool) (z : Int) : List Orient :=
   match cabin with
@@ -133,6 +141,22 @@ def unionBox : Option (Int × Int × Int × Int) → Option (Int × Int × Int �
   | some r, none | none, some r => some r
   | none, none => none
 
+/-- All blocks starting at course `z`, lying the ways given, inside the table's box, near the
+bubbles of the courses they fill (they may still have no cell in a bubble). -/
+def positionsAt (t : Table) (z : Int) (orients : List Orient) : Array GBlock := Id.run do
+  let mut res : Array GBlock := #[]
+  for o in orients do
+    let (sx, sy, sz) := o.size
+    let box := (intRange z (z + sz - 1)).foldl (fun r zz => unionBox r (sliceBox t zz)) none
+    match box with
+    | none => pure ()
+    | some (xa, xb, ya, yb) =>
+      for y in intRange (ya - sy + 1) yb do
+        for x in intRange (xa - sx + 1) xb do
+          let b : GBlock := ⟨o, x, y, z⟩
+          if t.holds b then res := res.push b
+  return res
+
 /-- All blocks starting at course `z`, lying the ways given, with at least one cell in a
 bubble. -/
 def candidatesAt (t : Table) (z : Int) (orients : List Orient) : Array GBlock := Id.run do
@@ -147,69 +171,147 @@ def candidatesAt (t : Table) (z : Int) (orients : List Orient) : Array GBlock :=
       for y in intRange (ya - sy + 1) yb do
         for x in intRange (xa - sx + 1) xb do
           let b : GBlock := ⟨o, x, y, z⟩
-          if t.holds b && b.cells.any (fun c => t.maskAt c != 0) then res := res.push b
+          if t.holds b && t.touchesBubble b then res := res.push b
   return res
 
 /-- Do the two blocks share a grid line along x or y in their course? -/
 def sharesLine (a b : GBlock) : Bool :=
   (a.x < b.x + b.sx && b.x < a.x + a.sx) || (a.y < b.y + b.sy && b.y < a.y + a.sy)
 
-/-- Build one course on top of what is there. Placements in `nogood` (by `Stack.supportKey`)
-are never made. -/
-def buildCourse (t : Table) (p : BuildParams) (z : Int) (start : Built)
-    (nogood : Std.HashSet UInt64 := {}) : Built := Id.run do
+/-- The candidates of one course on top of a partial build, with what each would change: worked
+out once and shared by every setting tried at that course (`Tree.lean`). -/
+structure Prep where
+  /-- Blocks that could go in: in the table, with a cell in a bubble, resting on the course
+  below (or on the ground), not overlapping, not a refused placement. -/
+  cands : Array GBlock
+  /-- What each would change, from the start state. -/
+  ds : Array Delta
+  /-- For each, the footprint cells under a bubble that has no block yet and starts higher. -/
+  under : Array Nat
+  deriving Inhabited
+
+/-- The candidates of course `z` on top of `start`, lying the ways given. -/
+def prepare (t : Table) (p : BuildParams) (z : Int) (start : Built) (orients : List Orient)
+    (nogood : Std.HashSet UInt64 := {}) : Prep :=
+  let st := start.stack
+  -- the support test first: it is cheaper than looking for a bubble cell
+  let cands := (positionsAt t z orients).filter fun u =>
+    (z == 0 || match contactsOf st u p.up with
+      | some cs => !cs.isEmpty
+      | none => false) &&
+    t.touchesBubble u &&
+    (nogood.isEmpty || !nogood.contains (st.supportKey u))
+  -- the pillar count matters only while some bubble has no block
+  let present := (List.range t.placed.size).any fun b => !hasBit start.state.touched b
+  { cands, ds := cands.map (deltaBlock t start.state),
+    under := if present then cands.map (underUntouched t start.state.touched) else cands.map fun _ => 0 }
+
+/-- The value of a change in whole numbers: `value` times a common denominator `den` of the
+settings, so the search compares integers, not fractions. -/
+structure IntValue where
+  den : Int
+  cell : Int
+  out : Int
+  under : Int
+  first : Int
+  pillar : Int
+  lambda : Int
+
+/-- The whole-number form of the settings' prices. -/
+def IntValue.of (p : BuildParams) : IntValue :=
+  let qs : List Q := [1, p.price, p.price * p.underShare, p.firstBonus, p.pillarBonus, p.lambda]
+  let den : Int := (qs.foldl (fun d q => Nat.lcm d q.den) 1 : Nat)
+  let sc (q : Q) : Int := (q * den).num
+  { den, cell := den, out := sc p.price, under := sc (p.price * p.underShare),
+    first := sc p.firstBonus, pillar := sc p.pillarBonus, lambda := sc p.lambda }
+
+/-- `value` times `den`. -/
+def IntValue.apply (w : IntValue) (s : ScoreState) (d : Delta) : Int :=
+  w.cell * d.dC - w.out * ((d.dE - d.dEUnder : Nat) : Int) - w.under * d.dEUnder +
+    w.first * d.firstTouches s
+
+-- The whole-number value is `value` times `den`.
+#guard
+  let p : BuildParams := { lambda := 1, price := 1 / 2, maxBlocks := 5, underShare := -1 / 2 }
+  let w := IntValue.of p
+  let d : Delta := { newly := [1, 2, 3], dE := 7, dEUnder := 2, spanSets := [], touches := 3 }
+  let s : ScoreState := { covered := #[], spans := {}, coveredCount := 0, extra := 0, touched := 1 }
+  (w.apply s d : Q) == value p s d * w.den && w.den == 4
+
+/-- Build one course on top of `start`, from its candidates `prep` (only those lying a way the
+settings allow at this course). -/
+def buildCourseWith (t : Table) (p : BuildParams) (z : Int) (start : Built) (prep : Prep) :
+    Built := Id.run do
   let mut st := start.stack
   let mut sc := start.state
   let mut blocks := start.blocks
   if blocks.size ≥ p.maxBlocks then return start
-  let cands := (candidatesAt t z (p.orientsAt z)).filter fun u =>
-    (z == 0 || match contactsOf st u p.up with
-      | some cs => !cs.isEmpty
-      | none => false) &&
-    (nogood.isEmpty || !nogood.contains (st.supportKey u))
-  let mut ds : Array (Option Delta) := cands.map fun u => some (delta t sc u.cells)
-  -- the pillar bonus, while this course has no block under an untouched bubble yet
-  let under := cands.map (underUntouched t sc.touched)
+  let allowed := p.orientsAt z
+  let cands := prep.cands
+  let w := IntValue.of p
+  let mut ds : Array (Option Delta) := (cands.zip prep.ds).map fun (u, d) =>
+    if allowed.contains u.orient then some d else none
+  let under := prep.under
   let mut pillarOpen := true
+  let valueOf (sc : ScoreState) (pillarOpen : Bool) (i : Nat) (d : Delta) : Int :=
+    w.apply sc d + (if pillarOpen && under[i]! > 0 then w.pillar else 0)
+  -- the values of the open candidates, kept up to date
+  let mut vs : Array Int := ds.mapIdx fun i d => match d with
+    | some d => valueOf sc pillarOpen i d
+    | none => 0
   let mut inCourse := 0
   for _ in [0:cands.size] do
     if blocks.size ≥ p.maxBlocks || (p.perCourse != 0 && inCourse ≥ p.perCourse) then break
-    let pillar (i : Nat) : Q := if pillarOpen && under[i]! > 0 then p.pillarBonus else 0
     -- the best candidate still open
-    let mut best : Option (Nat × Q) := none
+    let mut best : Option (Nat × Int) := none
     for i in [0:cands.size] do
-      match ds[i]! with
-      | some d =>
-        let v := value p sc d + pillar i
-        if 0 < v && p.lambda ≤ v then
+      if ds[i]!.isSome then
+        let v := vs[i]!
+        if 0 < v && w.lambda ≤ v then
           match best with
           | some (_, bv) => if bv < v then best := some (i, v)
           | none => best := some (i, v)
-      | none => pure ()
     match best with
     | none => break
     | some (i, _) =>
       let u := cands[i]!
       -- the stored change can be out of date: a block placed since may have filled cells on
       -- lines that cross this candidate's lines. Work it out again before using it.
-      let d := delta t sc u.cells
+      let d := deltaBlock t sc u
       ds := ds.set! i none
-      let v := value p sc d + pillar i
-      if v ≤ 0 || v < p.lambda then continue
+      let v := valueOf sc pillarOpen i d
+      if v ≤ 0 || v < w.lambda then continue
       match st.place u p.margin p.strict p.up with
       | none => pure ()
       | some st' =>
         st := st'
+        let touchedBefore := sc.touched
         sc := sc.apply d
         blocks := blocks.push u
         inCourse := inCourse + 1
+        let pillarBefore := pillarOpen
         if under[i]! > 0 then pillarOpen := false
+        -- values change for candidates on shared lines; for all if a bubble got its first
+        -- block or the pillar bonus closed
+        let all := sc.touched != touchedBefore || pillarOpen != pillarBefore
         for j in [0:cands.size] do
-          if ds[j]!.isSome then
+          match ds[j]! with
+          | some dj =>
             let v := cands[j]!
             if v.overlaps u then ds := ds.set! j none
-            else if sharesLine u v then ds := ds.set! j (some (delta t sc v.cells))
+            else if sharesLine u v then
+              let d' := deltaBlock t sc v
+              ds := ds.set! j (some d')
+              vs := vs.set! j (valueOf sc pillarOpen j d')
+            else if all then vs := vs.set! j (valueOf sc pillarOpen j dj)
+          | none => pure ()
   return { blocks, state := sc, stack := st }
+
+/-- Build one course on top of what is there. Placements in `nogood` (by `Stack.supportKey`)
+are never made. -/
+def buildCourse (t : Table) (p : BuildParams) (z : Int) (start : Built)
+    (nogood : Std.HashSet UInt64 := {}) : Built :=
+  buildCourseWith t p z start (prepare t p z start (p.orientsAt z) nogood)
 
 /-- Build every course, from the ground up. -/
 def build (t : Table) (p : BuildParams) : Built :=

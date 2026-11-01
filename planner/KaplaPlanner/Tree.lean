@@ -5,7 +5,9 @@ import KaplaPlanner.Build
 At one height, the search builds the model course by course (`planner/DESIGN.md` §11.5).
 
 * A **node** is a partial build: courses below `z` are done. Its **children** each add one
-  course. A child comes from `buildCourse` with one of a few settings (which way the blocks
+  course. The course's candidates and what each would change are worked out once per node
+  (`prepare`); each child then comes from `buildCourseWith` with one of a few settings, in
+  parallel (which way the blocks
   lie, how many blocks the course may use, upright blocks or not). Equal children are merged;
   at most `k` are kept, the default setting first, then by score.
 * **Order.** Nodes wait in buckets by their number of *discrepancies*: how often their path
@@ -352,10 +354,17 @@ def Tree.expand (tr : Tree) (nd : Node) : Tree := Id.run do
   | some v => if sc ≤ v && nd.disc > 0 then return { tr with cuts := tr.cuts + 1 }
   | none => pure ()
   tr := { tr with frontier := tr.frontier.insert key sc }
-  -- the children
+  -- the children: the candidates of the course are worked out once, for every way a block
+  -- may lie here; each setting then builds from them, in parallel
+  let vars := tr.variants nd.z used
+  let orients := Orient.flats ++
+    (if vars.any (·.uprights) then Orient.uprights else [])
+  let prep := prepare tr.t tr.base (nd.z : Int) nd.built orients tr.nogood
+  let t := tr.t
+  let tasks := vars.map fun p => Task.spawn fun _ => buildCourseWith t p (nd.z : Int) nd.built prep
   let mut kids : Array (Built × UInt64) := #[]
-  for p in tr.variants nd.z used do
-    let b := buildCourse tr.t p (nd.z : Int) nd.built tr.nogood
+  for task in tasks do
+    let b := task.get
     tr := { tr with tries := tr.tries + 1 }
     let added := (b.blocks.extract used b.blocks.size).toList
     let h := setHash added

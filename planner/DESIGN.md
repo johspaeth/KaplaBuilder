@@ -680,9 +680,31 @@ was accepted by the scorer:
 
 | Model | v1 | v2 |
 |---|---|---|
-| egg | 0.711 (height 24, 40 blocks) | 0.721 (height 24, 37 blocks) |
+| egg | 0.711 (height 24, 40 blocks) | 0.735 (height 24, 39 blocks) |
 | bunny | 0.471 (height 21, 35 blocks) | 0.546 (height 24, 32 blocks) |
-| ball | 0.702 (height 16, 40 blocks) | 0.748 (height 17, 40 blocks) |
+| ball | 0.702 (height 16, 40 blocks) | 0.752 (height 17, 40 blocks) |
+
+**Speed** (profiled with macOS `sample` and timed piece by piece). The first version spent
+almost all its time building child courses, and kept only about 2 cores busy. Changes:
+
+| Change | Effect |
+|---|---|
+| a node's candidates and their score changes are worked out once (`prepare`) and shared by its child settings, which build in parallel | one node: 23 ms → 2 ms |
+| `deltaBlock`: the score change of a block by its positions in the table's arrays, no lists or hash map of groups (tested equal to `delta`) | 13 µs → 6 µs per block |
+| values in whole numbers (`IntValue`), kept in an array and updated only when they change; bit count without a loop | the fraction arithmetic (GMP big numbers), ~38 % of the time before, is gone |
+| support test before the bubble test when listing candidates; the pillar count only while a bubble has no block | `prepare` 2.2 ms → 1.4 ms |
+| the halving keeps at least 4 searches | about 5 of 8 cores busy, was about 2 |
+
+Tries in 30 s went up 7× to 13× (egg 7,635 → 99,694). Now about 70 % of the time is working out
+score changes again after a block is placed (candidates on the same grid lines), and 14 % the
+local rule.
+
+**A check cannot be stopped.** The planner returns on time, but a physics check still running
+at the end keeps the program alive until it is done (a failing check took up to 22 s more at
+N = 40). The planner starts no check that the longest check so far says would end after the
+limit, but the first slow check cannot be foreseen. Fixes outside the planner: the `kapla`
+CLI ends the program once it has the answer (`IO.Process.exit`, owner D), or physics gets a
+check with a time limit (owner A, §11.9).
 
 No search used an upright block (on the ground they were never worth it), and no physics check
 failed, so the no-good and jump-back path has run only in tests. Not yet measured: N = 100,

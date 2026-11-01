@@ -12,9 +12,12 @@ The planner (`planner`, `planner/DESIGN.md` §11) runs for at most a time limit 
    a search's incumbent go to the physics engine, each in its own task, at most a few at a
    time. Reports come back to their search. After `treeShare` of the time, the searches also
    restart from their incumbents (the heuristic phase). At a third and two thirds of the
-   time, the worse half of the searches stops.
+   time, the worse half of the searches stops, but at least 4 keep going (so the cores stay
+   busy; each search also builds the children of a node in parallel).
 4. **Stop** at the time limit (less a reserve for scoring), at `maxTries`, or when nothing is
-   left to do. Checks still running are not waited for. The plans that passed are scored by
+   left to do. Checks still running are not waited for. A check cannot be stopped, and a
+   program does not end before its checks do, so near the end no check starts that would
+   likely run past the limit (judged by the longest check so far). The plans that passed are scored by
    the semantic engine and the best few returned (`finalize`).
 
 `planPure` is v1, kept as a pure function for tests and proofs. Its outer loop
@@ -336,17 +339,25 @@ def pick (n k : Nat) (firsts rest : List Candidate) : List Candidate :=
   finalize n k firsts ++ finalize n (k - (finalize n k firsts).length) rest
 
 /-- The candidates from the searches: the best plan that passed physics at each height first,
-then, if there is room, the other plans that passed. -/
+then, if there is room, the other plans that passed. The fast score equals the scorer's score,
+so plans are chosen by it first, and only the `maxCandidates` best of each group are sent to the
+semantic engine (scoring is slow for big models). -/
 def candidatesOf (req : PlanRequest) (sem : SemanticEngine) (trees : List Tree) : List Candidate :=
-  pick req.blocks req.maxCandidates
-    (trees.filterMap fun tr => tr.passed.head?.map fun (lf, r) => candidateOf req sem tr.height lf r)
-    (trees.flatMap fun tr => (tr.passed.drop 1).map fun (lf, r) => candidateOf req sem tr.height lf r)
+  let k := req.maxCandidates
+  let best (l : List (Nat × Leaf × PhysicsReport)) :=
+    (l.mergeSort fun a b => a.2.1.better b.2.1).take k
+  let firsts := best (trees.filterMap fun tr => tr.passed.head?.map (tr.height, ·))
+  let rest := best (trees.flatMap fun tr => (tr.passed.drop 1).map (tr.height, ·))
+  pick req.blocks k (firsts.map fun (h, lf, r) => candidateOf req sem h lf r)
+    (rest.map fun (h, lf, r) => candidateOf req sem h lf r)
 
 /-- A physics check running in the background, for the leaf of search `tree`. -/
 structure Pending where
   tree : Nat
   leaf : Leaf
   task : Task PhysicsReport
+  /-- When it started (ms). -/
+  since : Nat
 
 /-- What the search did, for reports and tests. -/
 structure SearchLog where
@@ -381,6 +392,9 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
   let treeEnd := afterSweep + (stopAt - min stopAt afterSweep) * cfg.treeShare / 100
   let mut heuristic := false
   let mut halvings := 0
+  -- the longest physics check so far (ms). A check cannot be stopped, and the program does not
+  -- end before its checks do, so no check starts that would likely end after the limit.
+  let mut longest := 0
   repeat
     let now ← IO.monoMsNow
     if now ≥ stopAt || log.tries ≥ cfg.maxTries then break
@@ -390,11 +404,15 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
     for p in pending do
       if ← IO.hasFinished p.task then
         trees := trees.modify p.tree (·.report p.leaf p.task.get)
-      else still := still.push p
+        longest := max longest (now - min now p.since)
+      else
+        longest := max longest (now - min now p.since)
+        still := still.push p
     pending := still
     -- new checks, taking turns between the searches
     let mut progress := true
-    while progress && pending.size < cfg.parallelChecks && log.checks < req.maxChecks do
+    while progress && pending.size < cfg.parallelChecks && log.checks < req.maxChecks &&
+        now + longest < stopAt do
       progress := false
       for i in [0:trees.size] do
         if pending.size < cfg.parallelChecks && log.checks < req.maxChecks then
@@ -403,7 +421,7 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
             trees := trees.set! i tr'
             let plan := toPlan lf.blocks.toList
             let task := Task.spawn (prio := .dedicated) fun _ => ph.check req.human n plan
-            pending := pending.push { tree := i, leaf := lf, task }
+            pending := pending.push { tree := i, leaf := lf, task, since := now }
             log := { log with checks := log.checks + 1 }
             progress := true
           | none => pure ()
@@ -416,7 +434,7 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
         | some a, some b => a.better b || !b.better a
         | some _, none => true
         | none, _ => false
-      let keep := ranked.take (max 1 ((ranked.length + 1) / 2))
+      let keep := ranked.take (max (min 4 ranked.length) ((ranked.length + 1) / 2))
       alive := (List.range trees.size).toArray.map keep.contains
     -- one round of every live search, in parallel
     let live := (List.range trees.size).filter (alive[·]!)
