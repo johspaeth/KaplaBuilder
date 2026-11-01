@@ -97,7 +97,8 @@ CI fails if:
 
 **Comparator is disabled for now.** `lake comparator` (which checks that the proofs prove
 exactly the statements in `specs/`) is not part of **CI OK**, so it does not block merges.
-It runs only at the very end: start it by hand in GitHub (Actions → CI → Run workflow).
+It runs only at the very end: start it by hand with the **Comparator** GitHub Actions workflow
+(`.github/workflows/comparator.yml`: Actions → Comparator → Run workflow).
 Before the final result, it must be green for every file in `comparator/`.
 
 ## How to work
