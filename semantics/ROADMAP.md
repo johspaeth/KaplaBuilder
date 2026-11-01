@@ -1,5 +1,8 @@
 # KaplaSemantics: roadmap for the hackathon session
 
+> **Team working notes**, kept for history. Not needed to understand or judge the project.
+> What is built and proven: [README.md](../README.md).
+
 Agreed 1 Nov 2026. Design: `semantics/APPROACH.md`. Rules for sessions: `semantics/CLAUDE.md`.
 Everything here is done in one sitting of a few hours; times are boxes, not estimates.
 

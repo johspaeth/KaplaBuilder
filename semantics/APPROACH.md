@@ -1,7 +1,9 @@
 # KaplaSemantics: the approach
 
-Owner: person B. Scope: `docs/WORKSPLIT.md` §6B. Status: design reviewed and agreed on
-1 Nov 2026, no Lean yet. Open points are collected in §10.
+Owner: person B. Scope: `docs/WORKSPLIT.md` §6B. Status: design agreed on 1 Nov 2026. Built
+since: the bubble model, the chat, the checks and the score (see [README.md](README.md)). Not
+built yet: the theorems of §6, and the files that §7 and §9 list under `Dev/` and
+`fixtures/score_expected/`. Open points are collected in §10.
 
 The engine answers two questions. *What should we build?* A bubble model of the target,
 proposed by Claude and approved by a person. *How close is a plan to it?* Two yes/no checks

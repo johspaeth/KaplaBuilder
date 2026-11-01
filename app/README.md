@@ -3,28 +3,53 @@
 Owner: D. The only place where the real engines meet. May import every component.
 
 - Build: `lake build kapla`
-- Run: `make run` (or `lake exe kapla`)
+- Run the website: `make run` (same as `lake exe kapla serve`). `lake exe kapla` with no
+  command only lists the components.
 
 ## Commands
 
-- `kapla check BLUEPRINT.json [--max N] [--no-clearance]`: runs the verified physics engine
-  (`KaplaPhysics.coreCheck`) on the blueprint, with the default builder and at most `N`
-  blocks (default 200). Prints the problems it finds. Exit code 0 when the plan is `ok`.
-- `kapla view BLUEPRINT.json [--out DIR] [--no-clearance]`: writes the page
-  (`web/README.md`), with the physics result in its notes.
-- `kapla serve [--port N]`: starts the website on this computer only, at
-  `http://localhost:8000`. Run it from the top folder of the repo. It reads the API key from `semantics/dev/.env` when it
-  starts; with no key there it uses `ANTHROPIC_API_KEY` from the shell. The file wins when both are
-  set. With no key at all the chat says so and the rest still works. See `web/README.md`.
-- `kapla gallery-check`: reads every file in `gallery/` and lists the ones that are not good
-  entries (format: `web/README.md`). Exit code 0 when all are good. CI and `make check` run it.
+This list is the one home for the CLI; other docs link here. The source of truth is the
+module comment and `main` in `app/Main.lean`.
+
+| Command | What it does | Exit code |
+|---|---|---|
+| `kapla check BLUEPRINT.json [--max N]` | Runs the verified physics engine (`KaplaPhysics.coreCheck`) on the blueprint, with the default builder and at most `N` blocks (default 200). Prints what it finds. | 0 when the plan is `ok`, 1 when not |
+| `kapla view BLUEPRINT.json [--out DIR]` | Writes `DIR/index.html` (default `out/`): 3D view, step cards, and the physics result in the notes. Format: `web/README.md`. | 0 |
+| `kapla plan [--blocks N] [--strategy NAME] [--effort LEVEL] [--target MODEL.json] [--out BLUEPRINT.json]` | Runs one planner strategy (`empty` by default, `ai`, `ai-unchecked`) on a bubble model (default: the egg), then the physics engine and the scorer. `--out` writes a blueprint for `kapla view`. `ai` and `ai-unchecked` ask Claude and need a key; `--effort` is `low`, `medium` or `high` (default `high`). | 0 |
+| `kapla serve [--port N]` | Starts the website on this computer only, default port 8000. Run it from the top folder of the repo. | – |
+| `kapla gallery-check` | Reads every file in `gallery/` and lists the ones that are not good entries. CI and `make check` run it. | 0 when all are good |
+
+Flags for `check`, `view`, `plan` and `serve`:
+
+- `--no-clearance`: turns off two checks that are on by default: a 3.9 mm error must never
+  close a gap between two blocks, and no block goes into a slot exactly its own width.
+  Blocks that touch face to face in the plan, like the walls in `web/examples/`, are fine
+  either way.
+- `--robust-only`: refuses plans with turned blocks (15° steps that are not quarter turns).
+  Without it, such a plan can be `ok`, but only at the planned positions: the notes say so.
+
+The API key for `serve` and the `ai` planners: `semantics/dev/.env` (copy
+`semantics/dev/.env.example`) or `ANTHROPIC_API_KEY` in the shell. The file wins when both
+are set. With no key, the chat says so and the rest of the site works.
 
 The blueprint is read twice: as `Float`s for drawing (KaplaWeb), and with exact fractions for
-the physics engine. By default it also refuses a plan when a 3.9 mm error could close a gap
-between two blocks (a near miss), or when a block goes into a slot exactly its own width
-between two blocks placed before it. `--no-clearance` turns these two checks off. Blocks that
-touch in the plan, like the walls in `web/examples/`, are fine either way.
+the physics engine (`readBuildPlan`, listed as trusted in the top README).
+
+## Examples
 
 ```sh
 lake exe kapla check web/examples/house.json
+#   web/examples/house.json: 27 steps, 27 blocks
+#     Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors
+lake exe kapla check web/examples/spiral.json        # turned blocks: ok, but "nominal"
+#     Physics (verified): well-formed and stands after every block, at the planned positions only (...)
+lake exe kapla check web/examples/duck.json --max 10   # exit 1
+#     Physics: not shown to be safe to build
+#     uses 15 blocks, at most 10 allowed
+lake exe kapla view web/examples/spiral.json --out out/spiral   # then open out/spiral/index.html
+lake exe kapla gallery-check
+#   gallery/bunny.json: ok
+#   gallery/egg.json: ok
 ```
+
+(Output checked on `main` at `488d22e`.)
