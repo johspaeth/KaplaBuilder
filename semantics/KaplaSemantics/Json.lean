@@ -58,19 +58,67 @@ def bubbleFromJson (j : Json) : Except String Bubble := do
   let semi ← q3FromJson (← j.getObjVal? "semi")
   return { label, tags, center, semi }
 
-/-- Write a model as JSON text. -/
-def encode (m : BubbleModel) : String :=
-  (Json.mkObj
+/-- A model as JSON. -/
+def modelToJson (m : BubbleModel) : Json :=
+  Json.mkObj
     [ ("name", Json.str m.name)
-    , ("bubbles", Json.arr (m.bubbles.map bubbleToJson).toArray) ]).compress
+    , ("bubbles", Json.arr (m.bubbles.map bubbleToJson).toArray) ]
+
+/-- Write a model as JSON text on one line. -/
+def encode (m : BubbleModel) : String := (modelToJson m).compress
+
+/-- Write a model as JSON text with line breaks, for a file that people read. -/
+def encodePretty (m : BubbleModel) : String := (modelToJson m).pretty
+
+/-- The largest exponent a number in JSON text may have (`1e100` is the limit). -/
+def maxJsonExponent : Nat := 100
+
+/-- Does the text have a number with an exponent above `maxJsonExponent`? This looks only at the
+text, so it stays fast on `1e999999`, which is very slow to compute. Text inside strings is skipped. -/
+def hasHugeExponent (text : String) : Bool :=
+  let rec go (inString escaped : Bool) : List Char → Bool
+    | [] => false
+    | c :: rest =>
+      if inString then
+        if escaped then go true false rest
+        else go (c != '"') (c == '\\') rest
+      else if c == '"' then go true false rest
+      else if c == 'e' || c == 'E' then
+        let unsigned := match rest with
+          | '+' :: r | '-' :: r => r
+          | r => r
+        let digits := unsigned.takeWhile Char.isDigit
+        -- Zeros at the front do not make a number bigger, but nobody needs to write them.
+        if digits.length > 3 then true
+        else if (String.ofList digits).toNat?.getD 0 > maxJsonExponent then true
+        else go false false rest
+      else go false false rest
+  go false false text.toList
+
+#guard hasHugeExponent "[1e999999]"
+#guard hasHugeExponent "[1E-999999]"
+#guard hasHugeExponent "[1e+101]"
+#guard !hasHugeExponent "[1e100, true, false]"
+#guard !hasHugeExponent "{\"a\":\"1e999999\"}"
+#guard hasHugeExponent "{\"a\\\"\":1e999999}"
+
+/-- Read JSON text, and refuse huge exponents before any number is computed. -/
+def parseJson (text : String) : Except String Json :=
+  if hasHugeExponent text then
+    .error s!"a number has an exponent above {maxJsonExponent}"
+  else
+    Json.parse text
 
 /-- Read a model from JSON text. Text that does not follow the format, or a model that is not
 well formed, gives an error message. -/
 def decode (text : String) : Except String BubbleModel := do
-  let j ← Json.parse text
+  let j ← parseJson text
   let name ← (← j.getObjVal? "name").getStr?
   let bubbles ← (← (← j.getObjVal? "bubbles").getArr?).toList.mapM bubbleFromJson
   let m : BubbleModel := { name, bubbles }
+  let labels := bubbles.map (·.label)
+  if labels.eraseDups.length != labels.length then
+    throw "bad model: two bubbles have the same label"
   if m.wellFormed then return m
   else throw "bad model: every bubble needs a label, half-widths above 0 and some part above the ground (z = 0); at least one bubble must reach the ground; at most 32 bubbles"
 
@@ -141,6 +189,13 @@ def eggFixtureText : String := include_str "../fixtures/targets/egg.json"
 -- The fixture is the same egg as the one in Core, and survives a round trip.
 #guard decodesTo eggFixtureText BubbleModel.egg
 #guard decodesTo (encode BubbleModel.egg) BubbleModel.egg
+
+-- Two bubbles with one label, and a huge exponent, are refused. An unknown field is ignored.
+#guard decodeFails "{\"name\":\"a\",\"bubbles\":[{\"label\":\"x\",\"tags\":[],\"center\":[0,0,0.5],\"semi\":[1,1,1]},{\"label\":\"x\",\"tags\":[],\"center\":[0,0,1],\"semi\":[1,1,1]}]}"
+#guard decodeFails "{\"name\":\"a\",\"bubbles\":[{\"label\":\"x\",\"tags\":[],\"center\":[0,0,1e999999],\"semi\":[1,1,1]}]}"
+#guard !decodeFails "{\"comment\":\"hi\",\"name\":\"a\",\"bubbles\":[{\"label\":\"x\",\"tags\":[],\"center\":[0,0,0.5],\"semi\":[1,1,1]}]}"
+-- The form with line breaks reads back the same.
+#guard decodesTo (encodePretty BubbleModel.egg) BubbleModel.egg
 
 /-- A model with a number that has no finite decimal form. -/
 def thirdExample : BubbleModel :=
