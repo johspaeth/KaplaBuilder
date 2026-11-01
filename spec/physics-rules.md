@@ -66,7 +66,8 @@ and is not part of what we verify.
   patch and F3 still holds. 15° and its multiples have no exact fraction for their cosine,
   so the engine uses the closest exact turns (15.19°, 29.86°, 45.24°, 60.14°, 74.81°).
   For now a plan with a turned plank is checked only at the planned positions (P1–P3 and
-  S2 after every step); R1, R5, gaps and K3 are not checked for it.
+  S2 after every step); R1, R5, gaps and K3 are not checked for it. The engine's report
+  says so (*nominal*, not *robust*), and the app can be told to refuse such plans.
 
 *Why B4:* if every plank is parallel to the axes, every contact between planks
 is a flat, horizontal patch. That makes the physics much simpler (see F3).
@@ -188,20 +189,18 @@ a touching pair as exact is closer to reality than giving each its own 3.9 mm,
 and it removes the case where a 3.9 mm error would make two planks overlap.
 Side contacts still carry no force (C4); R5 is only about where planks end up.
 
-- **R6. Gaps stay open.** If two planks do not touch in the plan, no combination of
-  placement errors allowed by R1 may make them share inside space. Planks that touch in
-  the plan are left out, because of R5. In Lean: `KeepsGaps`. The engine asks for a gap of
-  at least `2ε` (`Clear`).
+- **R6. Gaps stay open.** If two planks are not face to face in the plan, no combination
+  of placement errors allowed by R1 may make them share inside space. *Face to face* means
+  side by side or end to end, flush, over a face of area bigger than zero. Those pairs are
+  left out, because of R5. Planks that touch only at an edge or a corner are not left out:
+  R5 does not line them up. In Lean: `FaceToFace`, `KeepsGaps`. The engine asks for a gap
+  of at least `2ε`, or no shared height (`Clear`).
 - **R7. No tight slots.** A plank must not go into a slot exactly its own width, between
   two planks placed before it. Each wall can land `ε` towards the other, so the slot can
   end up too narrow. In Lean: `InTightSlot`.
 
 R6 and R7 are checked when the clearance option is on (the default; `PlanOptions`).
 They are H6 in docs/DESIGN.md.
-
-*Known gap in R6:* in Lean, "touch" (`Meets`) also counts planks that touch only at an
-edge or a corner. R5 only explains face-to-face touches, so such pairs should be checked.
-The fix is still to be reviewed.
 
 ## 9. The build plan
 

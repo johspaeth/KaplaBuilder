@@ -1,4 +1,5 @@
 import Lean.Data.Json
+import KaplaCore
 
 /-! # Reading a blueprint for display
 
@@ -107,6 +108,27 @@ structure ViewPlan where
 private def optStr (j : Json) (k : String) (d : String := "") : String :=
   (j.getObjValAs? String k).toOption.getD d
 
+/-- A fraction as a `Float`, for drawing. -/
+def ratToFloat (q : Rat) : Float := Float.ofInt q.num / Float.ofNat q.den
+
+/-- The turn to draw for `{"deg": d}`, as cosine and sine. A multiple of 15° is drawn as the
+exact turn the physics engine checks (`KaplaCore.Rot.step15`, for example 45.24° for 45°),
+so the page shows the same blocks that were checked. Any other angle is drawn as given; the
+physics engine refuses it. -/
+def degTurn (d : Float) : Float × Float :=
+  let q := d / 15
+  let r := q.round
+  if (q - r).abs < 1e-9 then
+    let k : Int := r.toInt64.toInt
+    let rot := KaplaCore.Rot.step15 (k % 24).toNat
+    (ratToFloat rot.cos, ratToFloat rot.sin)
+  else
+    let t := d * 3.141592653589793 / 180
+    (Float.cos t, Float.sin t)
+
+#guard degTurn 45 == (ratToFloat (119 / 169), ratToFloat (120 / 169))
+#guard degTurn (-90) == (0, -1)
+
 def readBlock (j : Json) : Except String ViewBlock := do
   let up := (j.getObjValAs? String "up").toOption.getD "flat"
   let center ← j.getObjValAs? (Array Json) "center"
@@ -114,9 +136,7 @@ def readBlock (j : Json) : Except String ViewBlock := do
   let rot := (j.getObjVal? "rot").toOption
   let (c, s) ← match rot.bind (·.getObjVal? "deg" |>.toOption) with
     | some v => do
-      let d ← readNum v
-      let t := d * 3.141592653589793 / 180
-      pure (Float.cos t, Float.sin t)
+      pure (degTurn (← readNum v))
     | none => do
       let c ← match rot.bind (·.getObjVal? "c" |>.toOption) with
         | some v => readNum v

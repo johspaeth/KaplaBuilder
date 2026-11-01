@@ -13,8 +13,10 @@ Owner: D. The only place where the real engines meet. May import every component
 - `kapla view BLUEPRINT.json [--out DIR] [--no-clearance]`: writes the page
   (`web/README.md`), with the physics result in its notes.
 - `kapla serve [--port N]`: starts the website on this computer only, at
-  `http://localhost:8000`. Run it from the top folder of the repo. It reads the API key from `semantics/dev/.env` when it
+  `http://localhost:8000`. Run it from the top folder of the repo; the gallery is `gallery/`. It reads the API key from `semantics/dev/.env` when it
   starts; with no key the chat says so and the rest still works. See `web/README.md`.
+- `kapla gallery-check`: reads every file in `gallery/` and lists the ones that are not good
+  entries (format: `web/README.md`). Exit code 0 when all are good. CI and `make check` run it.
 
 The blueprint is read twice: as `Float`s for drawing (KaplaWeb), and with exact fractions for
 the physics engine. By default it also refuses a plan when a 3.9 mm error could close a gap

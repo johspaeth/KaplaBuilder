@@ -2,7 +2,7 @@ import KaplaWeb.Page
 
 /-! # The website page
 
-The page that `kapla serve` sends: a list of saved models, a save box, a chat and a proposal next to the 3D view. It
+The page that `kapla serve` sends: the gallery, a save box, a PR button, a chat and a proposal next to the 3D view. It
 reuses the viewer of `Page.lean` and shows a model with `KaplaViewer.show`. The requests it makes are
 listed in `web/README.md`.
 -/
@@ -27,8 +27,9 @@ header,main{max-width:none}
 #planBar select,#planBar input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--card);color:var(--fg)}
 #planBlocks{width:5em}
 #generate{border-color:var(--accent);font-weight:600}
+#effort{margin-left:auto}
 button:disabled{opacity:.5;cursor:default}
-#planStatus{color:var(--muted)}#planStatus.bad{color:var(--bad);font-weight:600}
+#planStatus{color:var(--muted);flex-basis:100%}#planStatus:empty{display:none}#planStatus.bad{color:var(--bad);font-weight:600}
 #scores{margin:4px 0}#physicsNotes,#tooSmall{margin:6px 0;padding-left:1.2em;color:var(--muted)}
 #tooSmall button{margin-left:8px;font-size:.85rem;padding:1px 8px}
 #site main{padding:0;margin:0;min-width:0}
@@ -37,23 +38,32 @@ button:disabled{opacity:.5;cursor:default}
 #models button{width:100%;text-align:left;margin:0 0 4px;overflow-wrap:anywhere}
 #models button.open{border-color:var(--accent);font-weight:600}
 #saveForm{display:flex;gap:6px}
+#prButton{margin-top:8px;width:100%}
 #saveName{font:inherit;flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--card);color:var(--fg)}
 #status{margin:8px 0;color:var(--muted);overflow-wrap:anywhere}
 #status.bad{color:var(--bad);font-weight:600}
 #ask{margin:8px 0}#ask div{display:flex;gap:6px;margin-top:6px}
 "
 
-/-- What the list and the save box do. -/
+/-- What the gallery, the save box and the PR button do. -/
 def siteJs : String := "
 (() => {
   const get = id => document.getElementById(id);
-  const list = get('models'), form = get('saveForm'), nameBox = get('saveName'), saveButton = get('saveButton');
+  const list = get('models'), form = get('saveForm'), nameBox = get('saveName'), saveButton = get('saveButton'), prButton = get('prButton');
   const statusLine = get('status'), ask = get('ask'), askText = get('askText');
   const generate = get('generate'), plannerBox = get('planner'), blocksBox = get('planBlocks'), planStatus = get('planStatus');
+  // How much Claude thinks, for the planners that ask Claude. One button: each click takes the next level.
+  const effortButton = get('effort'), efforts = ['low', 'medium', 'high'];
+  let effort = 'high', claudePlanners = [];
+  const showEffort = () => { effortButton.textContent = `Reasoning: ${effort}`;
+    effortButton.disabled = busy || !claudePlanners.includes(plannerBox.value); };
+  effortButton.onclick = () => { effort = efforts[(efforts.indexOf(effort) + 1) % efforts.length]; showEffort(); };
+  plannerBox.onchange = () => showEffort();
   const proposal = get('proposal'), badges = get('badges'), scores = get('scores'), physicsNotes = get('physicsNotes'), tooSmall = get('tooSmall');
   // The proposal on screen always belongs to the model on screen, so a new model clears it.
-  const clearProposal = () => { proposalHeight = undefined; proposal.hidden = true; planStatus.textContent = ''; planStatus.className = ''; KaplaViewer.clearPlan(); };
-  let current = null, openName = null, opening = 0, pending = null, busy = false, proposalHeight;
+  // lastSaved is the proposal's plan as the server gave it: saving sends it back.
+  const clearProposal = () => { proposalHeight = undefined; lastSaved = null; proposal.hidden = true; planStatus.textContent = ''; planStatus.className = ''; KaplaViewer.clearPlan(); };
+  let current = null, openName = null, opening = 0, pending = null, busy = false, proposalHeight, lastSaved = null;
   const say = (text, bad) => { statusLine.textContent = text; statusLine.className = bad ? 'bad' : ''; };
   const noServer = 'Cannot reach the server. Is kapla serve still running?';
   const hideAsk = () => { ask.hidden = true; pending = null; };
@@ -62,33 +72,48 @@ def siteJs : String := "
     let body = {}; try { body = await r.json(); } catch (_) {}
     return {status: r.status, ok: r.ok, body}; };
   const setOpen = (name, model) => { openName = name; current = model; saveButton.disabled = !model; generate.disabled = busy || !model;
+    prButton.disabled = busy || !name;
     list.querySelectorAll('button').forEach(b => b.classList.toggle('open', b.textContent === name)); };
-  const loadList = async () => { const r = await send('/models');
-    if (!r.ok) throw new Error(r.body.error || 'the list did not load');
+  const loadList = async () => { const r = await send('/gallery');
+    if (!r.ok) throw new Error(r.body.error || 'the gallery did not load');
     list.textContent = '';
-    if (!r.body.models.length) { const li = document.createElement('li'); li.textContent = 'No saved models.'; list.append(li); }
-    r.body.models.forEach(name => { const li = document.createElement('li'), b = document.createElement('button');
+    if (!r.body.entries.length) { const li = document.createElement('li'); li.textContent = 'The gallery is empty.'; list.append(li); }
+    r.body.entries.forEach(name => { const li = document.createElement('li'), b = document.createElement('button');
       b.type = 'button'; b.textContent = name; b.onclick = () => openModel(name); li.append(b); list.append(li); });
     setOpen(openName, current); };
   const openModel = async name => { if (busy) return; const mine = ++opening; hideAsk(); say('');
-    try { const r = await send('/models/' + encodeURIComponent(name));
+    try { const r = await send('/gallery/' + encodeURIComponent(name));
       if (mine !== opening) return;
       if (!r.ok) { clearProposal(); setOpen(null, null); KaplaViewer.showError(`${name}: ${r.body.error || 'it did not load'}`); return; }
-      // No height: a model stays at height 1, with axes from 0 to 1, until a planner chooses one.
-      clearProposal(); if (KaplaViewer.show(r.body)) setOpen(name, r.body); else setOpen(null, null);
+      // With no plan there is no height: the model stays at height 1, with axes from 0 to 1.
+      // The server ran physics and the scorer on a saved plan again, so the badges are fresh.
+      clearProposal(); const model = r.body.model;
+      if (!KaplaViewer.show(model)) { setOpen(null, null); return; }
+      setOpen(name, model); if (r.body.proposal) showProposal(model, r.body.proposal);
     } catch (_) { if (mine === opening) say(noServer, true); } };
-  const save = async (name, overwrite) => { const model = current; hideAsk(); say('Saving...');
-    try { const r = await send('/models', {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({name, overwrite, model})});
-      if (r.status === 409) { pending = {name: r.body.name, model}; say('');
+  const save = async (name, overwrite, model, saved) => { hideAsk(); say('Saving...');
+    try { const r = await send('/gallery', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name, overwrite, model, proposal: saved})});
+      if (r.status === 409) { pending = {name: r.body.name, model, saved}; say('');
         askText.textContent = `A model named \"${r.body.name}\" already exists. Replace it?`; ask.hidden = false; return; }
-      if (!r.ok) { say(r.body.error || 'The model was not saved.', true); return; }
-      opening++; nameBox.value = ''; KaplaViewer.show(r.body.model, proposalHeight); setOpen(r.body.name, r.body.model);
-      await loadList(); say(`Saved as ${r.body.name}, in models/${r.body.name}.json`);
+      if (!r.ok) { say(r.body.error || 'Not saved.', true); return; }
+      // With a plan on screen the picture stays as it is; the model's name is the only change.
+      opening++; nameBox.value = ''; if (!saved) KaplaViewer.show(r.body.model); setOpen(r.body.name, r.body.model);
+      await loadList();
+      say(`Saved ${saved ? 'the model and its blocks' : 'the model'} in gallery/${r.body.name}.json. Open a PR to share it.`);
     } catch (_) { say(noServer, true); } };
-  form.onsubmit = e => { e.preventDefault(); if (current) save(nameBox.value, false); };
+  form.onsubmit = e => { e.preventDefault(); if (current) save(nameBox.value, false, current, lastSaved); };
   nameBox.oninput = hideAsk;
-  get('askYes').onclick = () => { if (pending) { const p = pending; current = p.model; save(p.name, true); } };
+  get('askYes').onclick = () => { if (pending) { const p = pending; save(p.name, true, p.model, p.saved); } };
+  // The PR adds the saved file gallery/NAME.json, not what is on screen now.
+  prButton.onclick = async () => { const name = openName; if (busy || !name) return;
+    hideAsk(); say(`Opening a PR for gallery/${name}.json...`); prButton.disabled = true;
+    try { const r = await send('/gallery/' + encodeURIComponent(name) + '/pr', {method:'POST'});
+      if (!r.ok) { say(r.body.error || 'The PR was not opened.', true); return; }
+      say('PR opened: '); const a = document.createElement('a'); a.href = r.body.url; a.textContent = r.body.url;
+      a.target = '_blank'; a.rel = 'noopener'; statusLine.append(a);
+    } catch (_) { say(noServer, true); }
+    finally { prButton.disabled = busy || !openName; } };
   get('askNo').onclick = () => { hideAsk(); say('Not saved.'); };
   loadList().catch(() => say(noServer, true));
   // ---------- the chat ----------
@@ -98,7 +123,7 @@ def siteJs : String := "
   const messages = [];
   const addMsg = (text, kind) => { const d = document.createElement('div'); d.className = 'msg ' + kind; d.textContent = text;
     log.append(d); log.scrollTop = log.scrollHeight; return d; };
-  const setBusy = on => { busy = on; chatSend.disabled = on; generate.disabled = on || !current; list.classList.toggle('busy', on); };
+  const setBusy = on => { busy = on; chatSend.disabled = on; generate.disabled = on || !current; prButton.disabled = on || !openName; list.classList.toggle('busy', on); showEffort(); };
   const sendChat = async () => { const text = chatText.value.trim(); if (!text || busy) return;
     chatText.value = ''; addMsg(text, 'user'); const waiting = addMsg('Claude is working...', 'note'); setBusy(true);
     try { const r = await send('/chat', {method:'POST', headers:{'Content-Type':'application/json'},
@@ -126,7 +151,7 @@ def siteJs : String := "
     // The model is not rescaled after this.
     clearProposal(); KaplaViewer.show(smaller); setOpen(null, smaller);
     say(`Removed ${label}. Generate a new proposal, and save the model to keep this change.`); };
-  const showProposal = (model, p) => { const score = p.score;
+  const showProposal = (model, p) => { const score = p.score; lastSaved = p.saved;
     proposalHeight = KaplaViewer.readNumber(score.height);
     KaplaViewer.showPlan(model, proposalHeight, p.view);
     badges.textContent = '';
@@ -140,15 +165,21 @@ def siteJs : String := "
       b.type = 'button'; b.textContent = 'Remove'; b.onclick = () => removeBubble(label); li.append(b); });
     proposal.hidden = false; };
   generate.onclick = async () => { if (busy || !current) return; const model = current; setBusy(true);
-    proposal.hidden = true; planStatus.className = ''; planStatus.textContent = 'Working on a proposal. An AI planner can take several minutes...';
+    const usesClaude = claudePlanners.includes(plannerBox.value);
+    proposal.hidden = true; planStatus.className = '';
+    planStatus.textContent = !usesClaude ? 'Working on a proposal...'
+      : effort === 'low' ? 'Working on a proposal, with low reasoning. This takes about a minute...'
+      : `Working on a proposal, with ${effort} reasoning. This can take several minutes...`;
     try { const r = await send('/plan', {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({planner: plannerBox.value, blocks: +blocksBox.value, model})});
+        body: JSON.stringify({planner: plannerBox.value, blocks: +blocksBox.value, model, ...(usesClaude ? {effort} : {})})});
       if (!r.ok) { planStatus.className = 'bad'; planStatus.textContent = r.body.error || 'Something went wrong.'; if (proposalHeight !== undefined) proposal.hidden = false; return; }
       if (!r.body.proposal) { clearProposal(); KaplaViewer.show(model); planStatus.textContent = 'This planner made no proposal. The terminal running kapla serve shows why.'; return; }
       planStatus.textContent = ''; showProposal(model, r.body.proposal);
     } catch (_) { planStatus.className = 'bad'; planStatus.textContent = noServer; }
     finally { setBusy(false); } };
-  send('/planners').then(r => { if (r.ok) r.body.planners.forEach(name => { const o = document.createElement('option'); o.textContent = name; plannerBox.append(o); }); }).catch(() => {});
+  send('/planners').then(r => { if (!r.ok) return; claudePlanners = r.body.claude || [];
+    r.body.planners.forEach(name => { const o = document.createElement('option'); o.textContent = name; plannerBox.append(o); });
+    showEffort(); }).catch(() => {});
   send('/status').then(r => { if (r.ok && !r.body.key)
     addMsg('The API key is missing, so the chat cannot work. Put it in semantics/dev/.env and start kapla serve again.', 'bad'); }).catch(() => {});
 })();
@@ -165,11 +196,12 @@ def sitePage : String :=
 <header><h1>Defy Gravity</h1><div id=\"sub\"></div></header>
 <div id=\"site\">
 <aside>
-<h2>Saved models</h2>
+<h2>Gallery</h2>
 <ul id=\"models\"></ul>
-<h2>Save this model</h2>
+<h2>Save to gallery</h2>
 <form id=\"saveForm\"><input id=\"saveName\" placeholder=\"New name\" aria-label=\"Name for this model\" autocomplete=\"off\" maxlength=\"200\">
 <button id=\"saveButton\" disabled>Save</button></form>
+<button id=\"prButton\" type=\"button\" disabled title=\"Open a PR that adds the open gallery entry to the repo\">Open a PR to share it</button>
 <div id=\"ask\" role=\"alertdialog\" hidden><span id=\"askText\"></span><div><button id=\"askYes\" type=\"button\">Replace</button><button id=\"askNo\" type=\"button\">Cancel</button></div></div>
 <div id=\"status\" role=\"status\"></div>
 </aside>
@@ -182,7 +214,9 @@ def sitePage : String :=
 <main>
 <div id=\"planBar\"><label>Planner <select id=\"planner\"></select></label>
 <label>Block limit <input id=\"planBlocks\" type=\"number\" min=\"1\" step=\"1\" value=\"40\"></label>
-<button id=\"generate\" type=\"button\" disabled>Generate proposal</button><span id=\"planStatus\" role=\"status\"></span></div>
+<button id=\"generate\" type=\"button\" disabled>Generate proposal</button>
+<button id=\"effort\" type=\"button\" disabled title=\"How much Claude thinks before it answers, for the planners that ask Claude. Click for the next level. Low is fastest, and fewer of its designs pass the checks. High is slowest, and most of its designs pass.\">Reasoning: high</button>
+<span id=\"planStatus\" role=\"status\"></span></div>
 <div id=\"error\" role=\"alert\" hidden></div>
 <div id=\"view\"></div>
 <div id=\"info\"></div>
@@ -197,11 +231,14 @@ def sitePage : String :=
 <script>" ++ siteJs ++ "</script>
 </body></html>"
 
--- The page has the viewer, the list and the save box.
+-- The page has the viewer, the gallery, the save box and the PR button.
 #guard sitePage.contains "three.min.js"
 #guard sitePage.contains "window.KaplaViewer"
 #guard sitePage.contains "id=\"saveForm\""
+#guard sitePage.contains "<h2>Gallery</h2>"
+#guard sitePage.contains "id=\"prButton\""
 #guard sitePage.contains "id=\"chatForm\""
 #guard sitePage.contains "Generate proposal"
+#guard sitePage.contains "id=\"effort\""
 
 end KaplaWeb

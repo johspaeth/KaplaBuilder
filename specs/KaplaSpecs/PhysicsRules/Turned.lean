@@ -173,6 +173,28 @@ def turnedOf (p : KaplaCore.Pose) : Option TPlank :=
 /-- The turned build for a list of core blocks, if every turn is one of the 15° steps. -/
 def turnedBuildOf (ps : List KaplaCore.Pose) : Option TBuild := ps.mapM turnedOf
 
+/-! ## Axis-aligned planks as turned planks -/
+
+/-- Which face is down and which turn a pose (B4) is, as a turned plank: a pose along `x`
+is turned by 0°, a pose along `y` by 90°. -/
+def Pose.upRot : Pose → Upright × Rot
+  | .flatX => (.flat, .id)
+  | .flatY => (.flat, .quarter)
+  | .edgeX => (.onEdge, .id)
+  | .edgeY => (.onEdge, .quarter)
+  | .standFacingY => (.standing, .id)
+  | .standFacingX => (.standing, .quarter)
+
+/-- An axis-aligned plank (B4, B5) as a turned plank (B6): the same face down, turned by 0°
+or 90°, with the same centre and the same bottom. -/
+def Plank.toT (p : Plank) : TPlank :=
+  ⟨p.pose.upRot.1, p.pose.upRot.2, p.centerX, p.centerY, p.z⟩
+
+/-- Example: a flat plank along `y` at the origin is a flat plank turned by 90°, centred at
+`(3/2, 15/2)`. -/
+example : (Plank.mk .flatY 0 0 0).toT = ⟨.flat, .quarter, 3 / 2, 15 / 2, 0⟩ := by
+  decide +kernel
+
 /-! ## Examples -/
 
 /-- A flat plank turned 45°, on the ground, centred at the origin. -/

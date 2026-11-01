@@ -62,14 +62,14 @@ kapla check blueprint.json
 kapla serve --port 8080
 ```
 
-Today `make run` only prints the list of components (scaffold). To look at a blueprint:
+`make run` starts the website (`kapla serve`) on http://localhost:8000. To look at one blueprint:
 `lake exe kapla view web/examples/house.json --out out/house` (format: [web/README.md](web/README.md)).
 
 ## Quick start
 
 ```sh
 make install   # needs elan; builds everything with Lean 4.35 (pinned in lean-toolchain)
-make run       # runs the `kapla` CLI
+make run       # starts the website on http://localhost:8000 (chat needs an API key)
 make check     # what CI checks (except `lake check` / `lake comparator`, Linux only)
 ```
 
@@ -106,11 +106,9 @@ CI fails if:
 4. **`lake check` fails.** The whole project is replayed through the Lean kernel, and only
    the standard axioms (`propext`, `Quot.sound`, `Classical.choice`) are allowed.
 
-**Comparator is disabled for now.** `lake comparator` (which checks that the proofs prove
-exactly the statements in `specs/`) is not part of **CI OK**, so it does not block merges.
-It runs only at the very end: start it by hand with the **Comparator** GitHub Actions workflow
-(`.github/workflows/comparator.yml`: Actions → Comparator → Run workflow).
-Before the final result, it must be green for every file in `comparator/`.
+5. **`lake comparator` fails** for a file in `comparator/`: the proofs must prove exactly
+   the statements in `specs/`. It runs in the same job as `lake check`, and can also be
+   started on its own with the **Comparator** workflow (Actions → Comparator → Run workflow).
 
 ## How to work
 
