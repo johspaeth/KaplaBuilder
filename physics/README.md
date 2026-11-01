@@ -83,9 +83,9 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 - `plankOf_box`: a core block and the plank it becomes fill the same box.
-- `coreCheck_ok_sound`: when `physicsEngine` says a core plan is `ok`, every step places 1 to
+- `coreCheck_ok_sound`: when `coreCheck opts` says a core plan is `ok`, every step places 1 to
   `hands` blocks, every block has a physics pose, and the blocks, one after the other, are a
-  safe plan for placement errors up to `epsRel` (K4, K5). With the planner's
+  safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5). With the planner's
   `planPure_sound` (its candidates are `ok`), every candidate is a safe plan.
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.
@@ -134,9 +134,11 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
   only up to one level (measured: ε = 30/39 already fails both), so the planner could build
   almost nothing. Core's `HumanModel` docs should be brought in line with R1 (a change to
   `core/`, for the team).
-- **Clearance.** The adapter checks with the default `PlanOptions` (clearance on): blocks
+- **Clearance.** `physicsEngine` checks with the default `PlanOptions` (clearance on): blocks
   that share some height must be 2ε apart (`Clear`), and closer pairs get a `clearance`
-  diagnostic. Core's `clear` is not used.
+  diagnostic. `kapla check --no-clearance` uses `coreCheck { clearance := false }`, which
+  allows touching side-by-side blocks (both examples in `web/examples/` need this). Core's
+  `clear` is not used.
 - **Reach.** K3 gives `unreachable` warnings, which do not change `ok`.
 - **Not used:** `eAbs`, `press`, `clear`, `muSafe`. The engine never reports `slides`,
   `pressTips` or `unevenSupports`, and `slackPerBlock` is `none`. Core has no diagnostic for

@@ -302,29 +302,30 @@ example : KaplaCore.Pose.example.box ≠ (⟨.flatX, 0, 0, 1 / 2⟩ : Plank).toB
 
 /-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
 block has a physics pose, and the blocks, placed one after the other in plan order, are a
-safe plan with the default options: at most `maxBlocks` of them, and after every block
-well-formed, still well-formed and solid for every placement error up to `epsRel` (R1, K4,
-K5). Core's errors that add up from level to level are not covered (R1 is the model). -/
-theorem coreCheck_ok_sound (h : KaplaCore.HumanModel) (maxBlocks : Nat)
-    (plan : KaplaCore.BuildPlan) (hok : (coreCheck h maxBlocks plan).ok = true) :
+safe plan with options `opts`: at most `maxBlocks` of them, and after every block
+well-formed, solid for every placement error up to `epsRel`, and (if `opts.clearance` is on)
+still well-formed for every such error (R1, K4, K5). `physicsEngine` uses the default
+options. Core's errors that add up from level to level are not covered (R1 is the model). -/
+theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
+    (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan {} h.epsRel maxBlocks b := by
+      ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b := by
   sorry
 
 -- One flat block on the ground, with the default builder: the engine says `ok`.
-example : (coreCheck .default 200 ⟨[{ blocks := [KaplaCore.Pose.example] }]⟩).ok = true := by
+example : (coreCheck {} .default 200 ⟨[{ blocks := [KaplaCore.Pose.example] }]⟩).ok = true := by
   decide +kernel
 -- Ruled out: `ok` for a block that floats one unit above the ground (P3).
-example : (coreCheck .default 200
+example : (coreCheck {} .default 200
     ⟨[{ blocks := [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] }]⟩).ok ≠ true := fun hok => by
-  obtain ⟨_, b, hb, hs⟩ := coreCheck_ok_sound _ _ _ hok
+  obtain ⟨_, b, hb, hs⟩ := coreCheck_ok_sound _ _ _ _ hok
   have hf : buildOf [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] = some floating := by decide +kernel
   obtain rfl : b = floating := Option.some.inj (hb.symm.trans hf)
   exact absurd (hs.2 1 (by decide) (by decide)).1 (by decide +kernel)
 -- Ruled out: `ok` for a step with two blocks when the builder has one hand.
-example : (coreCheck { KaplaCore.HumanModel.default with hands := 1 } 200
+example : (coreCheck {} { KaplaCore.HumanModel.default with hands := 1 } 200
     ⟨[{ blocks := [KaplaCore.Pose.example, ⟨.flat, .id, ⟨0, 0, 3 / 2⟩⟩] }]⟩).ok ≠ true :=
-  fun hok => absurd ((coreCheck_ok_sound _ _ _ hok).1 _ (List.mem_singleton_self _)).2
+  fun hok => absurd ((coreCheck_ok_sound _ _ _ _ hok).1 _ (List.mem_singleton_self _)).2
     (by decide)
 
 end KaplaPhysics

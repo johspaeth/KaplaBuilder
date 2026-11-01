@@ -528,10 +528,10 @@ theorem stepDiagnostics_nil (h : KaplaCore.HumanModel) (plan : KaplaCore.BuildPl
 
 /-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
 block has a physics pose, and the blocks, one per step, are a safe plan (K4, K5). -/
-theorem coreCheck_ok_sound (h : KaplaCore.HumanModel) (maxBlocks : Nat)
-    (plan : KaplaCore.BuildPlan) (hok : (coreCheck h maxBlocks plan).ok = true) :
+theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
+    (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan {} h.epsRel maxBlocks b := by
+      ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b := by
   unfold coreCheck at hok
   split at hok
   · simp at hok

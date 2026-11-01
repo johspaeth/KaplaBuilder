@@ -19,9 +19,10 @@ How core's plan is read:
   10/39 (2 mm), as in the rules. Core's `HumanModel` also allows errors that add up from
   level to level (up to `eAbs`); those are not covered. With `ε = eAbs`, no build taller
   than one level would pass, so the team chose R1.
-* **Clearance.** The plan is checked with the default `PlanOptions` (clearance on): blocks
-  that share some height must be at least `2 * epsRel` apart, so no placement error can
-  push them into each other. Pairs that are closer get a `clearance` diagnostic.
+* **Clearance.** `coreCheck` takes the `PlanOptions`; `physicsEngine` uses the default
+  (clearance on): blocks that share some height must be at least `2 * epsRel` apart, so no
+  placement error can push them into each other. When clearance is on, pairs that are
+  closer get a `clearance` diagnostic.
 * **Turns.** Only quarter turns have a physics pose. A plan with any other turn is not
   `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
@@ -60,23 +61,22 @@ def clearancePairs (ε : Rat) (b : Build) : List Diagnostic :=
       i < j && !decide (Overlap (b.get i) (b.get j)) &&
         !decide (ClearPair ε (b.get i) (b.get j))).map fun j => .clearance i j
 
-/-- The first block after which the build is not shown to be well-formed, clear and
-solid. -/
+/-- The first block after which the build is not shown to be well-formed and solid.
+(Blocks that are too close get their own `clearance` diagnostic.) -/
 def firstUnsafeBlock (ε : Rat) (b : Build) : Option Nat :=
   (List.range b.length).find? fun k =>
-    !(decide (WellFormed (b.take (k + 1))) && decide (Clear ε (b.take (k + 1))) &&
-      solidAnswer ε (b.take (k + 1)))
+    !(decide (WellFormed (b.take (k + 1))) && solidAnswer ε (b.take (k + 1)))
 
 /-- `KaplaCore.PhysicsEngine.check`, done by the verified engine.
 
 `ok` is true exactly when every step places 1 to `hands` blocks, every block has a physics
-pose, and `checkPlan` (default options) accepts the blocks as a plan of at most `maxBlocks`
-planks.
+pose, and `checkPlan opts` accepts the blocks as a plan of at most `maxBlocks` planks.
 
 If a block has no physics pose, or the build after a block is not shown to stand, the
 report has `unstable step block` for the first such block. The engine does not say which
 block would fall, so it names the block whose placement went wrong. -/
-def coreCheck (h : HumanModel) (maxBlocks : Nat) (plan : BuildPlan) : PhysicsReport :=
+def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : BuildPlan) :
+    PhysicsReport :=
   let n := plan.blockCount
   let stepOf := fun i => (stepOfBlock plan).getD i 0
   let countDiags : List Diagnostic := if n > maxBlocks then [.tooManyBlocks n maxBlocks] else []
@@ -86,7 +86,7 @@ def coreCheck (h : HumanModel) (maxBlocks : Nat) (plan : BuildPlan) : PhysicsRep
       let bad := (plan.blocks.findIdx? fun p => (plankOf p).isNone).getD 0
       { ok := false, diagnostics := countDiags ++ stepDiags ++ [.unstable (stepOf bad) bad] }
   | some b =>
-      let safe := checkPlan {} h.epsRel maxBlocks b
+      let safe := checkPlan opts h.epsRel maxBlocks b
       let unsafeDiags : List Diagnostic :=
         if safe then [] else
           match firstUnsafeBlock h.epsRel b with
@@ -95,10 +95,12 @@ def coreCheck (h : HumanModel) (maxBlocks : Nat) (plan : BuildPlan) : PhysicsRep
       let reachDiags : List Diagnostic :=
         ((hardToReach dropGap b).map stepOf).eraseDups.map .unreachable
       { ok := stepDiags.isEmpty && safe,
-        diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++ clearancePairs h.epsRel b ++
+        diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++
+          (if opts.clearance then clearancePairs h.epsRel b else []) ++
           unsafeDiags ++ reachDiags }
 
-/-- The verified physics engine, for `app/Main.lean` to pass to the planner. -/
-def physicsEngine : KaplaCore.PhysicsEngine := ⟨coreCheck⟩
+/-- The verified physics engine, for `app/Main.lean` to pass to the planner. Clearance is
+on (the default `PlanOptions`). -/
+def physicsEngine : KaplaCore.PhysicsEngine := ⟨coreCheck {}⟩
 
 end KaplaPhysics
