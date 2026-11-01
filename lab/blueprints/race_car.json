@@ -1,0 +1,194 @@
+{
+ "title": "Papa, a race car with a big spoiler on the back.",
+ "subtitle": "10 planks (car)",
+ "notes": [
+  "Axles, chassis, a nose plank, an on-edge spoiler post, a flat wing on the post.",
+  "Height 6.2 cm. Stands at exact positions after 10 of 10 steps; solid at 2 mm after 2.",
+  "Finished build: risky at 2 mm, solid at 1.95 mm, solid at 1 mm.",
+  "Whole plan fails at 2 mm: first at step 3 (risky)."
+ ],
+ "plan": {
+  "steps": [
+   {
+    "blocks": [
+     {
+      "up": "edge",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "3/2",
+       "15/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "edge",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "27/2",
+       "15/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "3/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "9/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "15/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "21/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "27/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "29/2",
+       "15/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "edge",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "1/2",
+       "15/2",
+       "11/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "1/2",
+       "15/2",
+       "15/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   }
+  ]
+ }
+}

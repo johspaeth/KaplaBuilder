@@ -1,0 +1,158 @@
+{
+ "title": "Papa, a long wiggly snake.",
+ "subtitle": "8 planks (animal)",
+ "notes": [
+  "Ground planks with gaps, bridged by a second layer (a wave), T-shaped head.",
+  "Height 1.6 cm. Stands at exact positions after 8 of 8 steps; solid at 2 mm after 8.",
+  "Finished build: solid at 2 mm, solid at 1.95 mm, solid at 1 mm.",
+  "Whole plan passes at 2 mm."
+ ],
+ "plan": {
+  "steps": [
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "51/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "87/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "123/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "33/2",
+       "3/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "69/2",
+       "3/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "105/2",
+       "3/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "141/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   }
+  ]
+ }
+}

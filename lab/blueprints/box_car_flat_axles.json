@@ -1,0 +1,302 @@
+{
+ "title": "Papa, the car keeps being risky. Fix it.",
+ "subtitle": "16 planks (car)",
+ "notes": [
+  "Same car, but the axles lie flat (3-unit-wide contact) instead of on edge (1-unit).",
+  "Height 3.9 cm. Stands at exact positions after 16 of 16 steps; solid at 2 mm after 16.",
+  "Finished build: solid at 2 mm, solid at 1.95 mm, solid at 1 mm.",
+  "Whole plan passes at 2 mm."
+ ],
+ "plan": {
+  "steps": [
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "3/2",
+       "15/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "27/2",
+       "15/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "3/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "9/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "15/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "21/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "27/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "9/2",
+       "15/2",
+       "5/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "21/2",
+       "15/2",
+       "5/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "9/2",
+       "15/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "21/2",
+       "15/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "3/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "9/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "15/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "21/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "27/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   }
+  ]
+ }
+}

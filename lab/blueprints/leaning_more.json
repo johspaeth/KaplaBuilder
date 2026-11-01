@@ -1,0 +1,590 @@
+{
+ "title": "Papa, lean it more, more.",
+ "subtitle": "32 planks (shape)",
+ "notes": [
+  "Crib tower, 16 levels, each level moved 1 unit (7.8 mm) along x.",
+  "Height 12.5 cm. Stands at exact positions after 28 of 32 steps; solid at 2 mm after 19.",
+  "Finished build: falls at 2 mm, falls at 1.95 mm, falls at 1 mm.",
+  "Whole plan fails at 2 mm: first at step 4 (risky)."
+ ],
+ "plan": {
+  "steps": [
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "27/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "5/2",
+       "15/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "29/2",
+       "15/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "19/2",
+       "3/2",
+       "5/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "19/2",
+       "27/2",
+       "5/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "9/2",
+       "15/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "33/2",
+       "15/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "23/2",
+       "3/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "23/2",
+       "27/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "13/2",
+       "15/2",
+       "11/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "37/2",
+       "15/2",
+       "11/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "27/2",
+       "3/2",
+       "13/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "27/2",
+       "27/2",
+       "13/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "17/2",
+       "15/2",
+       "15/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "41/2",
+       "15/2",
+       "15/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "31/2",
+       "3/2",
+       "17/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "31/2",
+       "27/2",
+       "17/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "21/2",
+       "15/2",
+       "19/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "45/2",
+       "15/2",
+       "19/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "35/2",
+       "3/2",
+       "21/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "35/2",
+       "27/2",
+       "21/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "25/2",
+       "15/2",
+       "23/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "49/2",
+       "15/2",
+       "23/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "39/2",
+       "3/2",
+       "25/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "39/2",
+       "27/2",
+       "25/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "29/2",
+       "15/2",
+       "27/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "53/2",
+       "15/2",
+       "27/2"
+      ]
+     }
+    ],
+    "phase": "risky at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "43/2",
+       "3/2",
+       "29/2"
+      ]
+     }
+    ],
+    "phase": "falls",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "43/2",
+       "27/2",
+       "29/2"
+      ]
+     }
+    ],
+    "phase": "falls",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "33/2",
+       "15/2",
+       "31/2"
+      ]
+     }
+    ],
+    "phase": "falls",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "57/2",
+       "15/2",
+       "31/2"
+      ]
+     }
+    ],
+    "phase": "falls",
+    "approach": "fromAbove"
+   }
+  ]
+ }
+}
