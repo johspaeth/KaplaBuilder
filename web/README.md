@@ -30,8 +30,8 @@ Requests between the page and the server. Every answer is JSON, and a failure ha
 | `GET /models/NAME` | | The model. 404 if there is none, 422 if the file is not a good model |
 | `GET /status` | | `{"key": true or false}`: does the server have an API key? |
 | `POST /chat` | `{"text": newest message, "messages": [{"role": "user" or "assistant", "text": text}], "model": model on screen or null}` | `{"reply": text, "model": new model, or null if Claude only answered}`. 503 with no key, 502 if Claude failed |
-| `GET /planners` | | `{"planners": [names]}`, from `KaplaPlanner.strategies` |
-| `POST /plan` | `{"planner": name, "blocks": block limit, "model": model on screen}` | `{"proposal": ...}`, or null if the planner made none. A proposal has `view` (blocks and steps for the viewer), `score` (the score report), `stands` and `physics` (lines of text). 504 if the planner takes over 15 minutes |
+| `GET /planners` | | `{"planners": [names], "claude": [names]}`, from `KaplaPlanner.strategies`. The `claude` ones ask Claude and take an `effort` |
+| `POST /plan` | `{"planner": name, "blocks": block limit, "model": model on screen, "effort": "low", "medium" or "high"}` (`effort` is optional, default `"high"`; only the planners that ask Claude use it) | `{"proposal": ...}`, or null if the planner made none. A proposal has `view` (blocks and steps for the viewer), `score` (the score report), `stands` and `physics` (lines of text). 504 if the planner takes over 15 minutes |
 | `POST /models` | `{"name": text, "model": model, "overwrite": true or false}` | `{"name": clean name, "model": saved model}`. 409 with `{"name": clean name}` if the name exists and `overwrite` is not true. 400 if the name or the model is bad |
 
 A planner gives one plan. The server runs physics and the scorer on it again, so "Stands" and "Accepted"
