@@ -183,6 +183,9 @@ def demoModels : List BubbleModel :=
 def demoBudgets : List Nat := [10, 40, 100]
 
 -- Every demo model is well formed, and the names are different.
+#guard [ballModel, bunnyModel, eggModel, footModel].all (·.wellFormed)
+#guard [bridgeModel, archModel, pyramidModel, towerModel, overhangModel].all (·.wellFormed)
+#guard [dogModel, duckModel, cakeModel, horseModel].all (·.wellFormed)
 #guard demoModels.all (·.wellFormed)
 #guard (demoModels.map (·.name)).eraseDups.length == demoModels.length
 
