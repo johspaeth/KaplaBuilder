@@ -1,5 +1,5 @@
 # Comparator: checks that the proofs prove exactly the statements in specs/.
-# Disabled in the merge gate (see README, "Rules for main"). Run it by hand at the very end:
+# It also runs in the merge gate (ci.yml, job `verify`). This workflow runs it on its own:
 # Actions -> Comparator -> Run workflow.
 name: Comparator
 

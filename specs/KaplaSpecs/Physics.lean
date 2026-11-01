@@ -86,8 +86,8 @@ example : ¬ ¬ Stable e1 := fun h => h e1_stable
 /-- Property 4 ("the plan is safe"): when the engine accepts a plan, it uses at most
 `maxPlanks` planks, and after every step the build so far is well-formed, is solid for
 placement errors up to `ε`, and (only when `opts.clearance` is on, the default) keeps its
-gaps for those errors: planks that do not touch in the plan are not pushed into each other,
-and no plank goes into a slot exactly its own width (K4, K5, H6). -/
+gaps for those errors: planks that are not face to face in the plan are not pushed into each
+other, and no plank goes into a slot exactly its own width (K4, K5, R6, R7). -/
 theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   sorry
@@ -116,7 +116,7 @@ example : ¬ SafePlan { clearance := true } placementError 200
     [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] := fun h =>
   ((h.2 2 (by decide) (by decide)).2.1 rfl).1
     (fun i => if i = 0 then (0, 1 / 4) else (0, -1 / 4)) (by unfold SmallShift; decide +kernel)
-    0 (by decide) 1 (by decide) (by decide +kernel) (by decide +kernel)
+    0 (by decide) 1 (by decide) (by decide) (by decide +kernel) (by decide +kernel)
 
 /-- Property 5 ("reachable" is right): when the checker finds a direction, the drop gap
 `h` is above zero, and the plank can come in along it in a straight line from far away and
@@ -322,6 +322,19 @@ example : checkTPushes [flat45]
 example : checkTPushes [flat45] [⟨0, .ground, 165 / 26, 111 / 26, 1⟩] = false := by
   decide +kernel
 
+/-- F4 in two forms agree: an axis-aligned build is stable with pushes at the corners of its
+contact patches (`Stable`, B4) exactly when it is stable with pushes anywhere in its patches,
+read as turned planks at 0° or 90° (`TStable`, B6). So the two checks mean the same for
+builds that both can read. -/
+theorem stable_iff_tStable (b : Build) : Stable b ↔ TStable (b.map Plank.toT) := by
+  sorry
+
+-- E1 stands both ways.
+example : Stable e1 ∧ TStable (e1.map Plank.toT) :=
+  ⟨e1_stable, (stable_iff_tStable e1).1 e1_stable⟩
+-- Ruled out: the turned reading of E4 standing. E4 falls.
+example : ¬ TStable (e4.map Plank.toT) := fun h => e4_not_stable ((stable_iff_tStable e4).2 h)
+
 /-- B6: when the engine accepts a turned plan, it uses at most `maxPlanks` planks, and after
 every step the build so far is well-formed and stable at the planned positions. Placement
 errors are not checked for turned plans. -/
@@ -347,8 +360,10 @@ level to level are not covered (R1 is the model). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ((∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
-        (buildOf plan.blocks = none ∧
+      (((coreCheck opts h maxBlocks plan).assurance = .robust ∧
+          ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
+        ((coreCheck opts h maxBlocks plan).assurance = .nominal ∧ opts.allowNominal = true ∧
+          buildOf plan.blocks = none ∧
           ∃ tb, turnedBuildOf plan.blocks = some tb ∧ TSafePlan maxBlocks tb)) := by
   sorry
 
@@ -359,10 +374,17 @@ example : (coreCheck {} .default 200 ⟨[{ blocks := [KaplaCore.Pose.example] }]
 example : (coreCheck {} .default 200
     ⟨[{ blocks := [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] }]⟩).ok ≠ true := fun hok => by
   have hf : buildOf [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] = some floating := by decide +kernel
-  rcases (coreCheck_ok_sound _ _ _ _ hok).2 with ⟨b, hb, hs⟩ | ⟨hnone, _⟩
+  rcases (coreCheck_ok_sound _ _ _ _ hok).2 with ⟨-, b, hb, hs⟩ | ⟨-, -, hnone, _⟩
   · obtain rfl : b = floating := Option.some.inj (hb.symm.trans hf)
     exact absurd (hs.2 1 (by decide) (by decide)).1 (by decide +kernel)
   · exact absurd (hnone.symm.trans hf) (by simp)
+-- With `allowNominal` off, every `ok` comes from the full check, with placement errors.
+example (h : KaplaCore.HumanModel) (maxBlocks : Nat) (plan : KaplaCore.BuildPlan)
+    (hok : (coreCheck { allowNominal := false } h maxBlocks plan).ok = true) :
+    (coreCheck { allowNominal := false } h maxBlocks plan).assurance = .robust := by
+  rcases (coreCheck_ok_sound _ _ _ _ hok).2 with ⟨ha, -⟩ | ⟨-, hn, -⟩
+  · exact ha
+  · cases hn
 -- Ruled out: `ok` for a step with two blocks when the builder has one hand.
 example : (coreCheck {} { KaplaCore.HumanModel.default with hands := 1 } 200
     ⟨[{ blocks := [KaplaCore.Pose.example, ⟨.flat, .id, ⟨0, 0, 3 / 2⟩⟩] }]⟩).ok ≠ true :=

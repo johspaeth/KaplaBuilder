@@ -50,7 +50,7 @@ jobs:
         run: lake exe kapla gallery-check
 
   verify:
-    name: Kernel check
+    name: Kernel check and comparator
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +73,14 @@ jobs:
         run: lake build KaplaSpecs
       - name: lake check (replay everything through the kernel, standard axioms only)
         run: lake check
+      - name: lake comparator (proofs prove exactly the statements in specs/)
+        run: |
+          shopt -s nullglob
+          for cfg in comparator/*.json; do
+            echo "::group::comparator $cfg"
+            lake comparator --config "$cfg"
+            echo "::endgroup::"
+          done
 
   ci-ok:
     name: CI OK

@@ -127,11 +127,12 @@ def verdict (ε : Rat) (b : Build) : Verdict :=
     | .falls => .falls
     | .unknown => .unknown
 
-/-- Planks `p` and `q` are fine for placement errors up to `ε`: they touch by design
-(`Meets`), or they do not share any height, or there is a gap of at least `2 * ε` between
-them along `x` or along `y`. Only a near miss fails: a gap above 0 and below `2 * ε`. -/
+/-- Planks `p` and `q` are fine for placement errors up to `ε`: they touch face to face by
+design (`FaceToFace`, R5), or they do not share any height, or there is a gap of at least
+`2 * ε` between them along `x` or along `y`. A near miss fails (a gap above 0 and below
+`2 * ε`), and so does a touch only at an edge or a corner. -/
 def ClearPair (ε : Rat) (p q : Plank) : Prop :=
-  Meets p q ∨ (p.top ≤ q.z ∨ q.top ≤ p.z) ∨
+  FaceToFace p q ∨ (p.top ≤ q.z ∨ q.top ≤ p.z) ∨
     (p.x1 + 2 * ε ≤ q.x ∨ q.x1 + 2 * ε ≤ p.x) ∨
     (p.y1 + 2 * ε ≤ q.y ∨ q.y1 + 2 * ε ≤ p.y)
 

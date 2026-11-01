@@ -30,8 +30,12 @@ import KaplaWeb
 
 By default the engine also asks that a 3.9 mm error can never close a gap between two
 blocks, and that no block goes into a slot exactly its own width. `--no-clearance` turns
-these two checks off. Blocks that touch in the plan (side by side, end to end, one on
-another) are fine either way.
+these two checks off. Blocks that touch face to face in the plan (side by side, end to end)
+or sit one on another are fine either way; blocks that touch only at an edge or a corner
+must keep a gap.
+
+A plan with turned blocks (B6) is checked at the planned positions only, and the report
+says so (`assurance := .nominal`). `--robust-only` refuses such plans.
 -/
 
 open Lean (Json JsonNumber)
@@ -108,6 +112,80 @@ def readBuildPlan (txt : String) : Except String BuildPlan := do
              phase := (st.getObjValAs? String "phase").toOption.getD "" : KaplaCore.Step }
   return ⟨steps⟩
 
+/-- A block turned by `deg` degrees, as blueprint JSON. -/
+def degBlockJson (deg : Int) : Json :=
+  Json.mkObj [("up", "flat"), ("rot", Json.mkObj [("deg", deg)]),
+    ("center", Json.arr #[0, 0, "1/2"])]
+
+/-- The physics engine and the viewer read a `{"deg": d}` turn as the same turn: the viewer
+draws the exact turn that is checked. Tested for all 24 steps of 15°, and for negative
+angles. -/
+def turnsAgree (deg : Int) : Bool :=
+  match readPose (degBlockJson deg), KaplaWeb.readBlock (degBlockJson deg) with
+  | .ok p, .ok b => KaplaWeb.ratToFloat p.rot.cos == b.c && KaplaWeb.ratToFloat p.rot.sin == b.s
+  | _, _ => false
+
+#guard (List.range 24).all fun k => turnsAgree (15 * k)
+#guard [-15, -45, -90, 360, 405].all turnsAgree
+
+/-- The point `(x, y)` is strictly inside the rectangle the viewer draws for `b`. -/
+def drawnInside (b : KaplaWeb.ViewBlock) (x y : Float) : Bool :=
+  let u := b.c * (x - b.x) + b.s * (y - b.y)
+  let v := -b.s * (x - b.x) + b.c * (y - b.y)
+  u.abs < KaplaWeb.blockL / 2 && v.abs < KaplaWeb.blockW / 2
+
+/-- Found in review: a flat block and one at 45°, close but not touching in the checked
+geometry. With literal 45° the viewer drew them overlapping at `(7.49, -4.24)`. -/
+def nearContact : String :=
+  "{\"steps\":[{\"blocks\":[{\"up\":\"flat\",\"center\":[0,-4,\"1/2\"]}]}," ++
+  "{\"blocks\":[{\"up\":\"flat\",\"rot\":{\"deg\":45},\"center\":[\"180/13\",0,\"1/2\"]}]}]}"
+
+#guard match KaplaWeb.parsePlan nearContact with
+  | .ok p => match p.steps with
+    | [s0, s1] => match s0.blocks, s1.blocks with
+      | [a], [b] => !(drawnInside a 7.49 (-4.24) && drawnInside b 7.49 (-4.24))
+      | _, _ => false
+    | _ => false
+  | .error _ => false
+
+/-! ## From the AI planner to a safe plan -/
+
+/-- End to end: when the planner's `ai` strategy passes a design, checked with the real
+physics engine, the design's plan is one the engine accepts, so `coreCheck_ok_sound` holds
+for it: either a safe plan under placement errors up to `epsRel` (`robust`), or, for turned
+blocks, a plan that stands at its planned positions (`nominal`). -/
+theorem ai_passed_safe (req : KaplaCore.PlanRequest) (sem : KaplaCore.SemanticEngine)
+    (reply : Except String String) (c : KaplaCore.Candidate)
+    (hpass : (KaplaPlanner.judge req (some KaplaPhysics.physicsEngine) sem reply).passed = true)
+    (hcand : (KaplaPlanner.judge req (some KaplaPhysics.physicsEngine) sem reply).candidate =
+      some c) :
+    c.physics = KaplaPhysics.coreCheck {} req.human req.blocks c.plan ∧
+      (∀ st ∈ c.plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ req.human.hands) ∧
+      ((c.physics.assurance = .robust ∧ ∃ b, KaplaPhysics.buildOf c.plan.blocks = some b ∧
+          KaplaPhysics.SafePlan {} req.human.epsRel req.blocks b) ∨
+        (c.physics.assurance = .nominal ∧ KaplaPhysics.buildOf c.plan.blocks = none ∧
+          ∃ tb, KaplaPhysics.turnedBuildOf c.plan.blocks = some tb ∧
+            KaplaPhysics.TSafePlan req.blocks tb)) := by
+  obtain ⟨he, hok, -⟩ := KaplaPlanner.judge_checked_passed req _ sem reply c hpass hcand
+  have he' : c.physics = KaplaPhysics.coreCheck {} req.human req.blocks c.plan := he
+  rw [he'] at hok ⊢
+  obtain ⟨hsteps, hsafe⟩ := KaplaPhysics.coreCheck_ok_sound {} req.human req.blocks c.plan hok
+  refine ⟨rfl, hsteps, ?_⟩
+  rcases hsafe with ⟨ha, hb⟩ | ⟨ha, -, hb⟩
+  · exact Or.inl ⟨ha, hb⟩
+  · exact Or.inr ⟨ha, hb⟩
+
+-- Every hypothesis of `ai_passed_safe` can hold: one flat block on the ground, checked by the
+-- real physics engine, passes, has a candidate, and gets the full (`robust`) check. A
+-- `#guard`, as in the planner: the kernel cannot evaluate JSON reading or the engines.
+#guard
+  let d := KaplaPlanner.judge { target := .egg, blocks := 4 } (some KaplaPhysics.physicsEngine)
+    KaplaCore.semanticMock
+    (.ok "{\"height\":\"30\",\"blocks\":[{\"up\":\"flat\",\"turn\":0,\"x\":\"0\",\"y\":\"0\",\"z\":\"1/2\"}]}")
+  d.passed && match d.candidate with
+    | some c => c.physics.assurance == .robust
+    | none => false
+
 /-! ## Running the physics engine -/
 
 /-- Default block budget: one Kapla box (K5). -/
@@ -131,17 +209,22 @@ are checked at the planned positions only. -/
 def hasTurnedBlocks (plan : BuildPlan) : Bool :=
   (KaplaPhysics.buildOf plan.blocks).isNone && (KaplaPhysics.turnedBuildOf plan.blocks).isSome
 
-/-- Short lines for the page notes and the terminal. -/
+/-- Short lines for the page notes and the terminal. The first line says what `ok` promises,
+read from the report's `assurance`: `robust` covers placement errors and gaps, `nominal`
+only the planned positions. -/
 def physicsLines (opts : KaplaPhysics.PlanOptions) (plan : BuildPlan) (r : PhysicsReport) :
     List String :=
+  let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
   let first :=
-    if hasTurnedBlocks plan then
-      if r.ok then "Physics (verified): well-formed and stands after every block, at the planned positions (turned blocks: placement errors, gaps and reach not checked)"
-      else "Physics (verified): not shown to stand at the planned positions (turned blocks)"
-    else
-      let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
-      if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
-      else s!"Physics (verified): not shown to be safe to build{clearance}"
+    match r.ok, r.assurance with
+    | true, .robust =>
+      s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
+    | true, .nominal =>
+      "Physics (verified): well-formed and stands after every block, at the planned positions only (turned blocks: placement errors, gaps and reach not checked)"
+    | false, _ =>
+      if hasTurnedBlocks plan then
+        "Physics: not shown to stand at the planned positions (turned blocks)"
+      else s!"Physics: not shown to be safe to build{clearance}"
   first :: r.diagnostics.map describe
 
 /-- Run the verified physics engine (`physicsEngine` when clearance is on). -/
@@ -753,15 +836,17 @@ def galleryCheck : IO UInt32 := do
   return if bad == 0 then 0 else 1
 
 def usage : String :=
-  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]\n" ++
+  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance] [--robust-only]\n" ++
+  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance] [--robust-only]\n" ++
   "       kapla plan [--blocks N] [--strategy NAME] [--effort low|medium|high] [--target MODEL.json] [--out BLUEPRINT.json]\n" ++
   "       kapla serve [--port N]\n" ++
   "       kapla gallery-check"
 
 def main (args : List String) : IO UInt32 := do
-  let opts : KaplaPhysics.PlanOptions := { clearance := !args.contains "--no-clearance" }
-  match args.filter (· != "--no-clearance") with
+  let opts : KaplaPhysics.PlanOptions :=
+    { clearance := !args.contains "--no-clearance",
+      allowNominal := !args.contains "--robust-only" }
+  match args.filter (fun a => a != "--no-clearance" && a != "--robust-only") with
   | ["check", file] => check opts file defaultMaxBlocks
   | ["check", file, "--max", n] =>
     match n.toNat? with

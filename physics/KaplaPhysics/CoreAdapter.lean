@@ -21,15 +21,17 @@ How core's plan is read:
   level to level (up to `eAbs`); those are not covered. With `ε = eAbs`, no build taller
   than one level would pass, so the team chose R1.
 * **Clearance.** `coreCheck` takes the `PlanOptions`; `physicsEngine` uses the default
-  (clearance on). Blocks that touch in the plan are still fine, but two blocks with a gap
-  must keep it: the gap must be at least `2 * epsRel`, so no placement error can close it.
+  (clearance on). Blocks face to face in the plan are still fine (R5), but two blocks with a
+  gap, or that touch only at an edge or a corner, must keep apart: the gap must be at least `2 * epsRel`, so no placement error can close it.
   Pairs with a smaller gap get a `clearance` diagnostic. A block that goes into a slot
   exactly its own width, between two blocks placed before it, gets a `tightSlot`
   diagnostic.
 * **Turns.** A plan with only quarter turns gets the full check below. A plan with some
   other turn in steps of 15° (B6) is checked at the planned positions only: well-formed
   and stable after every block (`checkTurnedPlan`), without placement errors, gaps or
-  reach. A plan with any other turn is not `ok`.
+  reach. The report then has `assurance := .nominal`; the full check gives `.robust`.
+  With `opts.allowNominal` off, such a plan is not `ok`. A plan with any other turn is not
+  `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
   plan not `ok`.
 * **Not modelled:** `eAbs`, `clear` and `muSafe` are not used, and the engine never gives
@@ -113,7 +115,7 @@ def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : Bu
               match firstUnsafeTurned tb with
               | some k => [.unstable (stepOf k) k]
               | none => []
-          { ok := stepDiags.isEmpty && safe,
+          { ok := opts.allowNominal && stepDiags.isEmpty && safe,
             diagnostics := countDiags ++ stepDiags ++ tOverlapPairs tb ++ unsafeDiags }
       | none =>
           let bad := (plan.blocks.findIdx? fun p => (turnedOf p).isNone).getD 0
@@ -127,7 +129,7 @@ def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : Bu
           | none => []
       let reachDiags : List Diagnostic :=
         ((hardToReach dropGap b).map stepOf).eraseDups.map .unreachable
-      { ok := stepDiags.isEmpty && safe,
+      { ok := stepDiags.isEmpty && safe, assurance := .robust,
         diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++
           (if opts.clearance then
             clearancePairs h.epsRel b ++ ((tightSlots b).map stepOf).map .tightSlot
