@@ -17,22 +17,45 @@ Run it from the top folder of the repo. `--port N` picks another port. Only this
 it. The page needs internet once, to load three.js. The page is `KaplaWeb/Site.lean`, the server is
 in `app/Main.lean`. CI does not run browser code, so test a change to the page in a browser.
 
-Saved models are plain files in `models/`, always at height 1. The website does not use git: commit
-a file to share it. A file name uses only small letters, digits, `-` and `_`; other files in the
-folder are not listed. Saving keeps only the fields of the format, so a `comment` is lost.
+### The gallery
+
+The gallery is the folder `gallery/`: one file per entry. An entry is a target (a bubble model, at
+height 1) and, if a proposal was on screen when it was saved, the block plan for it. Open an entry
+and the page shows the target, and the blocks with their badges and score. The server runs physics
+and the scorer on the plan again each time, so a file cannot say that a plan stands.
+
+```json
+{ "name": "bunny",                 // the same as the file name: gallery/bunny.json
+  "model": { "name": "bunny", "bubbles": [...] },   // the bubble model (format below)
+  "proposal": {                    // optional: no plan, only the target
+    "planner": "ai",               // the planner that made it
+    "blocks": 40,                  // its block limit, 1 to 200; the plan uses at most this many
+    "height": "61/2",              // the height it chose, an exact number
+    "steps": [...] } }             // the steps, in the blueprint format below
+```
+
+A file name uses only small letters, digits, `-` and `_`; other files in the folder are not listed.
+Saving keeps only the fields of the format, so a `comment` is lost.
+
+**Share an entry.** Open it and press "Open a PR to share it". The server opens a PR on this repo
+that adds `gallery/NAME.json` (the saved file, not what is on screen). It works in a new git
+worktree off `origin/main` and deletes it after, so your checkout and branch do not change. It needs
+`gh`, logged in (`gh auth login`), and the right to push to `origin`. Without them, commit the file
+and open a PR yourself. CI runs `kapla gallery-check`: every file in `gallery/` must be a good entry.
 
 Requests between the page and the server. Every answer is JSON, and a failure has `{"error": text}`.
 
 | Request | Sends | Answer |
 |---|---|---|
 | `GET /` | | The page (HTML) |
-| `GET /models` | | `{"models": ["bunny", "egg"]}` |
-| `GET /models/NAME` | | The model. 404 if there is none, 422 if the file is not a good model |
+| `GET /gallery` | | `{"entries": ["bunny", "egg"]}` |
+| `GET /gallery/NAME` | | `{"name", "model", "proposal"}`: `proposal` is null with no plan, else as in `POST /plan`. 404 if there is none, 422 if the file is not a good entry |
 | `GET /status` | | `{"key": true or false}`: does the server have an API key? |
 | `POST /chat` | `{"text": newest message, "messages": [{"role": "user" or "assistant", "text": text}], "model": model on screen or null}` | `{"reply": text, "model": new model, or null if Claude only answered}`. 503 with no key, 502 if Claude failed |
 | `GET /planners` | | `{"planners": [names], "claude": [names]}`, from `KaplaPlanner.strategies`. The `claude` ones ask Claude and take an `effort` |
-| `POST /plan` | `{"planner": name, "blocks": block limit, "model": model on screen, "effort": "low", "medium" or "high"}` (`effort` is optional, default `"high"`; only the planners that ask Claude use it) | `{"proposal": ...}`, or null if the planner made none. A proposal has `view` (blocks and steps for the viewer), `score` (the score report), `stands` and `physics` (lines of text). 504 if the planner takes over 15 minutes |
-| `POST /models` | `{"name": text, "model": model, "overwrite": true or false}` | `{"name": clean name, "model": saved model}`. 409 with `{"name": clean name}` if the name exists and `overwrite` is not true. 400 if the name or the model is bad |
+| `POST /plan` | `{"planner": name, "blocks": block limit, "model": model on screen, "effort": "low", "medium" or "high"}` (`effort` is optional, default `"high"`; only the planners that ask Claude use it) | `{"proposal": ...}`, or null if the planner made none. A proposal has `view` (blocks and steps for the viewer), `score` (the score report), `stands`, `physics` (lines of text) and `saved` (the plan, as a gallery file keeps it). 504 if the planner takes over 15 minutes |
+| `POST /gallery` | `{"name": text, "model": model, "overwrite": true or false, "proposal": the proposal's "saved", or null}` | `{"name": clean name, "model": saved model}`. 409 with `{"name": clean name}` if the name exists and `overwrite` is not true. 400 if the name, the model or the plan is bad |
+| `POST /gallery/NAME/pr` | | `{"url": the PR}`. 503 without `gh` logged in, 502 if git or `gh` failed |
 
 A planner gives one plan. The server runs physics and the scorer on it again, so "Stands" and "Accepted"
 do not depend on what a planner says about itself. A new model on screen clears the proposal.
