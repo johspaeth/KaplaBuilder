@@ -22,7 +22,10 @@ import KaplaWeb
   Claude and need `ANTHROPIC_API_KEY`.
 
 * `kapla serve [--port N]` starts the website on this computer only (default port 8000). Run it
-  from the top folder of the repo: saved models are in `models/`. Requests: `web/README.md`.
+  from the top folder of the repo: the gallery is in `gallery/`. Requests: `web/README.md`.
+
+* `kapla gallery-check` reads every file in `gallery/` and lists the ones that are not good entries.
+  Exit code 0 when all are good. CI runs it, so a gallery PR with a broken file cannot merge.
 
 By default the engine also asks that a 3.9 mm error can never close a gap between two
 blocks, and that no block goes into a slot exactly its own width. `--no-clearance` turns
@@ -236,10 +239,10 @@ def plan (name : String) (blocks : Nat) (targetFile out : Option String) : IO UI
 `kapla serve` answers the page's requests. Only `Site.lean` in `web/` knows what the page looks
 like, and only `decode` decides what a good model is. -/
 
-/-- The folder for saved models, from the top folder of the repo. -/
-def modelsDir : System.FilePath := "models"
+/-- The gallery folder, from the top folder of the repo. -/
+def galleryDir : System.FilePath := "gallery"
 
-/-- Make a name safe to use as a file name, so a save stays inside `models/`. It keeps small letters,
+/-- Make a name safe to use as a file name, so a save stays inside `gallery/`. It keeps small letters,
 digits, `-` and `_`. Capital letters become small. Anything else becomes one `-`. At most 64 letters.
 With nothing left, the result is empty. -/
 def cleanName (name : String) : String :=
@@ -262,12 +265,12 @@ def cleanName (name : String) : String :=
 #guard cleanName "..." == ""
 #guard (cleanName (String.ofList (List.replicate 100 'x'))).length == 64
 
-/-- Where a saved model with this clean name lives. -/
-def modelPath (name : String) : System.FilePath := modelsDir / (name ++ ".json")
+/-- Where the gallery entry with this clean name lives. -/
+def entryPath (name : String) : System.FilePath := galleryDir / (name ++ ".json")
 
-/-- The names of the saved models, in order. A file whose name is not clean is left out. -/
-def listModels : IO (List String) := do
-  let entries ← modelsDir.readDir
+/-- The names of the gallery entries, in order. A file whose name is not clean is left out. -/
+def listEntries : IO (List String) := do
+  let entries ← galleryDir.readDir
   let names := entries.toList.filterMap fun e =>
     let p := e.path
     match p.extension, p.fileStem with
@@ -284,47 +287,228 @@ structure Reply where
 def errorReply (status : Std.Http.Status) (message : String) : Reply :=
   { status, json := (Json.mkObj [("error", Json.str message)]).compress }
 
-/-- `GET /models` -/
-def getModels : IO Reply := do
-  let names ← listModels
-  return { json := (Json.mkObj [("models", Json.arr (names.map Json.str).toArray)]).compress }
+/-! ### Gallery entries
 
-/-- `GET /models/NAME`: the model, after `decode` has checked the file. -/
-def getModel (name : String) : IO Reply := do
-  if cleanName name != name || name.isEmpty then
-    return errorReply .notFound "there is no model with this name"
-  let path := modelPath name
-  unless ← path.pathExists do
-    return errorReply .notFound "there is no model with this name"
-  match KaplaSemantics.decode (← IO.FS.readFile path) with
-  | .ok m => return { json := KaplaSemantics.encode m }
-  | .error e => return errorReply .unprocessableEntity s!"the file is not a good model: {e}"
+A file `gallery/NAME.json` holds a target (`model`, a bubble model) and, if there is one, the block plan a
+planner made for it (`proposal`). The file does not say whether the plan stands or what it scores: the
+server works that out again each time it opens the file. -/
 
-/-- `POST /models` with `name`, `model` and `overwrite`. The saved model takes the clean name. An
-existing name is replaced only with `overwrite` true; otherwise the reply is 409. -/
-def postModel (body : String) : IO Reply := do
-  let parsed : Except String (String × Bool × KaplaCore.BubbleModel) := do
+/-- A plan in the blueprint format of `web/README.md`, for drawing. `readBuildPlan` reads it back
+exactly. -/
+def planToViewJson (plan : BuildPlan) : Json :=
+  let up : Upright → String
+    | .flat => "flat" | .onEdge => "edge" | .standing => "upright"
+  let num := KaplaSemantics.ratToJson
+  let pose (b : KaplaCore.Pose) := Json.mkObj
+    [ ("up", Json.str (up b.up))
+    , ("rot", Json.mkObj [("c", num b.rot.cos), ("s", num b.rot.sin)])
+    , ("center", KaplaSemantics.q3ToJson b.center) ]
+  Json.mkObj [("steps", Json.arr (plan.steps.map fun st => Json.mkObj
+    [ ("blocks", Json.arr (st.blocks.map pose).toArray), ("phase", Json.str st.phase) ]).toArray)]
+
+/-- A block plan kept in the gallery: the planner that made it, the block limit it had, the height
+it chose for the target, and the steps. -/
+structure SavedPlan where
+  planner : String
+  blocks : Nat
+  height : Q
+  plan : BuildPlan
+
+/-- One gallery entry: its name, the target, and maybe a block plan for the target. -/
+structure Entry where
+  name : String
+  model : KaplaCore.BubbleModel
+  proposal : Option SavedPlan
+
+/-- A saved plan as JSON: `planner`, `blocks`, `height` and `steps`. Numbers are exact. -/
+def savedPlanToJson (p : SavedPlan) : Json :=
+  Json.mkObj
+    [ ("planner", Json.str p.planner)
+    , ("blocks", Lean.toJson p.blocks)
+    , ("height", KaplaSemantics.ratToJson p.height)
+    , ("steps", (planToViewJson p.plan).getObjValD "steps") ]
+
+/-- Read a saved plan. The block limit is from 1 to `defaultMaxBlocks`, the plan uses at most that many
+blocks, and the height is above 0. -/
+def readSavedPlan (j : Json) : Except String SavedPlan := do
+  let planner ← j.getObjValAs? String "planner"
+  let blocks ← j.getObjValAs? Nat "blocks"
+  let height ← readQ (← j.getObjVal? "height")
+  let plan ← readBuildPlan j.compress
+  unless 0 < blocks && blocks ≤ defaultMaxBlocks do
+    throw s!"\"blocks\" must be from 1 to {defaultMaxBlocks}, got {blocks}"
+  unless plan.blockCount ≤ blocks do
+    throw s!"the plan uses {plan.blockCount} blocks, more than its limit of {blocks}"
+  unless 0 < height do
+    throw s!"\"height\" must be above 0"
+  return { planner, blocks, height, plan }
+
+/-- An entry as JSON, as it is written to a file. -/
+def entryToJson (e : Entry) : Json :=
+  Json.mkObj <|
+    [ ("name", Json.str e.name), ("model", KaplaSemantics.modelToJson e.model) ] ++
+    match e.proposal with
+    | some p => [("proposal", savedPlanToJson p)]
+    | none => []
+
+/-- Read the `model` and `proposal` of an entry, or of a save request. `decode` checks the model. -/
+def readModelAndPlan (j : Json) :
+    Except String (KaplaCore.BubbleModel × Option SavedPlan) := do
+  let model ← KaplaSemantics.decode (← j.getObjVal? "model").compress
+  let proposal ← match j.getObjVal? "proposal" with
+    | .ok .null | .error _ => pure none
+    | .ok p => some <$> (readSavedPlan p).mapError (s!"proposal: " ++ ·)
+  return (model, proposal)
+
+/-- Read a gallery file. -/
+def readEntry (text : String) : Except String Entry := do
+  let j ← KaplaSemantics.parseJson text
+  let name ← j.getObjValAs? String "name"
+  let (model, proposal) ← readModelAndPlan j
+  return { name, model, proposal }
+
+/-- An example entry: two blocks, one with a fraction in its centre. -/
+def exampleEntry : Entry :=
+  let plan : BuildPlan :=
+    ⟨[{ blocks := [⟨.flat, .id, ⟨0, 0, 1 / 2⟩⟩] }, { blocks := [⟨.onEdge, .id, ⟨1, -7 / 3, 2⟩⟩] }]⟩
+  let body : KaplaCore.Bubble := { label := "body", tags := [], center := ⟨0, 0, 1 / 2⟩, semi := ⟨1 / 3, 1 / 3, 1 / 2⟩ }
+  { name := "tower", model := ⟨"tower", [body]⟩,
+    proposal := some { planner := "test", blocks := 3, height := 5 / 2, plan } }
+
+-- An entry survives writing and reading.
+#guard match readEntry (entryToJson exampleEntry).compress with
+  | .ok e => entryToJson e == entryToJson exampleEntry
+  | .error _ => false
+-- A plan with more blocks than its limit is refused.
+#guard (readSavedPlan (Json.mkObj [("planner", "p"), ("blocks", Lean.toJson (1 : Nat)), ("height", "1"),
+  ("steps", Json.arr #[Json.mkObj [("blocks", Json.arr #[Json.mkObj [("center", Json.arr #[0, 0, 0])],
+    Json.mkObj [("center", Json.arr #[0, 0, 1])]])]])])).toOption.isNone
+
+/-- The physics and the score of a plan, for the page: `view` (blocks and steps for the viewer), `score`,
+`stands`, `physics` (lines of text), and `saved` (the plan as the page sends it back to save it). The
+physics engine and the scorer run here, so none of this comes from the planner or from a file. -/
+def proposalJson (target : KaplaCore.TargetSpec) (p : SavedPlan) : Except String Json := do
+  let opts : KaplaPhysics.PlanOptions := {}
+  let physics := runPhysics opts p.blocks p.plan
+  let score := KaplaSemantics.semanticEngine.score target p.height p.plan.blocks
+  let view ← (KaplaWeb.readPlan (planToViewJson p.plan)).map KaplaWeb.pageData
+  return Json.mkObj
+    [ ("view", view)
+    , ("score", KaplaSemantics.reportToJson score)
+    , ("stands", Json.bool physics.ok)
+    , ("physics", Json.arr ((physicsLines opts p.plan physics).map Json.str).toArray)
+    , ("saved", savedPlanToJson p) ]
+
+/-- `GET /gallery` -/
+def getGallery : IO Reply := do
+  let names ← listEntries
+  return { json := (Json.mkObj [("entries", Json.arr (names.map Json.str).toArray)]).compress }
+
+/-- Read the gallery file with this name, or give the reply that says why not. -/
+def loadEntry (name : String) : IO (Except Reply Entry) := do
+  let none := Except.error (errorReply .notFound "there is no gallery entry with this name")
+  if cleanName name != name || name.isEmpty then return none
+  let path := entryPath name
+  unless ← path.pathExists do return none
+  match readEntry (← IO.FS.readFile path) with
+  | .ok e => return .ok e
+  | .error e => return .error (errorReply .unprocessableEntity s!"the file is not a good gallery entry: {e}")
+
+/-- `GET /gallery/NAME`: `name`, `model`, and `proposal` (null if the entry has no plan). -/
+def getEntry (name : String) : IO Reply := do
+  match ← loadEntry name with
+  | .error r => return r
+  | .ok e =>
+    let proposal ← match e.proposal with
+      | none => pure Json.null
+      | some p => IO.ofExcept (proposalJson (KaplaCore.TargetSpec.ofBubbles e.model) p)
+    return { json := (Json.mkObj [("name", Json.str name), ("model", KaplaSemantics.modelToJson e.model),
+                                  ("proposal", proposal)]).compress }
+
+/-- `POST /gallery` with `name`, `model`, `overwrite` and maybe `proposal`. The entry takes the clean
+name. An existing name is replaced only with `overwrite` true; otherwise the reply is 409. -/
+def postEntry (body : String) : IO Reply := do
+  let parsed : Except String (String × Bool × KaplaCore.BubbleModel × Option SavedPlan) := do
     let j ← KaplaSemantics.parseJson body
     let name ← (← j.getObjVal? "name").getStr?
     let overwrite := (j.getObjValAs? Bool "overwrite").toOption.getD false
-    let m ← KaplaSemantics.decode (← j.getObjVal? "model").compress
-    return (name, overwrite, m)
+    let (m, p) ← readModelAndPlan j
+    return (name, overwrite, m, p)
   match parsed with
-  | .error e => return errorReply .badRequest s!"The model was not saved: {e}"
-  | .ok (typed, overwrite, m) =>
+  | .error e => return errorReply .badRequest s!"Not saved: {e}"
+  | .ok (typed, overwrite, m, proposal) =>
     let name := cleanName typed
     if name.isEmpty then
       return errorReply .badRequest "Give a name with at least one letter or digit."
-    let path := modelPath name
+    let path := entryPath name
     if !overwrite && (← path.pathExists) then
       return { status := .conflict, json := (Json.mkObj [("name", Json.str name)]).compress }
-    let saved := { m with name }
-    -- Write a new file first, so a failed write cannot damage a saved model.
-    let temp := modelsDir / s!".{name}.tmp"
-    IO.FS.writeFile temp (KaplaSemantics.encodePretty saved ++ "\n")
+    let entry : Entry := { name, model := { m with name }, proposal }
+    -- Write a new file first, so a failed write cannot damage a saved entry.
+    let temp := galleryDir / s!".{name}.tmp"
+    IO.FS.writeFile temp ((entryToJson entry).pretty ++ "\n")
     IO.FS.rename temp path
     return { json := (Json.mkObj [("name", Json.str name),
-                                  ("model", KaplaSemantics.modelToJson saved)]).compress }
+                                  ("model", KaplaSemantics.modelToJson entry.model)]).compress }
+
+/-! ### Opening a PR for an entry -/
+
+/-- Run a command and give what it printed. A failure becomes an error with its output. Git never
+asks for a password on the terminal here, so it cannot wait for an answer that never comes. -/
+def runCommand (cmd : String) (args : Array String) (cwd : Option System.FilePath := none) :
+    IO String := do
+  let out ← IO.Process.output { cmd, args, cwd, env := #[("GIT_TERMINAL_PROMPT", some "0")] }
+  unless out.exitCode == 0 do
+    let said := (out.stderr ++ "\n" ++ out.stdout).trimAscii.toString
+    throw (IO.userError s!"`{cmd} {args.toList.head?.getD ""}` failed: {said}")
+  return out.stdout
+
+/-- The text of a gallery PR: what the entry is, and what physics says about its plan. -/
+def pullRequestBody (e : Entry) : String :=
+  let plan := match e.proposal with
+    | none => "No block plan: only the target."
+    | some p =>
+      let physics := runPhysics {} p.blocks p.plan
+      s!"Block plan by `{p.planner}`: {p.plan.blockCount} blocks (limit {p.blocks}), \
+        height {KaplaPlanner.showQ p.height}.\n\n{"\n".intercalate ((physicsLines {} p.plan physics).map ("- " ++ ·))}"
+  s!"Adds `gallery/{e.name}.json` to the gallery: a target with {e.model.bubbles.length} bubbles.\n\n\
+    {plan}\n\nOpened from the Defy Gravity page (`kapla serve`)."
+
+/-- `POST /gallery/NAME/pr`: open a PR on `origin` that adds this entry, and answer `url`. The work
+happens in a new git worktree off `origin/main`, so the checkout `kapla serve` runs in does not change.
+Needs `gh`, logged in, and the right to push to `origin`. -/
+def postPullRequest (name : String) : IO Reply := do
+  let e ← match ← loadEntry name with
+    | .error r => return r
+    | .ok e => pure e
+  let ghReady ← try pure ((← IO.Process.output { cmd := "gh", args := #["auth", "status"] }).exitCode == 0)
+    catch _ => pure false
+  unless ghReady do
+    return errorReply .serviceUnavailable
+      s!"To open a PR from here, install gh and run gh auth login. Or commit gallery/{name}.json and open a PR yourself."
+  let text ← IO.FS.readFile (entryPath name)
+  let stamp := (← IO.monoMsNow) % 1000000000
+  let branch := s!"gallery/{name}-{stamp}"
+  let dir ← IO.FS.createTempDir
+  try
+    discard <| runCommand "git" #["fetch", "origin", "main"]
+    discard <| runCommand "git" #["worktree", "add", "-b", branch, dir.toString, "origin/main"]
+    try
+      let git (args : Array String) := runCommand "git" args (cwd := dir)
+      IO.FS.createDirAll (dir / galleryDir)
+      IO.FS.writeFile (dir / entryPath name) text
+      discard <| git #["add", (entryPath name).toString]
+      discard <| git #["commit", "-m", s!"Gallery: add {name}"]
+      discard <| git #["push", "-u", "origin", branch]
+      let out ← runCommand "gh" #["pr", "create", "--base", "main", "--head", branch,
+        "--title", s!"Gallery: add {name}", "--body", pullRequestBody e] (cwd := dir)
+      let url := (out.trimAscii.toString.splitOn "\n").getLast?.getD ""
+      return { json := (Json.mkObj [("url", Json.str url)]).compress }
+    finally
+      discard <| IO.Process.output { cmd := "git", args := #["worktree", "remove", "--force", dir.toString] }
+      discard <| IO.Process.output { cmd := "git", args := #["branch", "-D", branch] }
+  catch err =>
+    return errorReply .badGateway s!"The PR was not opened: {err}"
 
 /-- Is this request from our own page? Another website open in the browser can also send requests to
 this computer. The address it used (`Host`) and the page it came from (`Origin`) show that. -/
@@ -398,18 +582,6 @@ def getPlanners : Reply :=
 /-- How long the page waits for a planner, in seconds. -/
 def plannerSeconds : Nat := 900
 
-/-- A plan in the blueprint format of `web/README.md`, for drawing. -/
-def planToViewJson (plan : BuildPlan) : Json :=
-  let up : Upright → String
-    | .flat => "flat" | .onEdge => "edge" | .standing => "upright"
-  let num := KaplaSemantics.ratToJson
-  let pose (b : KaplaCore.Pose) := Json.mkObj
-    [ ("up", Json.str (up b.up))
-    , ("rot", Json.mkObj [("c", num b.rot.cos), ("s", num b.rot.sin)])
-    , ("center", KaplaSemantics.q3ToJson b.center) ]
-  Json.mkObj [("steps", Json.arr (plan.steps.map fun st => Json.mkObj
-    [ ("blocks", Json.arr (st.blocks.map pose).toArray), ("phase", Json.str st.phase) ]).toArray)]
-
 /-- Run a planner and ask for one plan. Physics and the scorer are run here again, so the badges do not
 depend on what a planner reports about itself. The height is the one the planner chose. -/
 def makeProposal (s : KaplaPlanner.Strategy) (m : KaplaCore.BubbleModel) (blocks : Nat) :
@@ -420,15 +592,8 @@ def makeProposal (s : KaplaPlanner.Strategy) (m : KaplaCore.BubbleModel) (blocks
   match candidates.head? with
   | none => return Json.mkObj [("proposal", .null)]
   | some c =>
-    let opts : KaplaPhysics.PlanOptions := {}
-    let physics := runPhysics opts blocks c.plan
-    let score := KaplaSemantics.semanticEngine.score target c.score.height c.plan.blocks
-    let view ← IO.ofExcept ((KaplaWeb.readPlan (planToViewJson c.plan)).map KaplaWeb.pageData)
-    return Json.mkObj [("proposal", Json.mkObj
-      [ ("view", view)
-      , ("score", KaplaSemantics.reportToJson score)
-      , ("stands", Json.bool physics.ok)
-      , ("physics", Json.arr ((physicsLines opts c.plan physics).map Json.str).toArray) ])]
+    let saved : SavedPlan := { planner := s.name, blocks, height := c.score.height, plan := c.plan }
+    return Json.mkObj [("proposal", ← IO.ofExcept (proposalJson target saved))]
 
 /-- `POST /plan` with `planner`, `blocks` and `model`. The answer is `proposal`, or null if the
 planner made none. The page gets an answer even if a planner does not end. -/
@@ -509,23 +674,25 @@ instance : Handler Site where
         guarded (postPlan body)
       catch e =>
         sendJson (errorReply .badRequest s!"No proposal: could not read the request: {e}")
-    else if method == .get && path == "/models" then
-      guarded getModels
-    else if method == .get && path.startsWith "/models/" then
-      guarded (getModel (path.drop "/models/".length).toString)
-    else if method == .post && path == "/models" then
+    else if method == .get && path == "/gallery" then
+      guarded getGallery
+    else if method == .post && path.startsWith "/gallery/" && path.endsWith "/pr" then
+      guarded (postPullRequest ((path.drop "/gallery/".length).dropEnd "/pr".length).toString)
+    else if method == .get && path.startsWith "/gallery/" then
+      guarded (getEntry (path.drop "/gallery/".length).toString)
+    else if method == .post && path == "/gallery" then
       try
         let body : String ← req.body.readAll (maximumSize := some maxBodyBytes)
-        guarded (postModel body)
+        guarded (postEntry body)
       catch e =>
-        sendJson (errorReply .badRequest s!"The model was not saved: could not read it: {e}")
+        sendJson (errorReply .badRequest s!"Not saved: could not read the request: {e}")
     else
       sendJson (errorReply .notFound "no such page")
 
 /-- Start the website and keep it running. -/
 def serve (port : Nat) : IO UInt32 := do
-  unless ← modelsDir.isDir do
-    IO.eprintln "No models/ folder here. Run this from the top folder of the repo."
+  unless ← galleryDir.isDir do
+    IO.eprintln "No gallery/ folder here. Run this from the top folder of the repo."
     return 1
   let key ← KaplaSemantics.loadApiKey keyFile
   -- The AI planners read the key from the environment, and Lean cannot change the environment of a
@@ -553,11 +720,31 @@ def serve (port : Nat) : IO UInt32 := do
 
 end Server
 
+/-- Check every file in `gallery/`: it reads as an entry, its file name is clean, and the name inside
+is the file name. -/
+def galleryCheck : IO UInt32 := do
+  let files := (← galleryDir.readDir).toList.map (·.path) |>.filter (·.extension == some "json")
+  let mut bad := 0
+  for path in files.toArray.qsort (·.toString < ·.toString) do
+    let stem := path.fileStem.getD ""
+    let problem ← match readEntry (← IO.FS.readFile path) with
+      | .error e => pure (some e)
+      | .ok e =>
+        if cleanName stem != stem then pure (some s!"the file name must be clean, such as {cleanName stem}.json")
+        else if e.name != stem || e.model.name != stem then pure (some s!"\"name\" must be {stem}, in the entry and in the model")
+        else pure none
+    match problem with
+    | some p => IO.eprintln s!"{path}: {p}"; bad := bad + 1
+    | none => IO.println s!"{path}: ok"
+  IO.println s!"{files.length} gallery files, {bad} with problems"
+  return if bad == 0 then 0 else 1
+
 def usage : String :=
   "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
   "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]\n" ++
   "       kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]\n" ++
-  "       kapla serve [--port N]"
+  "       kapla serve [--port N]\n" ++
+  "       kapla gallery-check"
 
 def main (args : List String) : IO UInt32 := do
   let opts : KaplaPhysics.PlanOptions := { clearance := !args.contains "--no-clearance" }
@@ -581,6 +768,7 @@ def main (args : List String) : IO UInt32 := do
         | none => do IO.eprintln usage; return 64
       | _ => do IO.eprintln usage; return 64
     go "empty" defaultMaxBlocks none none rest
+  | ["gallery-check"] => galleryCheck
   | ["serve"] => serve 8000
   | ["serve", "--port", n] =>
     match n.toNat? with

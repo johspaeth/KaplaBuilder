@@ -45,6 +45,9 @@ jobs:
             lake-build-${{ runner.os }}-${{ matrix.target }}-
       # Warnings fail the build: this catches `sorry` and unused/deprecated code.
       - run: lake build ${{ matrix.target }} --fail-level=warning
+      # Every file in gallery/ must be a good entry (web/README.md).
+      - if: matrix.target == 'kapla'
+        run: lake exe kapla gallery-check
 
   verify:
     name: Kernel check
