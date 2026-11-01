@@ -278,7 +278,7 @@ follow WORKSPLIT §3.
 | `Grip`, `Approach` | `longSides` / `shortEnds` / `topEnd`; `fromAbove` / `slide axis sign` |
 | `Step` | `blocks : List Pose`, `grip`, `approach`, `phase : String` |
 | `BuildPlan` | `steps : List Step`, `blockCount` |
-| `HumanModel` | all fields, plus `adult`, `child`, `expert` profiles |
+| `HumanModel` | all fields, plus `default` |
 | `PartTag` | `name`, `kind` (tower, wall, roof gable / cone / hip, trunk, other), `box` (axis-aligned min/max `Q3`) |
 | `TargetSpec` | `shape`, `silhouette?`, `parts : List PartTag` |
 | `Diagnostic` | the eight cases in WORKSPLIT §3. Step and block indices are `Nat` (block index = position in the flattened plan) |

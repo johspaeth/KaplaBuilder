@@ -25,7 +25,7 @@ def targets : List TargetSpec :=
 def budgets : List Nat := [1, 2, 4, 20, 60]
 
 /-- The planner on mocks, for one target and budget. -/
-def run (t : TargetSpec) (n : Nat) (human : HumanModel := .adult) : List Candidate :=
+def run (t : TargetSpec) (n : Nat) (human : HumanModel := .default) : List Candidate :=
   planPure { target := t, blocks := n, human } physicsMock semanticMock
 
 /-- The planner's result for one target and budget is good:
@@ -40,10 +40,10 @@ def resultOk (t : TargetSpec) (n : Nat) (human : HumanModel) : Bool :=
   cs.all (fun c => (physicsMock.check human n c.plan).ok && c.plan.blockCount ≤ n) &&
   (scores.zip scores.tail).all fun (a, b) => a + 1 / 50 ≥ b
 
-#guard targets.all fun t => budgets.all fun n => resultOk t n .adult
+#guard targets.all fun t => budgets.all fun n => resultOk t n .default
 
--- also for a child, who has only one hand
-#guard targets.all fun t => resultOk t 20 .child
+-- also for a builder with only one hand
+#guard targets.all fun t => resultOk t 20 { HumanModel.default with hands := 1 }
 
 -- with no blocks there is no plan
 #guard (run TargetSpec.example 0).isEmpty

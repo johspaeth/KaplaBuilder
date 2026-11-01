@@ -13,7 +13,7 @@ Owner: all (stewarded by D). Scope: see [docs/WORKSPLIT.md](../docs/WORKSPLIT.md
 |---|---|
 | `Basic.lean` | `Q` (= `Rat`), `Q3`, `Box` |
 | `Block.lean` | block size, `Upright`, `Rot` (exact turn about the vertical axis), `Pose`, corners, bounding box |
-| `Plan.lean` | `Grip`, `Approach`, `Step`, `BuildPlan`, `HumanModel` + profiles |
+| `Plan.lean` | `Grip`, `Approach`, `Step`, `BuildPlan`, `HumanModel` and its default |
 | `Target.lean` | `Shape` (first version, owned by B), `PartTag` (kind + box), `TargetSpec`, `Request` |
 | `Report.lean` | `Diagnostic`, `PhysicsReport`, `ScoreReport`, `Bound`, `Verdict`, `Difficulty` |
 | `Engine.lean` | `PhysicsEngine`, `SemanticEngine`, `Planner`, `PlanRequest`, `Candidate` |

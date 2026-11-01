@@ -45,8 +45,8 @@ so the proofs are about the numbers the program really computes.
 ## Planned usage
 
 ```sh
-kapla build --blocks 200 --prompt "Neuschwanstein" [--image ref.png] [--profile adult] [--out out/]
-kapla check blueprint.json [--profile child]
+kapla build --blocks 200 --prompt "Neuschwanstein" [--image ref.png] [--out out/]
+kapla check blueprint.json
 kapla serve --port 8080
 ```
 
