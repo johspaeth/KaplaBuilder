@@ -17,3 +17,18 @@ was run on a problem, its result (blocks used, height) is kept as a bar to reach
   candidate, too many candidates, too many blocks, a plan physics does not accept, a plan the
   scorer does not accept, or a stored physics report that the engine does not confirm.
 - `runDemos planner physics semantic` runs a planner on every demo and prints one line each.
+
+## Strategies
+
+Choose one with `lake exe kapla plan --strategy NAME [--blocks N] [--target MODEL.json] [--out BLUEPRINT.json]`.
+
+| Name | What it does |
+|---|---|
+| `empty` | Proposes nothing. |
+| `ai` | Asks Claude (`claude-opus-5-5`) for 3 designs at the same time. A design passes when the semantic engine accepts it and the verified physics engine says it is safe to build. If none passes, it asks 3 more times, each time with one failed design and its problems. It returns the passing design with the best likeness score, or nothing. |
+| `ai-unchecked` | The same, but without the physics check: it trusts Claude. Its candidates have `physics.ok = false` with no diagnostics, which means "not checked". |
+
+The `ai` strategies need `ANTHROPIC_API_KEY` and `curl`. Claude also chooses the height, and may turn blocks by 0, 30, 45, 60 or 90 degrees (rule B6). Each
+design is logged to stderr. The prompts are `systemPrompt`, `userPrompt` and `repairPrompt` in
+`KaplaPlanner/AiStrategy.lean`. `judge_checked_passed` proves that with the physics check on, a
+passing design is physics-ok and within the block budget.
