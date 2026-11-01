@@ -164,14 +164,19 @@ def siteJs : String := "
     score.tooSmall.forEach(label => { const li = item(tooSmall, `${label} is too small to build at this height.`), b = document.createElement('button');
       b.type = 'button'; b.textContent = 'Remove'; b.onclick = () => removeBubble(label); li.append(b); });
     proposal.hidden = false; };
-  generate.onclick = async () => { if (busy || !current) return; const model = current; setBusy(true);
+  generate.onclick = async () => { if (busy || !current) return; const model = current;
+    // The same rule as the server: a whole number from 1 to the box's max.
+    const blocks = Number(blocksBox.value), most = +blocksBox.max;
+    if (blocksBox.value.trim() === '' || !Number.isInteger(blocks) || blocks < 1 || blocks > most) {
+      planStatus.className = 'bad'; planStatus.textContent = `The block limit must be a whole number from 1 to ${most}.`; blocksBox.focus(); return; }
+    setBusy(true);
     const usesClaude = claudePlanners.includes(plannerBox.value);
     proposal.hidden = true; planStatus.className = '';
     planStatus.textContent = !usesClaude ? 'Working on a proposal...'
       : effort === 'low' ? 'Working on a proposal, with low reasoning. This takes about a minute...'
       : `Working on a proposal, with ${effort} reasoning. This can take several minutes...`;
     try { const r = await send('/plan', {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({planner: plannerBox.value, blocks: +blocksBox.value, model, ...(usesClaude ? {effort} : {})})});
+        body: JSON.stringify({planner: plannerBox.value, blocks, model, ...(usesClaude ? {effort} : {})})});
       if (!r.ok) { planStatus.className = 'bad'; planStatus.textContent = r.body.error || 'Something went wrong.'; if (proposalHeight !== undefined) proposal.hidden = false; return; }
       if (!r.body.proposal) { clearProposal(); KaplaViewer.show(model); planStatus.textContent = 'This planner made no proposal. The terminal running kapla serve shows why.'; return; }
       planStatus.textContent = ''; showProposal(model, r.body.proposal);
@@ -213,7 +218,7 @@ def sitePage : String :=
 </section>
 <main>
 <div id=\"planBar\"><label>Planner <select id=\"planner\"></select></label>
-<label>Block limit <input id=\"planBlocks\" type=\"number\" min=\"1\" step=\"1\" value=\"40\"></label>
+<label>Block limit <input id=\"planBlocks\" type=\"number\" min=\"1\" max=\"200\" step=\"1\" value=\"40\"></label>
 <button id=\"generate\" type=\"button\" disabled>Generate proposal</button>
 <button id=\"effort\" type=\"button\" disabled title=\"How much Claude thinks before it answers, for the planners that ask Claude. Click for the next level. Low is fastest, and fewer of its designs pass the checks. High is slowest, and most of its designs pass.\">Reasoning: high</button>
 <span id=\"planStatus\" role=\"status\"></span></div>
