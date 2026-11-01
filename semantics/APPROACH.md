@@ -242,8 +242,8 @@ round tower and the inside of a four-walled house fill, but the gap between the 
 ears does not (left-ear bubble, right-ear bubble), nor the courtyard between two castle
 towers. One pass, not iterated: in a Kapla structure an enclosed interior always has walls on
 a straight line through it. And because a bubble is convex, every cell on a straight line
-between two cells inside it is itself inside it: **covered cells never leave their bubble**
-(lemma `fill_subset_target`), which is what makes the score formula below clean.
+between two cells inside it is itself inside it: **covered cells never leave their bubble**.
+The code also keeps only the bubble's own cells, so this needs no proof.
 
 *Known limitation, accepted:* the rule credits any straight gap between two built cells of
 one bubble, however long. A bridge-deck bubble with one block at each end scores the hole
@@ -302,9 +302,8 @@ score := |covered| / (|T| + extra)
 
 `|T|` depends on the target and the frame, not the plan, so it is enumerated once per frame
 and reused (it is also what `missing` needs, once, for the final report). The convexity
-shortcut makes it cheaper still: if all 8 corners of a block are inside one bubble, all 45
-centres are (lemma `corners_in_bubble`), no enumeration needed; only blocks straddling a
-surface need the 45 points. The reference definitions in `Score.lean` are written from the
+shortcut could make it cheaper still: if all 8 corners of a block are inside one bubble, all 45
+centres are. The code does not use it. The reference definitions in `Score.lean` are written from the
 block side too, so the code that runs is the definition a reviewer reads.
 
 A bubble cut by the ground has no dents either, so the fill still stays inside it: a straight
@@ -404,19 +403,11 @@ contains 136); `flat`, one block covering [0,15] × [0,3] × [0,1].
    pass: acceptance is not likeness).
    Rejects: block cells over target cells, `45 / 8` on this example.
 
-**The one geometric lemma.** Theorem 5 needs `fill_subset_target`: a cell between two cells
-of bubble b on an axis-parallel line is inside b. Theorem 3's fast path needs
-`corners_in_bubble`: if all 8 corners of an axis-aligned block are inside b, every point of
-the block is. Both are convexity, and both reduce to one one-axis fact, provable with the
-`Rat` lemmas core has or a short local lemma: for `lo ≤ t ≤ hi`,
-`(t − c)² ≤ max ((lo − c)², (hi − c)²)` (case split on the sign of `t − c`, then squaring is
-monotone on non-negatives). The membership expression is a sum of three such terms, one per
-axis, so its value anywhere between two inside points (or anywhere in a box whose corners
-are inside) is at most the value at an end point or a corner, which is ≤ 1. For yaw-rotated
-blocks the corner lemma needs convex-combination algebra instead; not needed for v1.
+**The convexity lemmas are dropped (ruled 1 Nov 2026).** `fill_subset_target` and
+`corners_in_bubble` are not proved, as no theorem needs them. The fill keeps only a bubble's own
+cells, and the code tests the cells one by one, with no shortcut from the corners.
 
-**Internal lemmas**, no spec entry: `fill_subset_target`, `corners_in_bubble`,
-`decode_wellFormed` (whatever decodes has positive semi-axes and at most 32 bubbles), and the
+**Internal lemmas**, no spec entry: `decode_wellFormed` (whatever decodes has positive semi-axes and at most 32 bubbles), and the
 `perBubble` bounds if they are not folded into theorem 5.
 
 **Tested, not proven.** JSON round trip `decode (encode m) = some m`: `#guard` on every

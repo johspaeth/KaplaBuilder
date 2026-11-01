@@ -150,7 +150,10 @@ def poseFromJson (j : Json) : Except String Pose := do
     | none => .ok default
   match (← (← j.getObjVal? "center").getArr?).toList with
   | [x, y, z] =>
-    return ⟨up, ⟨← part "c" 1, ← part "s" 0⟩, ⟨← blockNumber x, ← blockNumber y, ← blockNumber z⟩⟩
+    let rot : Rot := ⟨← part "c" 1, ← part "s" 0⟩
+    -- The score's proofs hold only for real turns, so a file with any other turn is refused.
+    unless rot.valid do throw s!"\"rot\" is not a real turn, cos² + sin² must be 1: {j.compress}"
+    return ⟨up, rot, ⟨← blockNumber x, ← blockNumber y, ← blockNumber z⟩⟩
   | _ => throw s!"\"center\" needs three numbers: {j.compress}"
 
 /-- Read a blocks file: a blueprint (`{"steps": ...}` or `{"plan": {"steps": ...}}`), or a plain
@@ -176,6 +179,11 @@ def decodeBlocks (text : String) : Except String (List Pose) := do
 #guard (decodeBlocks "{\"blocks\":[{\"up\":\"sideways\",\"center\":[0,0,0]}]}") matches .error _
 #guard (decodeBlocks "{\"blocks\":[{\"center\":[0,0]}]}") matches .error _
 #guard (decodeBlocks "{}") matches .error _
+-- Real turns are read, also as exact fractions. Numbers that are not a real turn are refused.
+#guard ((decodeBlocks "{\"blocks\":[{\"rot\":{\"c\":\"3/5\",\"s\":\"4/5\"},\"center\":[0,0,1]}]}").toOption.map
+  (·.map (·.rot))) == some [⟨3 / 5, 4 / 5⟩]
+#guard (decodeBlocks "{\"blocks\":[{\"rot\":{\"c\":0,\"s\":0},\"center\":[0,0,1]}]}") matches .error _
+#guard (decodeBlocks "{\"blocks\":[{\"rot\":{\"c\":0.5,\"s\":0},\"center\":[0,0,1]}]}") matches .error _
 
 /-- Does text fail to decode? -/
 def decodeFails (text : String) : Bool :=

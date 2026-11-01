@@ -156,4 +156,17 @@ def oneBlockText : String := include_str "../fixtures/plans/one-block.json"
 #guard (runScore (encode ballModel) "{}" "2") matches .error _
 #guard (runScore (encode ballModel) oneBlockText "0") matches .error _
 
+/-- The tower fixture: a target, and 20 blocks in 10 layers with a hollow middle. -/
+def towerTargetText : String := include_str "../fixtures/targets/tower.json"
+def towerPlanText : String := include_str "../fixtures/plans/tower.json"
+
+-- The tower at height 10 is accepted. The filled middle counts: 1820 cubes are covered, of 3544 in
+-- the target, and 178 cubes stick out, so the score is 1820 / 3722.
+#guard
+  match decode towerTargetText, decodeBlocks towerPlanText with
+  | .ok m, .ok plan =>
+    let r := scoreReport m 10 plan
+    plan.length == 20 && r.accepted && r.score == 910 / 1861 && r.extra == 178 && r.missing == 1724
+  | _, _ => false
+
 end KaplaSemantics
