@@ -227,8 +227,29 @@ def withClearance : PlanOptions := { clearance := true }
 allowed and close the gap (P1). -/
 example : ¬ SafePlan withClearance placementError 200 nearlyTouching := fun h =>
   ((h.2 2 (by decide) (by decide)).2.1 rfl).1 towardsEachOther
-    (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide)
+    (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide) (by decide)
     (by decide +kernel) (by decide +kernel)
+
+/-- Two planks that touch only along a vertical edge, at a corner of each. R5 does not line
+them up, so they are not left out of the gap check (found in review). -/
+def cornerTouch : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 3, 0⟩]
+
+/-- Moving the second plank back by 1/2 along `x` and `y` pushes it into the first. -/
+def cornerShift (i : Nat) : Rat × Rat := if i = 1 then (-1 / 2, -1 / 2) else (0, 0)
+
+#guard decide (WellFormed cornerTouch)
+#guard !decide (WellFormed (cornerTouch.shift cornerShift))
+#guard !checkPlan withClearance placementError 200 cornerTouch
+
+/-- With the clearance check on, the corner-touch plan is not safe. -/
+example : ¬ SafePlan withClearance placementError 200 cornerTouch := fun h =>
+  ((h.2 2 (by decide) (by decide)).2.1 rfl).1 cornerShift
+    (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide) (by decide)
+    (by decide +kernel) (by decide +kernel)
+
+-- Walls are still fine: planks side by side or end to end pass the clearance check.
+#guard checkPlan withClearance placementError 200 sideBySide
+#guard checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 0, 0⟩]
 
 /-- The clearance check, switched off. -/
 def noClearance : PlanOptions := { clearance := false }

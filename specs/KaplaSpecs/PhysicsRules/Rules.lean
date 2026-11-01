@@ -159,31 +159,6 @@ def Solid (b : Build) : Prop := SolidWithin placementError b
 
 /-! ## Build plans (K1, K4, K5) -/
 
-/-- Planks `a` and `b` meet: their boxes touch at a face, an edge or a corner, or share
-inside space. There is no gap between them along `x`, along `y` or along `z`. -/
-def Meets (a b : Plank) : Prop :=
-  (a.x ≤ b.x1 ∧ b.x ≤ a.x1) ∧ (a.y ≤ b.y1 ∧ b.y ≤ a.y1) ∧ (a.z ≤ b.top ∧ b.z ≤ a.top)
-
-instance (a b : Plank) : Decidable (Meets a b) := by unfold Meets; infer_instance
-
-/-- Example: two flat planks side by side, touching along a face, meet. -/
-example : Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
-
-/-- Example: with a gap of 1/4 between them, they do not meet. -/
-example : ¬ Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 13 / 4, 0⟩ := by decide +kernel
-
-/-- R1 with P1 (H6 in docs/DESIGN.md: gaps are 0 or big enough). Planks with a gap between
-them in the plan keep a gap: for every combination of placement errors of at most `ε`, two
-planks that do not meet at the planned positions do not share inside space.
-
-Planks that meet in the plan (side by side and touching, or one on another) are left out
-on purpose: they touch by design, and R5 says a plank pushed against its neighbour moves
-with it. So walls of touching planks are fine. Only near misses fail: a gap above 0 but
-small enough that an error can close it. -/
-def KeepsGaps (ε : Rat) (b : Build) : Prop :=
-  ∀ d, SmallShift ε b.length d → ∀ i < b.length, ∀ j < b.length,
-    ¬ Meets (b.get i) (b.get j) → ¬ Overlap ((b.shift d).get i) ((b.shift d).get j)
-
 /-- The side faces of `p` and `q` that face each other along `x` share an area bigger than
 zero: their `y` ranges and their `z` ranges overlap by more than a line. -/
 def FacingAlongX (p q : Plank) : Prop :=
@@ -196,7 +171,41 @@ def FacingAlongY (p q : Plank) : Prop :=
 instance (p q : Plank) : Decidable (FacingAlongX p q) := by unfold FacingAlongX; infer_instance
 instance (p q : Plank) : Decidable (FacingAlongY p q) := by unfold FacingAlongY; infer_instance
 
-/-- H6 (tight fits). Plank `p` goes into a slot exactly its own width: one plank already
+/-- R5. Planks `a` and `b` touch side by side, face to face: an end or a side of one is
+flush against the other along `x` or along `y`, and the two faces share an area bigger
+than zero. Touching only at an edge or a corner does not count. -/
+def FaceToFace (a b : Plank) : Prop :=
+  ((a.x1 = b.x ∨ b.x1 = a.x) ∧ FacingAlongX a b) ∨
+    ((a.y1 = b.y ∨ b.y1 = a.y) ∧ FacingAlongY a b)
+
+instance (a b : Plank) : Decidable (FaceToFace a b) := by unfold FaceToFace; infer_instance
+
+/-- Example: two flat planks side by side, touching along a long side, are face to face. -/
+example : FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
+
+/-- Example: two flat planks end to end are face to face. -/
+example : FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 15, 0, 0⟩ := by decide +kernel
+
+/-- Example: two planks that touch only along a vertical edge are not. -/
+example : ¬ FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 15, 3, 0⟩ := by decide +kernel
+
+/-- Example: with a gap of 1/4 between them, they are not. -/
+example : ¬ FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 13 / 4, 0⟩ := by decide +kernel
+
+/-- R6 (H6 in docs/DESIGN.md: gaps are 0 or big enough). Two different planks that are not
+face to face in the plan do not share inside space, for every combination of placement
+errors of at most `ε`.
+
+Planks that are face to face in the plan are left out on purpose: R5 says a plank pushed
+against its neighbour moves with it, so walls of touching planks are fine. Planks that
+touch only at an edge or a corner are not left out: R5 does not line them up, so an error
+can push one into the other. Planks one on another never collide, because heights do not
+change (R2). -/
+def KeepsGaps (ε : Rat) (b : Build) : Prop :=
+  ∀ d, SmallShift ε b.length d → ∀ i < b.length, ∀ j < b.length, i ≠ j →
+    ¬ FaceToFace (b.get i) (b.get j) → ¬ Overlap ((b.shift d).get i) ((b.shift d).get j)
+
+/-- R7, H6 (tight fits). Plank `p` goes into a slot exactly its own width: one plank already
 `placed` touches its low side and another touches its high side, along `x` or along `y`.
 Each wall can land up to `ε` towards the other, so the slot can end up too narrow for `p`. -/
 def InTightSlot (placed : Build) (p : Plank) : Prop :=
