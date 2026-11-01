@@ -82,14 +82,28 @@ jobs:
             echo "::endgroup::"
           done
 
+  # A judge's first run on Linux: a fresh checkout, `make install` with no build cache, then
+  # `make run` and the example commands of the README, with no API key (scripts/smoke_test.sh).
+  smoke:
+    name: Fresh clone, make install and make run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-lean
+      - name: make install (no build cache)
+        run: time make install
+      - name: Smoke test (no API key)
+        run: scripts/smoke_test.sh
+
   ci-ok:
     name: CI OK
     if: always()
-    needs: [rules, build, verify]
+    needs: [rules, build, verify, smoke]
     runs-on: ubuntu-latest
     steps:
       - run: |
           echo '${{ toJSON(needs) }}'
           [[ "${{ needs.rules.result }}" == success && \
              "${{ needs.build.result }}" == success && \
-             "${{ needs.verify.result }}" == success ]]
+             "${{ needs.verify.result }}" == success && \
+             "${{ needs.smoke.result }}" == success ]]
