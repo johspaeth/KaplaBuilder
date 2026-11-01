@@ -116,7 +116,7 @@ example : ¬ SafePlan { clearance := true } placementError 200
     [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] := fun h =>
   ((h.2 2 (by decide) (by decide)).2.1 rfl).1
     (fun i => if i = 0 then (0, 1 / 4) else (0, -1 / 4)) (by unfold SmallShift; decide +kernel)
-    0 (by decide) 1 (by decide) (by decide +kernel) (by decide +kernel)
+    0 (by decide) 1 (by decide) (by decide) (by decide +kernel) (by decide +kernel)
 
 /-- Property 5 ("reachable" is right): when the checker finds a direction, the drop gap
 `h` is above zero, and the plank can come in along it in a straight line from far away and

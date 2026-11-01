@@ -275,9 +275,9 @@ theorem verdict_falls_sound (ε : Rat) (b : Build) (h : verdict ε b = .falls) :
 
 /-! ## Accepted plans are safe at every step -/
 
-/-- Two planks that are clear of each other (`ClearPair`) and do not meet do not overlap
-after moves of at most `ε` along `x` and `y`. -/
-theorem clearPair_moved (ε : Rat) (p q : Plank) (hc : ClearPair ε p q) (hm : ¬ Meets p q)
+/-- Two planks that are clear of each other (`ClearPair`) and are not face to face do not
+overlap after moves of at most `ε` along `x` and `y`. -/
+theorem clearPair_moved (ε : Rat) (p q : Plank) (hc : ClearPair ε p q) (hm : ¬ FaceToFace p q)
     (a b c e : Rat)
     (ha : -ε ≤ a ∧ a ≤ ε) (hb : -ε ≤ b ∧ b ≤ ε) (hc' : -ε ≤ c ∧ c ≤ ε) (he : -ε ≤ e ∧ e ≤ ε) :
     ¬ Overlap { p with x := p.x + a, y := p.y + b } { q with x := q.x + c, y := q.y + e } := by
@@ -287,16 +287,10 @@ theorem clearPair_moved (ε : Rat) (p q : Plank) (hc : ClearPair ε p q) (hm : �
   simp only [Overlap, Plank.x1, Plank.y1, Plank.top]
   grind
 
-/-- Every plank meets itself. -/
-theorem meets_self (p : Plank) : Meets p p := by
-  obtain ⟨pose, x, y, z⟩ := p
-  cases pose <;> simp only [Meets, Plank.x1, Plank.y1, Plank.top, Pose.size] <;> grind
-
 /-- A build that passes the clearance check (`Clear`) keeps its gaps for every placement
 error up to `ε`. -/
 theorem keepsGaps_of_clear (ε : Rat) (b : Build) (hc : Clear ε b) : KeepsGaps ε b := by
-  intro d hd i hi j hj hm
-  have hij : i ≠ j := by rintro rfl; exact hm (meets_self _)
+  intro d hd i hi j hj hij hm
   rw [shift_get b d i hi, shift_get b d j hj]
   have hi' := hd i hi
   have hj' := hd j hj
