@@ -14,7 +14,7 @@ Entry point: `KaplaPlanner.planner : KaplaCore.Planner` (pure core: `planPure`).
 
 | File | What |
 |---|---|
-| `Grid.lean` | blocks on a 7.8 mm grid; overlap, rests-on; `toPose` (checked equal to the grid box) |
+| `Grid.lean` | blocks on a unit grid; overlap, rests-on; `toPose` (checked equal to the grid box) |
 | `Motif.lean`, `Motifs/` | motifs with a proven block count: single block, log-cabin tower, solid column |
 | `Sequencer.lean` | bottom-up build order, one block per step, grip and approach |
 | `PreCheck.lean` | block count, no overlap, supports first, before calling physics |

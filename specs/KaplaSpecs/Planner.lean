@@ -25,9 +25,9 @@ theorem planPure_sound (req : PlanRequest) (phys : PhysicsEngine) (sem : Semanti
     ∀ c ∈ planPure req phys sem, c.physics.ok = true ∧ c.plan.blockCount ≤ req.blocks := by
   sorry
 
-/-- A concrete request: a tower 117 × 117 × 300 mm, at most 20 blocks. -/
+/-- A concrete request: a tower 15 × 15 × 38, at most 20 blocks. -/
 def exampleRequest : PlanRequest :=
-  let b : Box := ⟨⟨0, 0, 0⟩, ⟨117, 117, 300⟩⟩
+  let b : Box := ⟨⟨0, 0, 0⟩, ⟨15, 15, 38⟩⟩
   { target := { shape := .box b, parts := [⟨"tower", .tower, b⟩] }, blocks := 20 }
 
 -- The promise is not empty: on this request the planner does return plans.

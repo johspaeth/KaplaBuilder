@@ -10,8 +10,8 @@ Details: [docs/DESIGN.md](docs/DESIGN.md). Who does what: [docs/WORKSPLIT.md](do
 
 - It uses **at most N blocks**.
 - It **stays standing after every step**, not only at the end.
-- It stays standing **even if your hands are a bit imprecise** (default: 3 mm per block,
-  10 mm total drift), and while you **press down** on the block you are placing.
+- It stays standing **even if your hands are a bit imprecise** (default: 10/39 of a block
+  thickness per block, 50/39 total drift), and while you **press down** on the block you are placing.
 - You can **put every block in place by hand**: no closed pockets, no gaps that are exactly
   one block wide, and no step that needs more than two hands.
 - Its **likeness score** to the target is computed correctly. A proven upper limit shows
@@ -39,7 +39,7 @@ The parts that search for a plan (planner, LP solver, Claude) are not trusted. T
 A small checker, with a proof that it is correct, accepts or rejects each proposal. A bug in
 the search can make the result look worse. It cannot produce a plan that falls down.
 
-Blocks are 7.8 × 23.4 × 117 mm. All geometry uses exact fractions (`Rat`), never floats,
+Blocks are 15 × 3 × 1: one unit is one block thickness. All geometry uses exact fractions (`Rat`), never floats,
 so the proofs are about the numbers the program really computes.
 
 ## Planned usage

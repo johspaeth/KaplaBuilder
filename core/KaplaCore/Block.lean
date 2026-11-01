@@ -2,29 +2,26 @@ import KaplaCore.Basic
 
 /-! # One Kapla block and where it is
 
-A Kapla block is 117 × 23.4 × 7.8 mm (ratio 15 : 3 : 1). A `Pose` says where one block is:
+A Kapla block is 15 × 3 × 1 block units. A `Pose` says where one block is:
 which face is down, how it is turned about the vertical axis, and where its centre is.
 Tilted blocks (for roofs) come later as an extension. -/
 
 namespace KaplaCore
 
-/-- Block length (mm). -/
-def blockLength : Q := 117
-/-- Block width (mm). -/
-def blockWidth : Q := 117 / 5
-/-- Block thickness (mm). -/
-def blockThickness : Q := 39 / 5
-
-#guard blockWidth == 23.4 && blockThickness == 7.8
-#guard blockLength == 15 * blockThickness && blockWidth == 3 * blockThickness
+/-- Block length. -/
+def blockLength : Q := 15
+/-- Block width. -/
+def blockWidth : Q := 3
+/-- Block thickness. -/
+def blockThickness : Q := 1
 
 /-- Which face of the block is down. -/
 inductive Upright where
-  /-- Lying flat: the big face is down. Height 7.8 mm. -/
+  /-- Lying flat: the big face is down. Height 1. -/
   | flat
-  /-- On its long edge. Height 23.4 mm. -/
+  /-- On its long edge. Height 3. -/
   | onEdge
-  /-- Standing on its small end. Height 117 mm. -/
+  /-- Standing on its small end. Height 15. -/
   | standing
   deriving Repr, BEq, DecidableEq, Inhabited
 
@@ -63,7 +60,7 @@ def Rot.apply (r : Rot) (v : Q3) : Q3 :=
 
 #guard Rot.quarter.apply ⟨1, 0, 5⟩ == ⟨0, 1, 5⟩
 
-/-- Where one block is: which face is down, how it is turned, and its centre (mm). -/
+/-- Where one block is: which face is down, how it is turned, and its centre. -/
 structure Pose where
   up     : Upright
   rot    : Rot
@@ -87,23 +84,55 @@ def Pose.box (p : Pose) : Box :=
   let h : Q3 := ⟨(c * d.x + s * d.y) / 2, (s * d.x + c * d.y) / 2, d.z / 2⟩
   ⟨p.center.sub h, p.center.add h⟩
 
-/-- True if the point is inside the block (or on its surface). -/
+/-- True if the point is inside the block. Of each pair of opposite faces, the one on the higher
+side in x, y or z is not part of the block, however the block is turned (for a slanted face,
+x decides first, then y). So two touching blocks never share a point on their shared face, and
+a block that is not turned, or turned by a quarter turn, contains exactly 45 cell centres of a
+unit grid wherever it is. -/
 def Pose.contains (p : Pose) (q : Q3) : Bool :=
   let d := p.up.dims
   let v := q.sub p.center
   -- turn `v` back into the block's own axes
   let lx := p.rot.cos * v.x + p.rot.sin * v.y
   let ly := -p.rot.sin * v.x + p.rot.cos * v.y
-  2 * lx.abs ≤ d.x && 2 * ly.abs ≤ d.y && 2 * v.z.abs ≤ d.z
+  -- true if the block axis with direction (ax, ay) points to the higher side
+  let pointsHigh (ax ay : Q) : Bool := ax > 0 || (ax == 0 && ay > 0)
+  let within (t size : Q) (high : Bool) : Bool :=
+    if high then -size ≤ 2 * t && 2 * t < size else -size < 2 * t && 2 * t ≤ size
+  within lx d.x (pointsHigh p.rot.cos p.rot.sin) &&
+    within ly d.y (pointsHigh (-p.rot.sin) p.rot.cos) && within v.z d.z true
 
 /-- Example: a flat block lying on the ground at the origin. -/
 def Pose.example : Pose := ⟨.flat, .id, ⟨0, 0, blockThickness / 2⟩⟩
 
-#guard Pose.example.box == ⟨⟨-117/2, -117/10, 0⟩, ⟨117/2, 117/10, 39/5⟩⟩
+#guard Pose.example.box == ⟨⟨-15/2, -3/2, 0⟩, ⟨15/2, 3/2, 1⟩⟩
 #guard Pose.example.corners.length == 8
-#guard Pose.example.contains ⟨50, 0, 1⟩ && !Pose.example.contains ⟨60, 0, 1⟩
+#guard Pose.example.contains ⟨7, 0, 1/2⟩ && !Pose.example.contains ⟨8, 0, 1/2⟩
+-- the low face is inside, the high face is not
+#guard Pose.example.contains ⟨-15/2, 0, 1/2⟩ && !Pose.example.contains ⟨15/2, 0, 1/2⟩
 -- turned by 90°, the long side is along y
-#guard (Pose.mk .flat .quarter ⟨0, 0, 0⟩).contains ⟨0, 50, 0⟩
+#guard (Pose.mk .flat .quarter ⟨0, 0, 0⟩).contains ⟨0, 7, 0⟩
 #guard (Pose.mk .flat .quarter ⟨0, 0, 0⟩).box.size == ⟨blockWidth, blockLength, blockThickness⟩
+
+/-- The centres of the unit grid cells in `-20 ≤ x, y < 20`, `0 ≤ z < 20`. -/
+private def cellCentres : List Q3 :=
+  let line (n : Nat) (lo : Int) : List Q := (List.range n).map fun i => ((lo + Int.ofNat i : Int) : Q) + 1 / 2
+  (line 40 (-20)).flatMap fun x => (line 40 (-20)).flatMap fun y => (line 20 0).map fun z => ⟨x, y, z⟩
+
+-- a turned and an unturned block touch on a cell centre: exactly one of them has the point,
+-- whichever is on the left
+#guard !(Pose.mk .flat .id ⟨-7, 0, 1 / 2⟩).contains ⟨1 / 2, 1 / 2, 1 / 2⟩
+#guard (Pose.mk .flat .quarter ⟨2, 0, 1 / 2⟩).contains ⟨1 / 2, 1 / 2, 1 / 2⟩
+#guard !(Pose.mk .flat .quarter ⟨-1, 0, 1 / 2⟩).contains ⟨1 / 2, 1 / 2, 1 / 2⟩
+#guard (Pose.mk .flat .id ⟨8, 0, 1 / 2⟩).contains ⟨1 / 2, 1 / 2, 1 / 2⟩
+-- a half turn does not move the missing face
+#guard !(Pose.mk .flat ⟨-1, 0⟩ ⟨0, 0, 1 / 2⟩).contains ⟨15 / 2, 0, 1 / 2⟩
+#guard (Pose.mk .flat ⟨-1, 0⟩ ⟨0, 0, 1 / 2⟩).contains ⟨-15 / 2, 0, 1 / 2⟩
+
+-- 45 cells when the faces lie on cell centres, between them, or anywhere else
+#guard cellCentres.countP Pose.example.contains == 45
+#guard cellCentres.countP (Pose.mk .flat .id ⟨15 / 2, 3 / 2, 1 / 2⟩).contains == 45
+#guard cellCentres.countP (Pose.mk .flat .quarter ⟨1 / 3, 1 / 3, 1 / 2⟩).contains == 45
+#guard cellCentres.countP (Pose.mk .standing .id ⟨0, 0, 15 / 2⟩).contains == 45
 
 end KaplaCore

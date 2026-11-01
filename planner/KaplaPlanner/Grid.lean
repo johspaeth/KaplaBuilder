@@ -2,7 +2,7 @@ import KaplaCore
 
 /-! # The planning grid
 
-The planner works on a grid of cubes with side 7.8 mm (one block thickness). A Kapla
+The planner works on a grid of cubes with side 1 (one block thickness). A Kapla
 block is exactly 15 × 3 × 1 cells, so every grid block fills whole cells. Checks on the
 grid (overlap, "rests on") are plain integer arithmetic. We convert to the exact `Pose`
 of `KaplaCore` only at the end (`GridBlock.toPose`). -/
@@ -76,7 +76,7 @@ def onGround (b : GridBlock) : Bool := b.z == 0
 def shift (dx dy dz : Int) (b : GridBlock) : GridBlock :=
   { b with x := b.x + dx, y := b.y + dy, z := b.z + dz }
 
-/-- The same block as a `Pose` (mm). -/
+/-- The same block as a `Pose`. -/
 def toPose (b : GridBlock) : Pose :=
   let (up, rot) : Upright × Rot := match b.orient with
     | .flatX => (.flat, .id)       | .flatY => (.flat, .quarter)
@@ -85,10 +85,10 @@ def toPose (b : GridBlock) : Pose :=
   let c (lo : Int) (s : Int) : Q := ((2 * lo + s : Int) : Q) * blockThickness / 2
   ⟨up, rot, ⟨c b.x b.sx, c b.y b.sy, c b.z b.sz⟩⟩
 
-/-- The block's box in mm, computed on the grid. -/
+/-- The block's box, computed on the grid. -/
 def boxMm (b : GridBlock) : Box :=
-  let mm (v : Int) : Q := (v : Q) * blockThickness
-  ⟨⟨mm b.x, mm b.y, mm b.z⟩, ⟨mm (b.x + b.sx), mm (b.y + b.sy), mm (b.z + b.sz)⟩⟩
+  let q (v : Int) : Q := (v : Q) * blockThickness
+  ⟨⟨q b.x, q b.y, q b.z⟩, ⟨q (b.x + b.sx), q (b.y + b.sy), q (b.z + b.sz)⟩⟩
 
 end GridBlock
 

@@ -36,7 +36,7 @@ inductive Diagnostic where
 structure PhysicsReport where
   ok          : Bool
   diagnostics : List Diagnostic := []
-  /-- For each block, how much safety margin is left (mm), if the engine computes it. -/
+  /-- For each block, how much safety margin is left, if the engine computes it. -/
   slackPerBlock : Option (List Q) := none
   deriving Repr, BEq, Inhabited
 

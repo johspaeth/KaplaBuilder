@@ -40,7 +40,7 @@ an explicit rule in the verified spec:
 | # | Failure in real life | Example | Rule (verified) |
 |---|---|---|---|
 | H1 | **Knife-edge balance**: works only when placed perfectly | an overhang exactly at the tipping point | robust equilibrium under placement error ε (§2.2) |
-| H2 | **Accumulated drift**: errors add up over many layers | a 60-layer tower whose top is 1 cm off, or a bridge between two tall pillars that no longer line up | per-contact relative error + absolute drift cap (§2.2) |
+| H2 | **Accumulated drift**: errors add up over many layers | a 60-layer tower whose top is more than one block thickness off, or a bridge between two tall pillars that no longer line up | per-contact relative error + absolute drift cap (§2.2) |
 | H3 | **Order-dependent stability** | a cantilever that only stands once its counterweight is on | every build step is checked, never only the final state |
 | H4 | **The press of placing** | the hand presses the new block down and the overhang below tips | an extra load case: press force P at any point of the new block (§2.3) |
 | H5 | **Unreachable placement** | a block that must go into a closed pocket, or under an overhang | hand access check: the block plus fingers can be lowered or slid into place (§2.4) |
@@ -53,21 +53,21 @@ an explicit rule in the verified spec:
 
 ```lean
 structure HumanModel where
-  εrel   : ℚ    -- mm: max error of any corner of a block, measured against the block(s) it rests on
-  eabs   : ℚ    -- mm: max drift from the plan (the builder corrects anything larger by eye)
+  εrel   : ℚ    -- max error of any corner of a block, measured against the block(s) it rests on
+  eabs   : ℚ    -- max drift from the plan (the builder corrects anything larger by eye)
   θtilt  : ℚ    -- max angular error of a leaning block (as a rational tangent)
   press  : ℚ    -- downward press while placing, in block weights
   hands  : Nat  -- max blocks placed in one step
-  clear  : ℚ    -- mm: minimum gap between blocks that don't touch by design
+  clear  : ℚ    -- minimum gap between blocks that don't touch by design
   μsafe  : ℚ    -- friction coefficient assumed (wood on wood is about 0.4–0.5 in reality)
   grip   : GripModel
 ```
 
 | Profile | εrel | eabs | press | hands | μsafe |
 |---|---|---|---|---|---|
-| child | 5 mm | 15 mm | 1.0 | 1 | 0.25 |
-| **adult (default)** | **3 mm** | **10 mm** | **0.5** | **2** | **0.3** |
-| expert | 1.5 mm | 5 mm | 0.3 | 2 | 0.35 |
+| child | 25/39 | 25/13 | 1.0 | 1 | 0.25 |
+| **adult (default)** | **10/39** | **50/39** | **0.5** | **2** | **0.3** |
+| expert | 5/26 | 25/39 | 0.3 | 2 | 0.35 |
 
 The defaults are educated guesses. Milestone M10 **calibrates them on real builds**: build
 test structures, measure the actual placement errors, and see what collapses.
@@ -85,7 +85,7 @@ can therefore be misaligned against each other by at most
 where `ρ` is the largest relative offset between the separate supports, computed along the
 support graph. Measuring error relative to the block below is the crucial choice. A naive
 absolute-margin rule would be either unsound, because drift accumulates with height, or
-hopelessly strict, because 60 layers × 3 mm is 18 cm.
+hopelessly strict, because 60 layers × 10/39 is more than 15 block thicknesses.
 
 The checker cannot test infinitely many perturbations. The planner therefore supplies a
 **robust certificate** for the planned (unperturbed) structure, consisting of:
@@ -132,7 +132,7 @@ That is about 4 extra certificates per step.
 
 ### 2.4 Hand access (H5, H6, H7)
 
-- **GripModel**: two finger pads, each about 18 × 20 mm, on opposite faces of the block. The
+- **GripModel**: two finger pads, each about 2.3 × 2.6, on opposite faces of the block. The
   allowed grips are the long sides, the short ends, or the top end of an upright block.
 - **Approach**: the block is lowered straight down from above, or slid in horizontally
   along one axis. The space swept by the block and the fingers, from outside the structure
@@ -151,7 +151,7 @@ That is about 4 extra certificates per step.
 Suppose a block rests on two or more support paths that don't share a block, apart from
 the ground. Then the blocks in those paths must stack to the same height **in the same way**:
 the same number of flat, on-edge and upright layers. Their manufacturing errors are then
-equal on average, and wood's give absorbs the remaining fraction of a millimetre. This is a
+equal on average, and wood's give absorbs the remaining tiny fraction of a block thickness. This is a
 decidable rule and an explicit modelling assumption. It is the honest alternative to
 pretending that heights are exact.
 
@@ -159,8 +159,8 @@ pretending that heights are exact.
 
 ## 3. Physical model (the trusted spec)
 
-- **Block**: a rigid, uniform-density cuboid of 7.8 × 23.4 × 117 mm (ratio 1:3:15), with
-  weight 1. All lengths are exact ℚ millimetres.
+- **Block**: a rigid, uniform-density cuboid of 15 × 3 × 1, with
+  weight 1. All lengths are exact ℚ, and one unit is one block thickness.
 - **Pose**: a rotation matrix `R` that is a **product of Pythagorean rotations**, so every
   entry is rational and the matrix is exactly orthogonal, plus a centre in ℚ³.
   - **v1 (M1–M2)**: rotation about the vertical axis only, at any angle, combined with
@@ -248,7 +248,7 @@ use. Claude's shape output already distinguishes roofs from walls.
   moved and scaled, and labelled with semantic tags (tower, wall, roof:gable/cone/hip,
   trunk, …).
 - **Voxelizer** (verified against the meaning of the DSL): it samples the shape at grid
-  centres with spacing h (default 7.8 mm) and produces a finite set `T_s` of integer grid points (a sorted, duplicate-free list with a proven membership test).
+  centres with spacing h (default 1) and produces a finite set `T_s` of integer grid points (a sorted, duplicate-free list with a proven membership test).
 - **Score**: volumetric IoU, the share of grid points shared by the blocks and the target
   `|V(bp) ∩ T_s| / |V(bp) ∪ T_s|`. For image input it is combined with **silhouette IoU**
   against the input mask. The score is maximized over the scale s.
@@ -280,11 +280,11 @@ use. Claude's shape output already distinguishes roofs from walls.
 | `Kapla.Planner` | untrusted | scale search; motifs (log-cabin tower, round-tower ring, spiral, wall, slab, arch, tree, **roofs §4**); layer planner; budget knapsack; repair loop driven by diagnostics; exhaustive search for N ≤ 4 |
 | `Kapla.Sequencer` | untrusted | build order, grouping into steps (1–2 blocks), grip and approach choice, grouping steps into phases |
 | `Kapla.Frontend` | untrusted | Claude Messages API through `curl` (`ANTHROPIC_API_KEY`): text or image → Shape DSL, with validation and at most 2 retries; prose narration of the verified report |
-| `Kapla.Render` | untrusted | **Lean-generated webpage**: a three.js 3D view (pinned CDN version) with a step slider; step cards with top-down SVG, mm offsets, angles, **grip and approach hints**, and a "two hands" badge; feasibility, difficulty and verified badges; a print-ready booklet; `kapla serve` |
+| `Kapla.Render` | untrusted | **Lean-generated webpage**: a three.js 3D view (pinned CDN version) with a step slider; step cards with top-down SVG, offsets, angles, **grip and approach hints**, and a "two hands" badge; feasibility, difficulty and verified badges; a print-ready booklet; `kapla serve` |
 
 CLI:
 ```
-kapla build --blocks 200 --prompt "Neuschwanstein" [--image ref.png] [--profile adult] [--eps-mm 3] [--out out/]
+kapla build --blocks 200 --prompt "Neuschwanstein" [--image ref.png] [--profile adult] [--eps 10/39] [--out out/]
 kapla check blueprint.json [--profile child]
 kapla serve --port 8080
 ```
@@ -318,7 +318,7 @@ proven.
 |---|---|
 | LLM frontend | ✅ Claude, outside the trusted base |
 | Viewer | ✅ webpage generated by Lean |
-| Tolerance | ✅ HumanModel, default "adult" profile: εrel = 3 mm relative to supports, eabs = 10 mm drift cap |
+| Tolerance | ✅ HumanModel, default "adult" profile: εrel = 10/39 relative to supports, eabs = 50/39 drift cap |
 | Rotations | ✅ any rotation about the vertical axis from M1; tilted blocks for roofs in M3 (core) |
 | Real-world buildability | ✅ H1–H9 are part of the verified `Valid` spec |
 | Toolchain | ✅ Lean 4.35, pinned. **No Mathlib**: core Lean (which includes `Rat`) plus Batteries if needed. Proofs must pass `lake comparator` (Linux CI). |
