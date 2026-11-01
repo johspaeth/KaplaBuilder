@@ -228,7 +228,7 @@ example : ¬ InTightSlot [⟨.flatX, 0, 0, 0⟩] ⟨.flatX, 0, 3, 0⟩ := by dec
 structure PlanOptions where
   /-- Also ask that no placement error can close a small gap (`KeepsGaps`), and that no
   plank goes into a slot exactly its own width (`InTightSlot`). On by default. Planks
-  that touch by design are allowed either way. -/
+  face to face by design are allowed either way. -/
   clearance : Bool := true
   /-- Accept a plan with turned blocks (B6), which is checked at the planned positions only
   (a `nominal` result). On by default. Switch it off when only a check with placement

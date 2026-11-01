@@ -284,7 +284,7 @@ example (e : Rat) (he : -(1 / 2) ≤ e ∧ e ≤ 1 / 2) :
 #guard !checkPlan {} placementError 200 e7
 #guard !checkPlan {} placementError 200 e12
 
--- Planks that touch by design are fine, with the check on or off: a wall, a tower, E2.
+-- Planks face to face by design are fine, with the check on or off: a wall, a tower, E2.
 #guard checkPlan withClearance placementError 200 sideBySide
 #guard checkPlan {} placementError 200 sideBySide
 #guard checkPlan withClearance placementError 200 (squareTower 8)

@@ -144,6 +144,44 @@ def nearContact : String :=
     | _ => false
   | .error _ => false
 
+/-! ## From the AI planner to a safe plan -/
+
+/-- End to end: when the planner's `ai` strategy passes a design, checked with the real
+physics engine, the design's plan is one the engine accepts, so `coreCheck_ok_sound` holds
+for it: either a safe plan under placement errors up to `epsRel` (`robust`), or, for turned
+blocks, a plan that stands at its planned positions (`nominal`). -/
+theorem ai_passed_safe (req : KaplaCore.PlanRequest) (sem : KaplaCore.SemanticEngine)
+    (reply : Except String String) (c : KaplaCore.Candidate)
+    (hpass : (KaplaPlanner.judge req (some KaplaPhysics.physicsEngine) sem reply).passed = true)
+    (hcand : (KaplaPlanner.judge req (some KaplaPhysics.physicsEngine) sem reply).candidate =
+      some c) :
+    c.physics = KaplaPhysics.coreCheck {} req.human req.blocks c.plan ∧
+      (∀ st ∈ c.plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ req.human.hands) ∧
+      ((c.physics.assurance = .robust ∧ ∃ b, KaplaPhysics.buildOf c.plan.blocks = some b ∧
+          KaplaPhysics.SafePlan {} req.human.epsRel req.blocks b) ∨
+        (c.physics.assurance = .nominal ∧ KaplaPhysics.buildOf c.plan.blocks = none ∧
+          ∃ tb, KaplaPhysics.turnedBuildOf c.plan.blocks = some tb ∧
+            KaplaPhysics.TSafePlan req.blocks tb)) := by
+  obtain ⟨he, hok, -⟩ := KaplaPlanner.judge_checked_passed req _ sem reply c hpass hcand
+  have he' : c.physics = KaplaPhysics.coreCheck {} req.human req.blocks c.plan := he
+  rw [he'] at hok ⊢
+  obtain ⟨hsteps, hsafe⟩ := KaplaPhysics.coreCheck_ok_sound {} req.human req.blocks c.plan hok
+  refine ⟨rfl, hsteps, ?_⟩
+  rcases hsafe with ⟨ha, hb⟩ | ⟨ha, -, hb⟩
+  · exact Or.inl ⟨ha, hb⟩
+  · exact Or.inr ⟨ha, hb⟩
+
+-- Every hypothesis of `ai_passed_safe` can hold: one flat block on the ground, checked by the
+-- real physics engine, passes, has a candidate, and gets the full (`robust`) check. A
+-- `#guard`, as in the planner: the kernel cannot evaluate JSON reading or the engines.
+#guard
+  let d := KaplaPlanner.judge { target := .egg, blocks := 4 } (some KaplaPhysics.physicsEngine)
+    KaplaCore.semanticMock
+    (.ok "{\"height\":\"30\",\"blocks\":[{\"up\":\"flat\",\"turn\":0,\"x\":\"0\",\"y\":\"0\",\"z\":\"1/2\"}]}")
+  d.passed && match d.candidate with
+    | some c => c.physics.assurance == .robust
+    | none => false
+
 /-! ## Running the physics engine -/
 
 /-- Default block budget: one Kapla box (K5). -/
