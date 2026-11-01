@@ -1,0 +1,199 @@
+{
+ "name": "tower",
+ "model": {
+  "name": "tower",
+  "bubbles": [
+   {
+    "label": "base",
+    "tags": [
+     "tower"
+    ],
+    "center": [
+     0,
+     0,
+     "1/4"
+    ],
+    "semi": [
+     "2/5",
+     "2/5",
+     "1/4"
+    ]
+   },
+   {
+    "label": "middle",
+    "tags": [
+     "tower"
+    ],
+    "center": [
+     0,
+     0,
+     "17/20"
+    ],
+    "semi": [
+     "3/10",
+     "3/10",
+     "7/20"
+    ]
+   },
+   {
+    "label": "top",
+    "tags": [
+     "tower"
+    ],
+    "center": [
+     0,
+     0,
+     "7/5"
+    ],
+    "semi": [
+     "1/5",
+     "1/5",
+     "1/5"
+    ]
+   }
+  ]
+ },
+ "proposal": {
+  "planner": "hand-designed",
+  "blocks": 40,
+  "height": "21/2",
+  "steps": [
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "-1/2",
+       "-5/2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "-3/2",
+       "-3/2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "3/2",
+       "-3/2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "-1/2",
+       "-1/2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "-3/2",
+       "1/2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "3/2",
+       "1/2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "-1/2",
+       "3/2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "build",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "1/2",
+       "5/2",
+       "15/2"
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}
