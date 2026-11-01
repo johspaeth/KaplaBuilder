@@ -5,8 +5,9 @@ install:
 	@command -v elan >/dev/null || { echo "Install elan first: https://github.com/leanprover/elan"; exit 1; }
 	lake build
 
-# The demo: the Defy Gravity website on http://localhost:8000. Without an API key in
-# semantics/dev/.env the chat is off; the rest of the site works.
+# The demo: the Defy Gravity website on http://localhost:8000. The API key comes from
+# .env in this folder, or else from ANTHROPIC_API_KEY in the shell. Without one the chat is off;
+# the rest of the site works.
 run:
 	lake exe kapla serve
 

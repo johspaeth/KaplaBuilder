@@ -53,7 +53,7 @@ The person owns `app/` and `web/` for this work.
 - **Updates:** the chat tells the picture to redraw when a new model arrives. No polling and no
   buttons to load a model.
 - **Chat memory:** Claude remembers the conversation while the page is open. It is not saved to disk.
-- **API key:** `kapla serve` reads `semantics/dev/.env` at startup. With no key the site still runs
+- **API key:** `kapla serve` reads `.env` in the top folder of the repo at startup. With no key the site still runs
   and the chat says the key is missing. Never print the key or ask for it in the chat.
 - **Too-small bubbles:** listed next to each plan, because they depend on the height, with an action
   to remove one. Never run `normalize` after removing one.
@@ -62,7 +62,7 @@ The person owns `app/` and `web/` for this work.
   no list and no `POST /check`.
 - **Planner list (1 Nov 2026):** the website uses `KaplaPlanner.strategies`, which has Johannes's planners
   `ai` and `ai-unchecked` (PR #41). `app/Main.lean` adds `standInTower`, website only, as a free and fast
-  test. It stays. `kapla serve` passes the key from `semantics/dev/.env` to the planners. The page waits
+  test. It stays. `kapla serve` passes the key from `.env` to the planners. The page waits
   up to 15 minutes for a planner.
 - **Clearing:** a new model on screen (opened, from the chat, or a bubble removed) clears the proposal.
 - **Gaps:** the website uses the physics engine's default setting.

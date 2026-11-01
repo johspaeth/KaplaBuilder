@@ -101,7 +101,7 @@ def readApiReply (reply : String) : ClaudeReply :=
       let message := (j.getObjVal? "error" >>= (·.getObjValAs? String "message")).toOption.getD ""
       match kind with
       | "authentication_error" =>
-        .failed "Claude's service refused the API key in semantics/dev/.env."
+        .failed "Claude's service refused the API key."
       | _ => .failed s!"Claude's service gave an error: {message}"
     else if (j.getObjValAs? String "stop_reason").toOption == some "refusal" then
       .failed "Claude declined this request."
@@ -115,7 +115,7 @@ def readApiReply (reply : String) : ClaudeReply :=
 
 #guard readApiReply "{\"type\":\"message\",\"stop_reason\":\"end_turn\",\"content\":[{\"type\":\"thinking\",\"thinking\":\"\"},{\"type\":\"text\",\"text\":\"hi\"}]}" == .text "hi"
 #guard readApiReply "{\"type\":\"message\",\"stop_reason\":\"refusal\",\"content\":[]}" == .failed "Claude declined this request."
-#guard readApiReply "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"x\"}}" == .failed "Claude's service refused the API key in semantics/dev/.env."
+#guard readApiReply "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"x\"}}" == .failed "Claude's service refused the API key."
 #guard readApiReply "not json" matches .failed _
 
 /-- A good answer: words for the person, and a new model unless Claude only answered. -/

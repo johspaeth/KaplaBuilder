@@ -35,7 +35,7 @@ def scoreReport (m : BubbleModel) (height : Q) (plan : List Pose) : ScoreReport 
 private def askClaude (key : Option String) (current : Option BubbleModel) (text : String) :
     IO TargetSpec := do
   let some key := key
-    | throw (IO.userError "no API key: put it in semantics/dev/.env")
+    | throw (IO.userError "no API key: put it in .env in the top folder of the repo")
   match ← chat key [] current text with
   | .error e => throw (IO.userError e)
   | .ok { model := some m, .. } => return .ofBubbles m
