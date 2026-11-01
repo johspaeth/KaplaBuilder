@@ -28,7 +28,7 @@ flowchart LR
 
   subgraph B["B · Semantic Engine"]
     interp["interpret<br/>prompt/image → TargetSpec<br/>(Claude)"]
-    score["score · bound · verdict<br/>(verified)"]
+    score["score · acceptance · verdict<br/>(verified)"]
   end
 
   subgraph C["C · Construction Planner"]
@@ -75,7 +75,7 @@ flowchart TB
   core["⚙ KaplaCore<br/>types · JSON codecs · rational geometry basics<br/>engine interfaces · mocks"]
 
   phys["A · KaplaPhysics<br/>contacts · LP · certificates<br/>Human Model rules · proofs"]
-  sem["B · KaplaSemantics<br/>Shape DSL · voxelizer · IoU · bound<br/>Claude client · image silhouette"]
+  sem["B · KaplaSemantics<br/>Shape DSL · voxelizer · IoU · acceptance<br/>Claude client · image silhouette"]
   plan["C · KaplaPlanner<br/>motifs · roofs · layer planner<br/>sequencer · repair · scale search"]
   web["D · KaplaWeb<br/>HTML builder · SVG · three.js page<br/>report · HTTP server"]
 
@@ -171,10 +171,11 @@ classDiagram
     +Option~Q~ silhouetteIoU
     +List~PartScore~ perPart
     +VoxelDiff missingAndExtra
-  }
-  class Bound {
-    +Q maxScore
-    +Verdict verdict
+    +Frame frame
+    +Nat blockCount
+    +List~Nat~ outside
+    +List~String~ uncovered
+    +List~String~ tooSmall
   }
 
   class PhysicsEngine {
@@ -184,8 +185,8 @@ classDiagram
   class SemanticEngine {
     <<interface>>
     +interpret(Request) IO TargetSpec
-    +score(TargetSpec, List~Pose~) ScoreReport
-    +bound(TargetSpec, Nat) Bound
+    +refine(TargetSpec, String) IO TargetSpec
+    +score(TargetSpec, Frame, List~Pose~) ScoreReport
   }
   class Planner {
     <<interface>>
@@ -204,7 +205,6 @@ classDiagram
   PhysicsEngine ..> PhysicsReport
   SemanticEngine ..> TargetSpec
   SemanticEngine ..> ScoreReport
-  SemanticEngine ..> Bound
   Planner ..> PhysicsEngine
   Planner ..> SemanticEngine
   Planner ..> BuildPlan
@@ -216,7 +216,7 @@ classDiagram
 Contents of `KaplaCore`:
 - **Data**: `Q` (= `Rat`), `Q3`, `Rot` (Pythagorean rotation, exact), `Upright`, `Pose`,
   `Grip`, `Approach`, `Step`, `BuildPlan`, `HumanModel`, `Shape` (DSL AST),
-  `TargetSpec`, `Diagnostic`, `PhysicsReport`, `ScoreReport`, `Bound`, `Verdict`,
+  `TargetSpec`, `Diagnostic`, `PhysicsReport`, `ScoreReport`, `Verdict`,
   `Request`, `PlanRequest`, `Candidate`, `RenderInput`.
 - **JSON codecs** for all of the above, with round-trip tests. JSON is the format of the
   fixtures, the webpage data and the Claude output.
@@ -241,14 +241,14 @@ flowchart LR
   end
   subgraph B["B · KaplaSemantics"]
     iou["def iou spec + scoreImpl<br/>theorem scoreImpl_eq_spec"]
-    bnd["theorem iou_le_bound"]
+    acc["theorems checkWithin_correct, checkCovers_correct"]
   end
   subgraph D["D · kapla Main.lean"]
-    final["Final output type:<br/>{p // Valid H N p} × verified score × proven bound"]
+    final["Final output type:<br/>{p // Valid H N p} × verified score × fits the target"]
   end
   cert --> final
   iou --> final
-  bnd --> final
+  acc --> final
   chk -. "data only" .-> core["KaplaCore.PhysicsEngine"]
 ```
 
@@ -269,19 +269,17 @@ sequenceDiagram
   U->>O: prompt / image, N
   O->>S: interpret(request)
   S-->>O: TargetSpec
-  O->>S: bound(target, N)
-  S-->>O: Bound (proven ceiling + verdict)
   O->>P: plan(PlanRequest, physics, semantics)
   loop search & repair (untrusted)
     P->>Ph: check(H, N, BuildPlan)
     Ph-->>P: PhysicsReport (ok or diagnostics)
-    P->>S: score(target, blocks)
+    P->>S: score(target, frame, blocks)
     S-->>P: ScoreReport (+ per-part / voxel diff)
   end
   P-->>O: ranked candidates
   O->>Ph: certify(H, N, best)
   Ph-->>O: {p // Valid H N p}
-  O->>S: score(target, p)
+  O->>S: score(target, frame, p)
   S-->>O: verified ScoreReport
   O->>R: render(RenderInput)
   R-->>U: index.html (3D view, step cards, report)
@@ -297,7 +295,7 @@ flowchart TB
     fbp["plans/*.json<br/>tree_1block · tower_10 · overhang_bad<br/>rotated_stack · aframe_2hands · bridge_uneven"]
     ftg["targets/*.json<br/>tree · duck · house · gable_roof · castle"]
     fpr["physics_expected/*.json<br/>ok / diagnostics per plan"]
-    fsr["score_expected/*.json<br/>score + bound per (plan, target)"]
+    fsr["score_expected/*.json<br/>score per (plan, target)"]
   end
 
   subgraph mocks["KaplaCore.Mocks"]
@@ -347,11 +345,11 @@ between the teams.
 
 ### B: Semantic Engine (`KaplaSemantics`)
 - **Owns**: the Shape DSL semantics, the voxelizer with its correctness proof, IoU,
-  silhouette projection, the upper bound `iou_le_bound`, verdict bands, per-part scores
+  silhouette projection, the acceptance checks, verdict bands, per-part scores
   (so the planner gets a feedback signal such as "tower missing"), the Claude client
   (text/image → `TargetSpec`, validation, retries), image decoding and silhouette mask, and
   the narration text for the report.
-- **Delivers**: `SemanticEngine` implementation, proven score and bound.
+- **Delivers**: `SemanticEngine` implementation, proven score and acceptance checks.
 - **Does not care about**: gravity.
 
 ### C: Construction Planner (`KaplaPlanner`)
