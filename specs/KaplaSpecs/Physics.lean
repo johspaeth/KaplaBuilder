@@ -347,8 +347,10 @@ level to level are not covered (R1 is the model). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ((∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
-        (buildOf plan.blocks = none ∧
+      (((coreCheck opts h maxBlocks plan).assurance = .robust ∧
+          ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
+        ((coreCheck opts h maxBlocks plan).assurance = .nominal ∧ opts.allowNominal = true ∧
+          buildOf plan.blocks = none ∧
           ∃ tb, turnedBuildOf plan.blocks = some tb ∧ TSafePlan maxBlocks tb)) := by
   sorry
 
@@ -359,10 +361,17 @@ example : (coreCheck {} .default 200 ⟨[{ blocks := [KaplaCore.Pose.example] }]
 example : (coreCheck {} .default 200
     ⟨[{ blocks := [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] }]⟩).ok ≠ true := fun hok => by
   have hf : buildOf [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] = some floating := by decide +kernel
-  rcases (coreCheck_ok_sound _ _ _ _ hok).2 with ⟨b, hb, hs⟩ | ⟨hnone, _⟩
+  rcases (coreCheck_ok_sound _ _ _ _ hok).2 with ⟨-, b, hb, hs⟩ | ⟨-, -, hnone, _⟩
   · obtain rfl : b = floating := Option.some.inj (hb.symm.trans hf)
     exact absurd (hs.2 1 (by decide) (by decide)).1 (by decide +kernel)
   · exact absurd (hnone.symm.trans hf) (by simp)
+-- With `allowNominal` off, every `ok` comes from the full check, with placement errors.
+example (h : KaplaCore.HumanModel) (maxBlocks : Nat) (plan : KaplaCore.BuildPlan)
+    (hok : (coreCheck { allowNominal := false } h maxBlocks plan).ok = true) :
+    (coreCheck { allowNominal := false } h maxBlocks plan).assurance = .robust := by
+  rcases (coreCheck_ok_sound _ _ _ _ hok).2 with ⟨ha, -⟩ | ⟨-, hn, -⟩
+  · exact ha
+  · cases hn
 -- Ruled out: `ok` for a step with two blocks when the builder has one hand.
 example : (coreCheck {} { KaplaCore.HumanModel.default with hands := 1 } 200
     ⟨[{ blocks := [KaplaCore.Pose.example, ⟨.flat, .id, ⟨0, 0, 3 / 2⟩⟩] }]⟩).ok ≠ true :=

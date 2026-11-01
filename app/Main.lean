@@ -26,8 +26,12 @@ import KaplaWeb
 
 By default the engine also asks that a 3.9 mm error can never close a gap between two
 blocks, and that no block goes into a slot exactly its own width. `--no-clearance` turns
-these two checks off. Blocks that touch in the plan (side by side, end to end, one on
-another) are fine either way.
+these two checks off. Blocks that touch face to face in the plan (side by side, end to end)
+or sit one on another are fine either way; blocks that touch only at an edge or a corner
+must keep a gap.
+
+A plan with turned blocks (B6) is checked at the planned positions only, and the report
+says so (`assurance := .nominal`). `--robust-only` refuses such plans.
 -/
 
 open Lean (Json JsonNumber)
@@ -163,17 +167,22 @@ are checked at the planned positions only. -/
 def hasTurnedBlocks (plan : BuildPlan) : Bool :=
   (KaplaPhysics.buildOf plan.blocks).isNone && (KaplaPhysics.turnedBuildOf plan.blocks).isSome
 
-/-- Short lines for the page notes and the terminal. -/
+/-- Short lines for the page notes and the terminal. The first line says what `ok` promises,
+read from the report's `assurance`: `robust` covers placement errors and gaps, `nominal`
+only the planned positions. -/
 def physicsLines (opts : KaplaPhysics.PlanOptions) (plan : BuildPlan) (r : PhysicsReport) :
     List String :=
+  let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
   let first :=
-    if hasTurnedBlocks plan then
-      if r.ok then "Physics (verified): well-formed and stands after every block, at the planned positions (turned blocks: placement errors, gaps and reach not checked)"
-      else "Physics (verified): not shown to stand at the planned positions (turned blocks)"
-    else
-      let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
-      if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
-      else s!"Physics (verified): not shown to be safe to build{clearance}"
+    match r.ok, r.assurance with
+    | true, .robust =>
+      s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
+    | true, .nominal =>
+      "Physics (verified): well-formed and stands after every block, at the planned positions only (turned blocks: placement errors, gaps and reach not checked)"
+    | false, _ =>
+      if hasTurnedBlocks plan then
+        "Physics: not shown to stand at the planned positions (turned blocks)"
+      else s!"Physics: not shown to be safe to build{clearance}"
   first :: r.diagnostics.map describe
 
 /-- Run the verified physics engine (`physicsEngine` when clearance is on). -/
@@ -590,14 +599,16 @@ def serve (port : Nat) : IO UInt32 := do
 end Server
 
 def usage : String :=
-  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]\n" ++
+  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance] [--robust-only]\n" ++
+  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance] [--robust-only]\n" ++
   "       kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]\n" ++
   "       kapla serve [--port N]"
 
 def main (args : List String) : IO UInt32 := do
-  let opts : KaplaPhysics.PlanOptions := { clearance := !args.contains "--no-clearance" }
-  match args.filter (· != "--no-clearance") with
+  let opts : KaplaPhysics.PlanOptions :=
+    { clearance := !args.contains "--no-clearance",
+      allowNominal := !args.contains "--robust-only" }
+  match args.filter (fun a => a != "--no-clearance" && a != "--robust-only") with
   | ["check", file] => check opts file defaultMaxBlocks
   | ["check", file, "--max", n] =>
     match n.toNat? with

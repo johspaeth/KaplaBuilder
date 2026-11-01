@@ -35,9 +35,20 @@ inductive Diagnostic where
   | tooManyBlocks (used limit : Nat)
   deriving Repr, BEq, DecidableEq, Inhabited
 
+/-- How much the physics engine's `ok` promises. -/
+inductive Assurance where
+  /-- Checked at the planned positions only (for example a plan with turned blocks, B6). -/
+  | nominal
+  /-- Also checked for placement errors: solid after every block, gaps kept (R1–R7). -/
+  | robust
+  deriving Repr, BEq, DecidableEq, Inhabited
+
 /-- What the physics engine says about a plan. -/
 structure PhysicsReport where
   ok          : Bool
+  /-- Which check `ok` comes from. The default, `nominal`, promises the least, so a report
+  never claims the stronger check by accident. -/
+  assurance   : Assurance := .nominal
   diagnostics : List Diagnostic := []
   /-- For each block, how much safety margin is left, if the engine computes it. -/
   slackPerBlock : Option (List Q) := none
