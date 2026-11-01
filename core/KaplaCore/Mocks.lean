@@ -129,34 +129,34 @@ def BuildPlan.ofBlocks (bs : List Pose) : BuildPlan := ⟨bs.map fun b => { bloc
 private def t : Q := blockThickness
 
 -- a stack of three blocks stands
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 0, flatAt 0 0 t, flatAt 0 0 (2*t)])).ok
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 0, flatAt 0 0 t, flatAt 0 0 (2*t)])).ok
 -- a block floating in the air falls
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 t])).diagnostics == [.unstable 0 0]
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 t])).diagnostics == [.unstable 0 0]
 -- an overhang of 3/4 of a block tips
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 0, flatAt 12 0 t])).diagnostics
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 0, flatAt 12 0 t])).diagnostics
   == [.unstable 1 1]
 -- an overhang that tips alone stands when a counterweight on its back end is placed in
 -- the same (two-hand) step ...
 private def overhang : Pose := flatAt 8 0 t
 private def counterweight : Pose := flatAt 4 0 (2*t)
-#guard (physicsMock.check .adult 10
+#guard (physicsMock.check .default 10
   ⟨[{ blocks := [flatAt 0 0 0] }, { blocks := [overhang, counterweight] }]⟩).ok
 -- ... but placed one at a time, the overhang tips at step 1, before the counterweight is
 -- on: the mock checks every step, not only the finished structure
-#guard (physicsMock.check .adult 10
+#guard (physicsMock.check .default 10
   (.ofBlocks [flatAt 0 0 0, overhang, counterweight])).diagnostics == [.unstable 1 1]
 -- a log-cabin tower (each layer turned 90°) stands
 private def cabin (layers : Nat) : List Pose := (List.range layers).flatMap fun (k : Nat) =>
   let z := (k : Q) * t
   if k % 2 == 0 then [flatAt 0 0 z, flatAt 0 (blockLength - blockWidth) z]
   else [flatAt 0 0 z true, flatAt (blockLength - blockWidth) 0 z true]
-#guard (physicsMock.check .adult 20 (.ofBlocks (cabin 6))).ok
+#guard (physicsMock.check .default 20 (.ofBlocks (cabin 6))).ok
 -- too many blocks, too many hands, overlap
-#guard (physicsMock.check .adult 1 (.ofBlocks [flatAt 0 0 0, flatAt 26 0 0])).diagnostics
+#guard (physicsMock.check .default 1 (.ofBlocks [flatAt 0 0 0, flatAt 26 0 0])).diagnostics
   == [.tooManyBlocks 2 1]
-#guard (physicsMock.check .child 10 ⟨[{ blocks := [flatAt 0 0 0, flatAt 26 0 0] }]⟩).diagnostics
+#guard (physicsMock.check { HumanModel.default with hands := 1 } 10 ⟨[{ blocks := [flatAt 0 0 0, flatAt 26 0 0] }]⟩).diagnostics
   == [.tooManyHands 0]
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 0, flatAt 6 0 0])).diagnostics
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 0, flatAt 6 0 0])).diagnostics
   == [.overlap 0 1]
 
 /-! ## Semantic mock -/
