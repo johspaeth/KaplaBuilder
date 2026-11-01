@@ -67,12 +67,12 @@ make check     # what CI checks (except `lake check` / `lake comparator`, Linux 
 | Folder | Lean library | What it does | Owner | May import |
 |---|---|---|---|---|
 | `core/` | `KaplaCore` | shared types, JSON, basic geometry, engine interfaces, mocks | all (stewarded by D) | Lean core, Batteries |
-| `physics/` | `KaplaPhysics` | does it stand, and can a human build it? (verified) | A | `KaplaCore` |
+| `physics/` | `KaplaPhysics` | does it stand, and can a human build it? (verified) | A | `KaplaCore`, `KaplaSpecs.PhysicsRules.*` |
 | `semantics/` | `KaplaSemantics` | what to build (Claude), and how close are we? (verified score) | B | `KaplaCore` |
 | `planner/` | `KaplaPlanner` | which blocks go where, in which order (untrusted search) | C | `KaplaCore` |
 | `web/` | `KaplaWeb` | webpage: 3D view, step cards, badges | D | `KaplaCore` |
 | `app/` | `kapla` (exe) | the CLI; connects the real engines | D | everything |
-| `specs/` | `KaplaSpecs` | theorem statements written and reviewed by humans | all | everything |
+| `specs/` | `KaplaSpecs` | theorem statements and the rules they are about, written and reviewed by humans | all | everything (`PhysicsRules/`: only `KaplaCore`) |
 | `comparator/` | – | links each spec to its proof | all | – |
 
 Work only in your own folder. Build only your part: `lake build KaplaPhysics`.
@@ -116,6 +116,9 @@ To add a spec:
 
 1. Write the statement in `specs/KaplaSpecs/<Component>.lean`. Import only the definitions it
    needs, not the proofs.
+   If the statement is about rules that you would otherwise define in your folder (what
+   "stable" means, for example), put those definitions in `specs/` too, so the meaning of
+   the statement cannot change without a spec review. Example: `specs/KaplaSpecs/PhysicsRules/`.
 2. Prove it in your folder, in a module that the spec does not import.
 3. Add `comparator/<component>.json`: challenge module, solution module, theorem names.
 
