@@ -13,6 +13,9 @@ import KaplaWeb
 * `kapla view BLUEPRINT.json [--out DIR] [--no-clearance]` writes `DIR/index.html` (default
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
+* `kapla plan [N] [target ...] [--no-clearance]` runs the planner demo: it fills the bubble
+  test targets with at most `N` blocks (default 60), with the verified physics engine, and
+  writes blueprint files to `out/planner-demo/`.
 
 `--no-clearance` allows blocks placed side by side and touching: the engine then does not ask
 that a 2 mm error can never push two blocks into each other.
@@ -141,9 +144,33 @@ def view (opts : KaplaPhysics.PlanOptions) (file : String) (out : String) : IO U
     IO.println s!"wrote {path} ({p.steps.length} steps, physics {if r.ok then "ok" else "not ok"})"
     return 0
 
+/-! ## Planning with the verified physics engine -/
+
+/-- The physics engine's answer for the blocks placed so far, in this order, for the
+planner's search: they are well-formed, clear of each other (only if `opts.clearance` is on),
+and solid for 2 mm placement errors. Only the whole build is checked, not every step: the
+search adds one block at a time and checked the earlier builds then. The finished plan is
+checked again step by step. -/
+def physicsStands (opts : KaplaPhysics.PlanOptions) (bs : List KaplaPlanner.GridBlock) : Bool :=
+  match KaplaPhysics.buildOf (bs.map KaplaPlanner.GridBlock.toPose) with
+  | none => false
+  | some b =>
+    let ε := HumanModel.default.epsRel
+    decide (KaplaPhysics.WellFormed b) &&
+      (!opts.clearance || decide (KaplaPhysics.Clear ε b)) &&
+      -- only the fast solver: the slow one runs many times on blocks that are refused anyway
+      match KaplaPhysics.RobustSolver.proposeLoadsLocal ε b with
+      | some ls => decide (KaplaPhysics.SolidCertificate ε b ls)
+      | none => false
+
+/-- The verified physics engine behind core's interface, with these options. -/
+def physicsWith (opts : KaplaPhysics.PlanOptions) : KaplaCore.PhysicsEngine :=
+  ⟨KaplaPhysics.coreCheck opts⟩
+
 def usage : String :=
   "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]"
+  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]\n" ++
+  "       kapla plan [N] [target ...] [--no-clearance]"
 
 def main (args : List String) : IO UInt32 := do
   let opts : KaplaPhysics.PlanOptions := { clearance := !args.contains "--no-clearance" }
@@ -155,6 +182,7 @@ def main (args : List String) : IO UInt32 := do
     | none => IO.eprintln usage; return 64
   | ["view", file] => view opts file "out"
   | ["view", file, "--out", out] => view opts file out
+  | "plan" :: rest => KaplaPlanner.demoMain (physicsStands opts) (physicsWith opts) rest
   | [] =>
     IO.println "KaplaBuilder scaffold. Components:"
     for name in [KaplaPhysics.componentName, KaplaSemantics.componentName,
@@ -162,6 +190,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println s!"  - {name}"
     IO.println "Check a blueprint: kapla check BLUEPRINT.json [--max N] [--no-clearance]"
     IO.println "Show a blueprint:  kapla view BLUEPRINT.json [--out DIR] [--no-clearance]"
+    IO.println "Planner demo:      kapla plan [N] [target ...] [--no-clearance]"
     return 0
   | _ =>
     IO.eprintln usage

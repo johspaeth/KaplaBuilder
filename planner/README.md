@@ -27,15 +27,19 @@ Entry point: `KaplaPlanner.planner : KaplaCore.Planner` (pure core: `planPure`).
 | `Stability.lean` | cheap grid stability estimate used inside the search |
 | `Design.lean` | P3 minimal filler: layer by layer, greedy surface coverage, scale and ground height search |
 | `Export.lean` | blueprint JSON for the web viewer |
+| `Demo.lean` | `kapla plan`: designs the bubble test targets, checks them with the physics engine the app passes in, writes blueprints |
 
 ## Demo
 
 ```sh
-lake build planner-demo && .lake/build/bin/planner-demo 200          # all bubble targets
-lake exe kapla view out/planner-demo/duck.json --out out/planner-demo/duck
+lake build kapla && .lake/build/bin/kapla plan 200 --no-clearance      # all bubble targets
+lake exe kapla view out/planner-demo/duck.json --out out/planner-demo/duck --no-clearance
 open out/planner-demo/duck/index.html
 ```
-Uses the physics mock, not the verified engine.
+The demo lives in `Demo.lean`; the app runs it with the verified physics engine, both inside
+the search (every block tried) and on the finished plan (every step). `--no-clearance` lets
+blocks touch side by side; without it the engine asks for a gap of 2 × 2 mm between blocks
+at the same height, and the search keeps only blocks that leave it.
 
 Proven (standard axioms only):
 - `planPure_sound` (main theorem, in `specs/` + `comparator/planner.json`): every returned candidate passed the physics check and uses at most N blocks.

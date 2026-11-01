@@ -184,6 +184,15 @@ Built **layer by layer, bottom up**, as Kapla is built:
 6. **Improve**: try to move, swap or turn single blocks to cover more surface cells; repeat
    while it helps (with fuel).
 
+**What the code does now** (`Design.lean`): every block it tries is checked with the verified
+physics engine (the app passes it in as `stands`): the build so far must be well-formed and
+solid for 2 mm placement errors. Each layer starts with a spine block near the centre; then
+blocks that cover new surface; if none of those stands, a support block near the centre of
+the layer, which widens the base. Known weakness: the builds stay narrow (a tower three
+blocks wide) and stop below thin parts, because an upright block in a neck is not shown to
+be solid. The ring of step 1 needs its own support in the lower half of a ball, which the
+filler does not plan yet.
+
 The search is untrusted. Its output passes a **verified check**,
 `insideBubbles bubbles s D : Bool`: every cell of every block has its 8 corners inside one
 bubble (§5).

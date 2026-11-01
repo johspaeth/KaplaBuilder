@@ -31,7 +31,8 @@ contains nothing). -/
 def bubbleBounds (b : Bubble) : Option Box :=
   if 0 < b.semi.x && 0 < b.semi.y && 0 < b.semi.z then some b.box else none
 
-#guard bubbleBounds (ball "b" ⟨0, 0, 0⟩ 10) == some ⟨⟨-10, -10, -10⟩, ⟨10, 10, 10⟩⟩
+-- the box stops at the ground
+#guard bubbleBounds (ball "b" ⟨0, 0, 0⟩ 10) == some ⟨⟨-10, -10, 0⟩, ⟨10, 10, 10⟩⟩
 #guard bubbleBounds (ellipsoid "x" ⟨0, 0, 0⟩ 1 1 0) == none
 
 /-- Lowest corners (in units, multiples of 4) of the world cubes that may meet `[lo, hi]`. -/

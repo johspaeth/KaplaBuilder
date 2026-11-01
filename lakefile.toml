@@ -51,10 +51,3 @@ globs = ["KaplaSpecs.+"]
 name = "kapla"
 srcDir = "app"
 root = "Main"
-
-# C: planner demo (not a default target): fills the bubble test targets and writes
-# blueprint files for `kapla view`. Run: lake exe planner-demo [N] [target ...]
-[[lean_exe]]
-name = "planner-demo"
-srcDir = "planner/demo"
-root = "Demo"

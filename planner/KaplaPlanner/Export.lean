@@ -31,12 +31,21 @@ def stepJson (s : Step) : String :=
   s!"\{\"blocks\": [{blocks}], \"phase\": {strJson s.phase}, \"grip\": {gripJson s.grip}, " ++
   "\"approach\": \"fromAbove\"}"
 
-/-- The whole blueprint file. -/
-def blueprintJson (title subtitle : String) (notes : List String) (plan : BuildPlan) : String :=
+/-- A bubble as JSON: label, centre and half-widths. -/
+def bubbleJson (b : Bubble) : String :=
+  s!"\{\"label\": {strJson b.label}, " ++
+  s!"\"center\": [{ratJson b.center.x}, {ratJson b.center.y}, {ratJson b.center.z}], " ++
+  s!"\"semi\": [{ratJson b.semi.x}, {ratJson b.semi.y}, {ratJson b.semi.z}]}"
+
+/-- The whole blueprint file. `bubbles` is the target, so the viewer can draw it. -/
+def blueprintJson (title subtitle : String) (notes : List String) (plan : BuildPlan)
+    (bubbles : List Bubble := []) : String :=
   let steps := ",\n    ".intercalate (plan.steps.map stepJson)
   let notesJ := ", ".intercalate (notes.map strJson)
+  let bubblesJ := ",\n    ".intercalate (bubbles.map bubbleJson)
   s!"\{\n  \"title\": {strJson title},\n  \"subtitle\": {strJson subtitle},\n" ++
-  s!"  \"notes\": [{notesJ}],\n  \"plan\": \{\"steps\": [\n    {steps}\n  ]}\n}\n"
+  s!"  \"notes\": [{notesJ}],\n  \"bubbles\": [\n    {bubblesJ}\n  ],\n" ++
+  s!"  \"plan\": \{\"steps\": [\n    {steps}\n  ]}\n}\n"
 
 #guard ratJson (39 / 10) == "\"39/10\"" && ratJson 3 == "3"
 

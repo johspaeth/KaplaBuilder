@@ -17,8 +17,10 @@ Minimal version (P3, demo):
   flat blocks it goes on with blocks upright;
 - the budget is shared between the layers by their surface, so the lowest part does not use
   it all up;
-- stability is a parameter (`stands`); for now the demo passes an oracle that always says
-  yes, because the physics engine is not merged yet;
+- stability is a parameter (`stands`): `kapla plan` passes the verified physics engine, so
+  every block is kept only if the build so far is solid for placement errors;
+- if no block that covers new surface stands, a support block near the centre of the layer
+  goes in instead: it widens the base for the layers above;
 - a few scales and ground heights are tried; the best surface coverage wins.
 
 Untrusted: the result is checked again by `insideBubbles` (proven) and `eyeballable`. -/
@@ -234,6 +236,12 @@ def fillLayer (bs : Array IntBubble) (surface : Std.HashSet Cell) (stands : List
     let tall := if flatPlaced then [] else
       byScore ((free.filter (·.orient != o)).map fun b => (b, gain surface f b))
     let best := (flat ++ tall).find? fun (b, _) => stands (f.placed.toList ++ [b])
+    -- if no such block stands, a support block: flat, nearest to the centre of the layer, even
+    -- if it covers no surface. It widens the base, so blocks further out can stand later.
+    let best := best <|> (match centre with
+      | some c => (sortByDist c (free.filter (·.orient == o))).find?
+          fun b => stands (f.placed.toList ++ [b])
+      | none => none).map (·, 0)
     match best with
     | none => break
     | some (b, _) =>

@@ -36,11 +36,12 @@ instance (e : Ellipsoid) (p : Q3) : Decidable (e.contains p) := by
 def bubbleEllipsoid (b : Bubble) : Ellipsoid :=
   ⟨b.center, ⟨1 / b.semi.x, 0, 0⟩, ⟨0, 1 / b.semi.y, 0⟩, ⟨0, 0, 1 / b.semi.z⟩⟩
 
-/-- A bubble contains a point exactly when its half-widths are above 0 and its ellipsoid
-contains the point. -/
+/-- A bubble contains a point exactly when the point is not below the ground, the bubble's
+half-widths are above 0, and its ellipsoid contains the point. -/
 theorem bubble_contains_iff (b : Bubble) (p : Q3) :
     b.contains p = true ↔
-      (0 < b.semi.x ∧ 0 < b.semi.y ∧ 0 < b.semi.z) ∧ (bubbleEllipsoid b).contains p := by
+      0 ≤ p.z ∧ (0 < b.semi.x ∧ 0 < b.semi.y ∧ 0 < b.semi.z) ∧
+        (bubbleEllipsoid b).contains p := by
   have key : (bubbleEllipsoid b).value p =
       (p.x - b.center.x) / b.semi.x * ((p.x - b.center.x) / b.semi.x) +
       (p.y - b.center.y) / b.semi.y * ((p.y - b.center.y) / b.semi.y) +

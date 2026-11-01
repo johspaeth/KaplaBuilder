@@ -18,6 +18,7 @@ import KaplaPlanner.Eyeball
 import KaplaPlanner.Stability
 import KaplaPlanner.Design
 import KaplaPlanner.Export
+import KaplaPlanner.Demo
 import KaplaPlanner.Proofs
 import KaplaPlanner.Tests
 

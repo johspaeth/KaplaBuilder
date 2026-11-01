@@ -98,10 +98,12 @@ theorem bubble_contains_of_corners (b : Bubble) (bx : Box)
     (hc : ∀ q ∈ bx.corners, b.contains q = true) (p : Q3) (hp : bx.contains p) :
     b.contains p = true := by
   have hlo : (⟨bx.lo.x, bx.lo.y, bx.lo.z⟩ : Q3) ∈ bx.corners := by simp [Box.corners]
-  have hpos := ((bubble_contains_iff b _).mp (hc _ hlo)).1
+  have hlo' := (bubble_contains_iff b _).mp (hc _ hlo)
   rw [bubble_contains_iff]
-  exact ⟨hpos, contains_of_corners (bubbleEllipsoid b) bx
-    (fun q hq => ((bubble_contains_iff b q).mp (hc q hq)).2) p hp⟩
+  -- the lowest corner is not below the ground, so `p`, which is above it, is not either
+  have hz : 0 ≤ p.z := Rat.le_trans hlo'.1 hp.2.2.2.2.1
+  exact ⟨hz, hlo'.2.1, contains_of_corners (bubbleEllipsoid b) bx
+    (fun q hq => ((bubble_contains_iff b q).mp (hc q hq)).2.2) p hp⟩
 
 /-- A run of `n ≥ 1` pieces of length `h`, starting at `a`, covers every point between its
 ends: each such point is in one of the pieces `[a + m·h, a + (m+1)·h]`, `m < n`. -/
