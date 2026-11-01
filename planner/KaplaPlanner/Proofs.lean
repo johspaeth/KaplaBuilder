@@ -5,7 +5,7 @@ import KaplaPlanner.Search
 The planner is not trusted: the physics engine and the scorer check every plan. These short
 theorems make it more reliable (`planner/DESIGN.md` §7):
 
-1. `planPure_sound` (v1) and `candidatesOf_sound` (v2, the end of `planner`): every candidate
+1. `candidatesOf_sound` (the end of `planner`) and `planPure_sound`: every candidate
    uses at most `N` blocks, and the physics engine said `ok` for it.
 2. `planPure_length`, `candidatesOf_length`: there are at most `maxCandidates` candidates.
 3. `toPlan_hands`: every step places exactly one block, so it never needs more hands than the
@@ -62,13 +62,13 @@ theorem pick_length (n k : Nat) (a b : List Candidate) : (pick n k a b).length �
   have h2 := finalize_length n (k - (finalize n k a).length) b
   omega
 
-/-- Every candidate the v2 planner returns (`candidatesOf`, the last step of `plannerWith`)
+/-- Every candidate the planner returns (`candidatesOf`, the last step of `plannerWith`)
 uses at most `N` blocks, and the physics engine said `ok` for it. -/
 theorem candidatesOf_sound (req : PlanRequest) (sem : SemanticEngine) (trees : List Tree) :
     ∀ c ∈ candidatesOf req sem trees, c.plan.blockCount ≤ req.blocks ∧ c.physics.ok = true :=
   pick_sound _ _ _ _
 
-/-- The v2 planner returns at most `maxCandidates` candidates. -/
+/-- The planner returns at most `maxCandidates` candidates. -/
 theorem candidatesOf_length (req : PlanRequest) (sem : SemanticEngine) (trees : List Tree) :
     (candidatesOf req sem trees).length ≤ req.maxCandidates :=
   pick_length _ _ _ _

@@ -14,7 +14,7 @@ wider spans newly reach become covered.
 
 `extra` counts built cells in no bubble. The planner may not import the scorer, so the tests
 below compare the fast score with `refCounts`, a direct version of the same definition that
-recomputes everything from the block list. See `planner/DESIGN.md` §4.2. -/
+recomputes everything from the block list. See `planner/DESIGN.md`. -/
 
 namespace KaplaPlanner
 

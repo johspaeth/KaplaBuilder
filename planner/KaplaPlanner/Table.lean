@@ -4,7 +4,7 @@ import KaplaPlanner.Grid
 
 At one height, place the bubbles once and mark, for every grid cell, which bubbles hold its
 middle (a bit mask). This is the only place where the planner uses the ellipsoid formula; after
-this, everything is a lookup. See `planner/DESIGN.md` §4.2.
+this, everything is a lookup. See `planner/DESIGN.md` §2.
 
 The table covers a box around the bubbles, with room on every side for a block that sticks
 out. Cells outside the box are in no bubble. -/

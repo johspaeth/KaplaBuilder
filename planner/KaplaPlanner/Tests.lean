@@ -52,7 +52,7 @@ private def ballTrial : Trial := tryBuild ballModel 10 coarseSettings.head! 12
   removeBlocks bs [1] 1 false == [⟨.flatX, 0, 0, 0⟩]
 #guard blamed { ok := false, diagnostics := [.unstable 3 2, .tooManyHands 1] } == [2]
 
-/-! ## The tree search (v2), with the mock physics engine -/
+/-! ## The tree search, with the mock physics engine -/
 
 /-- A tree search on the ball at height 10, 12 blocks, run to the end with checks right away. -/
 private def ballTree : Tree :=
@@ -60,7 +60,7 @@ private def ballTree : Tree :=
   (Tree.make t 10 12 (paramsFor t default 12)).runWith physicsMock .default toPlan 400 20
 
 -- It finds a plan that passed physics, within the block limit, that reaches the ball, and that
--- scores at least as well as v1's build with the same setting.
+-- scores at least as well as the greedy build with the same setting.
 #guard match ballTree.incumbent with
   | some lf => lf.covers && 0 < lf.blocks.size && lf.blocks.size ≤ 12 &&
       (physicsMock.check .default 12 (toPlan lf.blocks.toList)).ok &&

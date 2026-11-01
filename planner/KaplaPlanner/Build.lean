@@ -4,7 +4,7 @@ import KaplaPlanner.Support
 /-! # Build: courses from the ground up
 
 At one height, the planner builds one course (one block thick) at a time, from the ground up
-(`planner/DESIGN.md` §4.3). In each course:
+(`greedyCourse` in `planner/DESIGN.md` §3). In each course:
 
 1. **Candidates.** Every block starting at this course, lying a way that the settings allow
    (flat along x or y; with `uprights`, also on edge and standing), that has at least one cell
@@ -26,9 +26,8 @@ cells on crossing lines, so the chosen candidate's value is always worked out ag
 goes in.
 
 `perCourse` and `maxBlocks` set how many blocks the build uses (`Search.lean` chooses them).
-`lambda` is a lower limit on a block's value; a high `lambda` turned out to be a poor way to
-save blocks, because it also drops the low-value blocks at the bottom that everything else
-rests on. `price` turns the score's ratio into a sum: a block helps the final
+`lambda` is a lower limit on a block's value. It is kept low: a high `lambda` would also drop
+the low-value blocks at the bottom that everything else rests on. `price` turns the score's ratio into a sum: a block helps the final
 score `covered / (target + extra)` when it adds more than `score × extra` covered cells, so
 `price` should be close to the score we expect to reach. -/
 

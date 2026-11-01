@@ -2,13 +2,13 @@ import KaplaPlanner.Tree
 
 /-! # Search: heights, settings, the physics check, and the candidates
 
-The planner (`planner`, `planner/DESIGN.md` §11) runs for at most a time limit (30 s):
+The planner (`planner`, `planner/DESIGN.md` §3) runs for at most a time limit (30 s):
 
 1. **Probes.** Two tiny plans tell whether the physics engine lets upright blocks stand on
    flat blocks, and carry blocks (`probeRules`).
-2. **First sweep.** v1's builds at a coarse spread of heights (below), for at most
+2. **First sweep.** Greedy builds at a coarse spread of heights (below), for at most
    `sweepShare` of the time; builds not done by then are left out. The best heights get a
-   tree search each (branch-and-bound, `Tree.lean`), starting from the best v1 setting of that
+   tree search each (branch-and-bound, `Tree.lean`), starting from the best setting of that
    height.
 3. **Rounds.** The tree searches run in parallel, a few steps each per round. Leaves that beat
    a search's incumbent go to the physics engine, each in its own task, at most a few at a
@@ -23,8 +23,8 @@ The planner (`planner`, `planner/DESIGN.md` §11) runs for at most a time limit 
    likely run past the limit (judged by the longest check so far). The plans that passed are scored by
    the semantic engine and the best few returned (`finalize`).
 
-`planPure` is v1, kept as a pure function for tests and proofs. Its outer loop
-(`planner/DESIGN.md` §4.1, §4.7, §4.8):
+`planPure` is a pure function with no time limit, used by the tests and proofs. It does only
+the greedy sweep, with a check-and-repair step:
 
 1. **Height and settings.** Build at a coarse spread of heights with a few settings, keep the
    best height, then build at heights close to it with every setting (which way the courses
@@ -268,9 +268,9 @@ def checkTrials (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine)
 def planPure (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) : List Candidate :=
   finalize req.blocks req.maxCandidates (checkTrials req ph sem (allTrials req.target.model req.blocks))
 
-/-! ## v2: tree searches under a time limit -/
+/-! ## Tree searches under a time limit -/
 
-/-- The settings of the planner (`planner/DESIGN.md` §11.5). -/
+/-- The settings of the planner (`planner/DESIGN.md` §6). -/
 structure PlannerConfig where
   /-- Return within this many milliseconds. -/
   timeLimitMs : Nat := 30000
@@ -307,7 +307,7 @@ def probeRules (ph : PhysicsEngine) (human : HumanModel) : UprightRules :=
 def probeChecks : Nat := 2
 
 /-- The heights for tree searches, each with the setting to start from: the two best heights
-of the first sweep, heights near each of them (as v1's fine sweep), then the other heights of the sweep. At most `k`. -/
+of the first sweep, heights near each of them, then the other heights of the sweep. At most `k`. -/
 def treeHeights (trials : List Trial) (k : Nat) : List (Nat × Setting) :=
   let sorted := trials.mergeSort Trial.better
   let firsts := (sorted.map (·.height)).eraseDups.filterMap fun h =>
@@ -319,7 +319,7 @@ def treeHeights (trials : List Trial) (k : Nat) : List (Nat × Setting) :=
     (fun acc (h, s) => if acc.any (·.1 == h) then acc else acc ++ [(h, s)]) []
   all.take k
 
-/-- The tree search at a height, starting from a setting, with the v1 build of that height (if
+/-- The tree search at a height, starting from a setting, with the best greedy build of that height (if
 any) offered to the physics engine first. -/
 def startTree (m : BubbleModel) (n : Nat) (up : UprightRules) (trials : List Trial)
     (h : Nat) (s : Setting) : Tree :=
@@ -387,7 +387,7 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
   if n == 0 then return ([], {})
   let up := probeRules ph req.human
   let mut log : SearchLog := { checks := probeChecks, up }
-  -- the first sweep: v1 builds at a coarse spread of heights, in parallel. Builds not done
+  -- the first sweep: greedy builds at a coarse spread of heights, in parallel. Builds not done
   -- by `sweepEnd` are left out (they keep running in the background until done).
   let h0 := firstHeight m n
   let jobs := (heightsAt h0 [50, 75, 100, 125, 150, 200]).flatMap fun h =>

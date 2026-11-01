@@ -6,7 +6,7 @@ The planner places blocks on the integer grid: every corner of a block has whole
 coordinates, and every turn is a quarter turn. A block lies flat, on its long edge, or stands
 on its small end. Then a block fills exactly 45 whole grid cells,
 and every test (overlap, rests on, inside a bubble) is integer arithmetic. We turn a grid block
-into a core `Pose` only at the end. See `planner/DESIGN.md` §3. -/
+into a core `Pose` only at the end. See `planner/DESIGN.md` §2. -/
 
 namespace KaplaPlanner
 

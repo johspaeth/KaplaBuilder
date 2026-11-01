@@ -2,7 +2,7 @@ import KaplaPlanner.Build
 
 /-! # The tree search: branch-and-bound over courses
 
-At one height, the search builds the model course by course (`planner/DESIGN.md` §11.5). It is
+At one height, the search builds the model course by course (`planner/DESIGN.md` §3, §5). It is
 an *anytime* search: it always has a best plan so far (the **incumbent**), and it can stop at
 any moment. It does not promise the best possible plan: it keeps only a few children per node,
 and some pruning rules are heuristic.
@@ -16,18 +16,19 @@ and some pruning rules are heuristic.
 * **Limited discrepancy search (LDS):** try the paths that differ least from the default
   first. Nodes wait in buckets by their number of *discrepancies*: how often their path took a
   child other than the first. The search always takes the newest node of the lowest bucket. So
-  it first follows the default path to the top (a v1 build), then paths that differ once, then
+  it first follows the default path to the top (the greedy build), then paths that differ once, then
   twice, and so on.
 * **Leaves.** A build that reaches the top, or the block limit, is a leaf. A leaf that beats
   the incumbent is sent to the physics engine (the caller does this, `Search.lean`).
 * **Pruning** a node means not exploring it. The rules:
   * **bound pruning** (safe): skip a node when no build below it can beat the incumbent.
     `bound` is a score that no build below the node can beat.
-  * **feasibility pruning** (safe): skip a node that can no longer give a plan the scorer
-    accepts: a bubble with no block yet whose top is below the node, or too few blocks left
-    to reach every bubble.
-  * **symmetry breaking** (safe): at the first course, drop a child that is the mirror image of
-    another (when the model is its own mirror image).
+  * **dead bubble** (safe): skip a node with a bubble that has no block yet and ends below it.
+  * **budget** (heuristic): skip a node with fewer blocks left than bubbles with no block (one
+    block can reach two bubbles, so this may drop a good node).
+  * **symmetry breaking** (heuristic): at the first course, drop a child that is the mirror
+    image of another (when the model is its own mirror image). The greedy builder does not
+    always treat a plan and its mirror image the same way.
   * **dominance pruning** (heuristic): of two nodes at the same course with the same top two
     courses, keep only the better.
   * **no-good learning** (heuristic): never again make a placement the physics engine refused

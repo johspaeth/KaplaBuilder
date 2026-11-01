@@ -5,7 +5,7 @@ import KaplaPlanner.Grid
 
 Before a block goes in, the planner checks with a simple load model that the whole stack still
 stands. This is not the physics engine. Its purpose is to waste few of the real checks
-(`planner/DESIGN.md` §4.4).
+(`planner/DESIGN.md` §4).
 
 The model:
 
@@ -15,7 +15,7 @@ The model:
 * **Upright blocks** (on edge or standing) have a foot only 1 cell wide. The physics engine
   keeps its load points about 0.51 inside every contact edge, so it cannot find forces through
   a contact 1 wide: today it rejects an upright block on any block, and any block on an upright
-  one (`planner/DESIGN.md` §11.2). `UprightRules` says what is allowed; by default upright
+  one (`planner/DESIGN.md` §2). `UprightRules` says what is allowed; by default upright
   blocks stand only on the ground and carry nothing. The planner asks the physics engine at
   the start whether more is allowed (`Search.lean`).
 * Every block carries its own weight 1 at its middle, plus what the blocks above pass down.
@@ -174,9 +174,8 @@ moves it (at most `forceGrid` times a contact span of 15, over a load of at leas
 under 1/200 of a cell, either way. So the rule may accept a block up to that much closer to
 its limit than the exact rule would. That is small next to the rule's own margins (1 along a
 block, 3/5 across), which are well above the physics engine's 0.51; and the rule is not
-trusted: physics checks every plan. Extra room of 1/128 was tried: it refused placements
-exactly at the limit, which are common on the integer grid, and the egg (N = 40) scored
-0.728 instead of 0.735. -/
+trusted: physics checks every plan. Extra room would refuse placements exactly at the limit,
+which are common on the integer grid. -/
 def gridRoom : Q := 0
 
 /-- `q` rounded to the nearest multiple of `g`. -/
@@ -188,9 +187,8 @@ def roundTo (g q : Q) : Q := ((q / g + 1 / 2).floor : Q) * g
 build order from the top. `margin` is the room left at the ends of the contact span. -/
 def firstFailing (bs : Array Placed) (margin : Q) : Option Nat := Id.run do
   -- The loads are worked out on a fine grid, not exactly: with exact fractions, every lever
-  -- split makes the numbers longer, and in a tall stack they grow to thousands of digits
-  -- (a ball build of 84 blocks took 157 s; now under 2 s). Load points are rounded to `posGrid`, forces to
-  -- `forceGrid` (the total load stays exact). So a load point can be off by a tiny amount
+  -- split makes the numbers longer, and in a tall stack they grow to thousands of digits.
+  -- Load points are rounded to `posGrid`, forces to `forceGrid` (the total load stays exact). So a load point can be off by a tiny amount
   -- (see `gridRoom`).
   let n := bs.size
   let mut w : Array Q := Array.replicate n 1
@@ -304,7 +302,7 @@ def Stack.carriedBy (st : Stack) (i : Nat) : List Nat :=
 #guard (Stack.placeAll {} [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 6, 0, 1⟩, ⟨.flatY, 6, -6, 2⟩,
   ⟨.flatY, 9, -6, 2⟩, ⟨.flatY, 18, -6, 2⟩] 1).isSome
 
-/-! Upright blocks. The answers match the physics engine on the plans of `DESIGN.md` §11.2. -/
+/-! Upright blocks. The answers match what the physics engine says on the same plans. -/
 
 -- A standing block and a block on edge stand on the ground.
 #guard (Stack.placeAll {} [⟨.standX, 0, 0, 0⟩, ⟨.edgeY, 5, 0, 0⟩] 1).isSome
