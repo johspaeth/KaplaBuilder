@@ -20,7 +20,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | File in `specs/KaplaSpecs/PhysicsRules/` | What it says | Trusted? |
 |---|---|---|
 | `Geometry.lean` | planks, the six poses, rectangles (W1–W3, B1–B5) | yes: read it |
-| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors, `SolidWithin`, `Meets` and `KeepsGaps` (R1–R3, R5), `PlanOptions` and `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
+| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors, `SolidWithin`, `FaceToFace` and `KeepsGaps` (R1–R3, R5, R6), `InTightSlot` (R7), `PlanOptions` and `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
 | `Tower.lean` | the square tower of example E8 | yes: read it |
 | `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `FromCore.lean` | `plankOf`, `buildOf`: a core block (centre, quarter turn) as a physics plank (lowest corner, one of six poses) | yes: read it |
@@ -56,11 +56,13 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `checkPlan_sound`: an accepted plan has at most N planks, and after every step it is
   well-formed at the planned positions and **solid** (property 4, K4). With the clearance
   check on (`PlanOptions.clearance`, on by default) it also **keeps its gaps**
-  (`KeepsGaps`): two planks that do not touch in the plan are never pushed into each other
-  by errors up to ε. The checker asks for a gap of at least 2ε between such planks
-  (`Clear`). Planks that touch in the plan (`Meets`: side by side, end to end, one on
-  another) are left out, as R5 says: a plank pushed against its neighbour moves with it.
-  So walls of touching planks pass; only near misses (a gap above 0 and below 2ε) fail.
+  (`KeepsGaps`, R6): two planks that are not face to face in the plan are never pushed into
+  each other by errors up to ε. The checker asks for a gap of at least 2ε between such
+  planks, or no shared height (`Clear`). Planks face to face in the plan (`FaceToFace`: side
+  by side or end to end, over a face of area above zero) are left out, as R5 says: a plank
+  pushed against its neighbour moves with it. So walls of touching planks pass. Near misses
+  (a gap above 0 and below 2ε) fail, and so do planks that touch only at an edge or a
+  corner, which R5 does not line up.
   The clearance check also refuses a plank dropped into a **tight slot** (`InTightSlot`):
   a gap exactly its own width between two planks placed before it, touching both sides.
   Each wall can land ε towards the other, so the slot can end up 1 unit too narrow.
@@ -93,11 +95,14 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `coreCheck_ok_sound`: when `coreCheck opts` says a core plan is `ok`, every step places 1 to
   `hands` blocks, and either every block has a physics pose and the blocks, one after the
   other, are a safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5), or some
-  block is turned by a 15° step and the blocks are a safe turned plan (B6). For the planner's
-  `ai` strategy, `judge_checked_passed` says a passing design has `physics.ok = true`. That
-  report comes from `ph.check` on the design's plan, but the theorem does not say so, so it
-  does not yet chain with `coreCheck_ok_sound`. Stating `c.physics = ph.check req.human
-  req.blocks c.plan` would close the link. `ai-unchecked` designs are not checked.
+  block is turned by a 15° step and the blocks are a safe turned plan (B6). The report says
+  which one: `assurance = .robust` for the first, `.nominal` for the second, so a program
+  reading the report can tell them apart. With `PlanOptions.allowNominal` off (CLI:
+  `--robust-only`), every `ok` is `robust`.
+- `ai_passed_safe` (in `app/Main.lean`): a design that the planner's `ai` strategy passes,
+  with the real engine, meets `coreCheck_ok_sound`. It joins the planner's
+  `judge_checked_passed` (the candidate's report is the engine's answer for its own plan)
+  with the theorem above. `ai-unchecked` designs are not checked.
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.
 
@@ -146,8 +151,8 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
   almost nothing. Core's `HumanModel` docs should be brought in line with R1 (a change to
   `core/`, for the team).
 - **Clearance.** `physicsEngine` and `kapla check` use the default `PlanOptions`
-  (clearance on); `kapla check --no-clearance` turns it off. Blocks that touch in the plan
-  are fine, blocks with a gap below 2ε get a `clearance` diagnostic, and a block dropped
+  (clearance on); `kapla check --no-clearance` turns it off. Blocks face to face in the
+  plan are fine, blocks that touch only at an edge or a corner must keep a gap, blocks with a gap below 2ε get a `clearance` diagnostic, and a block dropped
   into a tight slot gets a `tightSlot` diagnostic. Core's `clear` is not used.
 - **Reach.** K3 gives `unreachable` warnings, which do not change `ok`.
 - **Not used:** `eAbs`, `clear`, `muSafe`. The engine never reports `slides` or
@@ -157,12 +162,6 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 
 ## Not done yet
 
-- **Corner and edge touches skip the gap check.** `Meets` counts planks that touch only at an
-  edge or a corner. `KeepsGaps` (spec) and `ClearPair` (engine) skip all pairs that meet, but
-  R5 only explains face-to-face touches. Example: `⟨.flatX, 0, 0, 0⟩` and
-  `⟨.flatX, 15, 3, 0⟩` touch along one vertical edge. Moving them by (+1/2, +1/2) and
-  (-1/2, -1/2) makes them share inside space, but the plan is accepted. The fix changes
-  `specs/` (skip only pairs with a face contact or one on another), so it needs a spec review.
 - **Two forms of F4.** `Stable` puts pushes at patch corners only; `TStable` allows any point
   of the patch. No theorem says the two agree on builds with only quarter turns.
 - **Only soundness is proven.** An engine that never says "yes" would pass every theorem.

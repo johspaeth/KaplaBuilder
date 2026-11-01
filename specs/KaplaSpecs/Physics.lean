@@ -86,8 +86,8 @@ example : ¬ ¬ Stable e1 := fun h => h e1_stable
 /-- Property 4 ("the plan is safe"): when the engine accepts a plan, it uses at most
 `maxPlanks` planks, and after every step the build so far is well-formed, is solid for
 placement errors up to `ε`, and (only when `opts.clearance` is on, the default) keeps its
-gaps for those errors: planks that do not touch in the plan are not pushed into each other,
-and no plank goes into a slot exactly its own width (K4, K5, H6). -/
+gaps for those errors: planks that are not face to face in the plan are not pushed into each
+other, and no plank goes into a slot exactly its own width (K4, K5, R6, R7). -/
 theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   sorry

@@ -94,7 +94,9 @@ half sphere, `bunny.json` has six bubbles, `bad-*.json` must show an error).
       { "blocks": [
           { "up": "flat",                // "flat" | "edge" | "upright"
             "rot": { "c": 1, "s": 0 },   // cos and sin of the turn about the vertical axis,
-                                         // or { "deg": 45 }: a multiple of 15 (rule B6)
+                                         // or { "deg": 45 }: a multiple of 15 (rule B6),
+                                         // drawn as the exact turn that is checked
+                                         // (Rot.step15: 45 -> 45.24 degrees)
             "center": [0, 0, "1/2"] }    // numbers or exact fractions as strings
         ],
         "phase": "layer 1",              // optional, shown on the card
