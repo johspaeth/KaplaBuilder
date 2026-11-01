@@ -80,6 +80,19 @@ structure ViewStep where
   approach : String := ""
   deriving Repr, Inhabited
 
+/-- One bubble of the target, as it is drawn: an ellipsoid with axes along x, y and z. -/
+structure ViewBubble where
+  label : String := ""
+  /-- Centre. -/
+  x : Float
+  y : Float
+  z : Float
+  /-- Half-widths along x, y and z. -/
+  rx : Float
+  ry : Float
+  rz : Float
+  deriving Repr, Inhabited
+
 /-- A whole blueprint plus optional texts for the page. -/
 structure ViewPlan where
   title : String := "Kapla blueprint"
@@ -87,6 +100,8 @@ structure ViewPlan where
   /-- Lines shown above the 3D view (for example what was checked). -/
   notes : List String := []
   steps : List ViewStep
+  /-- The target's bubbles, if the file has them (drawn see-through, can be hidden). -/
+  bubbles : List ViewBubble := []
   deriving Repr, Inhabited
 
 private def optStr (j : Json) (k : String) (d : String := "") : String :=
@@ -105,17 +120,26 @@ def readBlock (j : Json) : Except String ViewBlock := do
     | none => pure 0
   return { up, x := ← readNum center[0]!, y := ← readNum center[1]!, z := ← readNum center[2]!, c, s }
 
+/-- Read one bubble: `label` (optional), `center` and `semi` (half-widths). -/
+def readBubble (j : Json) : Except String ViewBubble := do
+  let c ← j.getObjValAs? (Array Json) "center"
+  let r ← j.getObjValAs? (Array Json) "semi"
+  unless c.size == 3 && r.size == 3 do throw "\"center\" and \"semi\" need three numbers"
+  return { label := optStr j "label", x := ← readNum c[0]!, y := ← readNum c[1]!,
+           z := ← readNum c[2]!, rx := ← readNum r[0]!, ry := ← readNum r[1]!, rz := ← readNum r[2]! }
+
 def readStep (j : Json) : Except String ViewStep := do
   let bs ← j.getObjValAs? (Array Json) "blocks"
   return { blocks := (← bs.toList.mapM readBlock), phase := optStr j "phase",
            grip := optStr j "grip", approach := optStr j "approach" }
 
 /-- Read a blueprint: either `{"steps": [...]}` or `{"plan": {"steps": [...]}, "title": ...,
-"subtitle": ..., "notes": [...]}`. -/
+"subtitle": ..., "notes": [...], "bubbles": [...]}`. -/
 def readPlan (j : Json) : Except String ViewPlan := do
   let planJ := (j.getObjVal? "plan").toOption.getD j
   let steps ← planJ.getObjValAs? (Array Json) "steps"
-  return { steps := (← steps.toList.mapM readStep),
+  let bubbles := (j.getObjValAs? (Array Json) "bubbles").toOption.getD #[]
+  return { steps := (← steps.toList.mapM readStep), bubbles := (← bubbles.toList.mapM readBubble),
            title := optStr j "title" "Kapla blueprint", subtitle := optStr j "subtitle",
            notes := (j.getObjValAs? (List String) "notes").toOption.getD [] }
 
@@ -144,5 +168,10 @@ def exampleJson : String :=
 #guard ((parsePlan exampleJson).map fun p =>
   ((p.steps[1]!.blocks[0]!).footprint.map (·.1)).foldl max (-1000)).toOption == some 1.5
 #guard (parsePlan "{\"steps\": [{}]}") matches .error _
+-- bubbles are optional; when given, they are read
+#guard ((parsePlan exampleJson).map (·.bubbles.length)).toOption == some 0
+#guard ((parsePlan "{\"steps\": [], \"bubbles\": [{\"label\": \"head\",
+  \"center\": [0, 0, \"5/2\"], \"semi\": [2, 2, 3]}]}").map fun p =>
+  p.bubbles.map (fun b => (b.label, b.z, b.rz))).toOption == some [("head", 2.5, 3)]
 
 end KaplaWeb
