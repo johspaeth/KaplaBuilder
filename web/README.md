@@ -27,7 +27,7 @@ web/serve-bubbles.sh        # then open the address it prints
 
 Open `http://localhost:8000/?bubbles=egg.json&height=30`. Drag to turn, scroll to zoom. The file
 stays at height 1; `height` only sets the numbers on the axes and the sizes in the list. With no
-`height`, the numbers are the model's own (0 to 1). `shiftX` and `shiftY` move the model sideways.
+`height`, the numbers are the model's own (0 to 1).
 The page never rescales a model to fit. A broken model shows an error and no picture; the rules are
 the same as `decode` in `semantics/KaplaSemantics/Json.lean`, and Lean stays the final authority.
 
