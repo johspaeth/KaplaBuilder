@@ -1,4 +1,5 @@
 import KaplaPlanner.Grid
+import KaplaPlanner.Demos
 
 /-! # The cell table
 
@@ -108,22 +109,6 @@ def Table.make (m : BubbleModel) (height : Q) : Table := Id.run do
       while z < nz && (mask[z * nx * ny + k]! >>> b.toUInt64) &&& 1 == 0 do z := z + 1
       if z < nz then colLow := colLow.modify b (·.set! k (z : Int))
   return { base with mask, target, colTop, colLow }
-
-/-- Example: one ball of height 1 with its bottom on the ground. -/
-def ballModel : BubbleModel :=
-  { name := "ball"
-    bubbles := [{ label := "ball", tags := [], center := ⟨0, 0, 1 / 2⟩, semi := ⟨1 / 2, 1 / 2, 1 / 2⟩ }] }
-
-/-- Example: the bunny of `semantics/APPROACH.md` §1, six bubbles. -/
-def bunnyModel : BubbleModel :=
-  { name := "bunny"
-    bubbles :=
-      [ { label := "body", tags := ["tower"], center := ⟨0, 0, 28 / 100⟩, semi := ⟨30 / 100, 22 / 100, 28 / 100⟩ }
-      , { label := "head", tags := ["tower"], center := ⟨22 / 100, 0, 60 / 100⟩, semi := ⟨17 / 100, 15 / 100, 16 / 100⟩ }
-      , { label := "left ear", tags := ["wall"], center := ⟨20 / 100, -7 / 100, 86 / 100⟩, semi := ⟨5 / 100, 3 / 100, 14 / 100⟩ }
-      , { label := "right ear", tags := ["wall"], center := ⟨20 / 100, 7 / 100, 86 / 100⟩, semi := ⟨5 / 100, 3 / 100, 14 / 100⟩ }
-      , { label := "tail", tags := [], center := ⟨-32 / 100, 0, 30 / 100⟩, semi := ⟨7 / 100, 7 / 100, 7 / 100⟩ }
-      , { label := "paws", tags := ["slab"], center := ⟨30 / 100, 0, 5 / 100⟩, semi := ⟨8 / 100, 14 / 100, 5 / 100⟩ } ] }
 
 -- The same cell counts as the scorer: the ball has 8 cells at height 2 and 136 at height 6,
 -- and the egg has 5152 at height 30 (`semantics/KaplaSemantics/Grid.lean`).

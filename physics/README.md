@@ -20,10 +20,11 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | File in `specs/KaplaSpecs/PhysicsRules/` | What it says | Trusted? |
 |---|---|---|
 | `Geometry.lean` | planks, the six poses, rectangles (W1–W3, B1–B5) | yes: read it |
-| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors, `SolidWithin`, `Meets` and `KeepsGaps` (R1–R3, R5), `PlanOptions` and `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
+| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors, `SolidWithin`, `FaceToFace` and `KeepsGaps` (R1–R3, R5, R6), `InTightSlot` (R7), `PlanOptions` and `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
 | `Tower.lean` | the square tower of example E8 | yes: read it |
 | `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `FromCore.lean` | `plankOf`, `buildOf`: a core block (centre, quarter turn) as a physics plank (lowest corner, one of six poses) | yes: read it |
+| `Turned.lean` | B6: planks turned in steps of 15°: `TOverlap`, `TRestsOn`, `TWellFormed`, `TStable`, `TSafePlan`, `turnedBuildOf` | yes: read it |
 | `Examples.lean` | builds E1–E12; proofs from the rules alone that E1 stands, that E4 falls, that E3 is not solid, and a few more | checked by Lean |
 
 | File in this folder | What it does | Trusted? |
@@ -31,6 +32,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | `Solver.lean` | exact-fraction simplex; proposes pushes or a fall motion | no: every proposal is checked |
 | `Robust.lean` | `SolidCertificate`: loads whose points move with the errors | checked by the proofs |
 | `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
+| `Turned.lean` | B6: patch corners by clipping, the simplex for turned builds (untrusted), `checkTPushes`, `checkTurnedPlan` | the checkers are proven |
 | `Reach.lean` | K3 checker: tries five straight paths (from above, from each side) plus the drop | checked by the proofs |
 | `Engine.lean` | `stabilityAnswer`, `verdict` (solid / risky / falls), `checkPlan` | checked by the proofs |
 | `CoreAdapter.lean` | `coreCheck` and `physicsEngine`: the engine behind `KaplaCore.PhysicsEngine` | checked by the proofs |
@@ -53,12 +55,17 @@ what a theorem means, you must change `specs/`, which needs a spec review.
   "falls" ⇒ not stable.
 - `checkPlan_sound`: an accepted plan has at most N planks, and after every step it is
   well-formed at the planned positions and **solid** (property 4, K4). With the clearance
-  check on (`PlanOptions.clearance := true`; off by default) it also **keeps its gaps**
-  (`KeepsGaps`): two planks that do not touch in the plan are never pushed into each other
-  by errors up to ε. The checker asks for a gap of at least 2ε between such planks
-  (`Clear`). Planks that touch in the plan (`Meets`: side by side, end to end, one on
-  another) are left out, as R5 says: a plank pushed against its neighbour moves with it.
-  So walls of touching planks pass; only near misses (a gap above 0 and below 2ε) fail.
+  check on (`PlanOptions.clearance`, on by default) it also **keeps its gaps**
+  (`KeepsGaps`, R6): two planks that are not face to face in the plan are never pushed into
+  each other by errors up to ε. The checker asks for a gap of at least 2ε between such
+  planks, or no shared height (`Clear`). Planks face to face in the plan (`FaceToFace`: side
+  by side or end to end, over a face of area above zero) are left out, as R5 says: a plank
+  pushed against its neighbour moves with it. So walls of touching planks pass. Near misses
+  (a gap above 0 and below 2ε) fail, and so do planks that touch only at an edge or a
+  corner, which R5 does not line up.
+  The clearance check also refuses a plank dropped into a **tight slot** (`InTightSlot`):
+  a gap exactly its own width between two planks placed before it, touching both sides.
+  Each wall can land ε towards the other, so the slot can end up 1 unit too narrow.
 - `reachDir_sound`, `hardToReach_nil_sound`: a step the checker does not flag can be put
   in place along a straight path from far away plus a drop of `h > 0`, never sharing inside
   space with a placed plank (property 5, K3). Touching a placed plank on the way (sliding
@@ -82,10 +89,23 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 - `plankOf_box`: a core block and the plank it becomes fill the same box.
+- `stable_iff_tStable`: the two forms of F4 agree. An axis-aligned build is stable with
+  pushes at the corners of its patches (`Stable`) exactly when, read as turned planks at 0°
+  or 90° (`Plank.toT`), it is stable with pushes anywhere in its patches (`TStable`).
+- `checkTPushes_sound`, `checkTurnedPlan_sound` (B6): for planks turned in steps of 15°, an
+  accepted plan has at most N planks and after every step is well-formed and stable at the
+  planned positions. Placement errors, gaps and reach are not checked for turned plans yet.
 - `coreCheck_ok_sound`: when `coreCheck opts` says a core plan is `ok`, every step places 1 to
-  `hands` blocks, every block has a physics pose, and the blocks, one after the other, are a
-  safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5). With the planner's
-  `planPure_sound` (its candidates are `ok`), every candidate is a safe plan.
+  `hands` blocks, and either every block has a physics pose and the blocks, one after the
+  other, are a safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5), or some
+  block is turned by a 15° step and the blocks are a safe turned plan (B6). The report says
+  which one: `assurance = .robust` for the first, `.nominal` for the second, so a program
+  reading the report can tell them apart. With `PlanOptions.allowNominal` off (CLI:
+  `--robust-only`), every `ok` is `robust`.
+- `ai_passed_safe` (in `app/Main.lean`): a design that the planner's `ai` strategy passes,
+  with the real engine, meets `coreCheck_ok_sound`. It joins the planner's
+  `judge_checked_passed` (the candidate's report is the engine's answer for its own plan)
+  with the theorem above. `ai-unchecked` designs are not checked.
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.
 
@@ -96,7 +116,7 @@ are in the spec surface. Nothing depends on them being right: a wrong proposal o
 **Cautious, never optimistic (R3).** "Risky" means "not shown to be solid". A solid build
 can get "risky" when no certificate of the simple kind exists (fixed loads per contact).
 A "solid" verdict is always right. For the "risky" examples E3, E7 and E9 we also prove
-that they are not solid, each with an explicit error of at most 2 mm that makes it fall
+that they are not solid, each with an explicit error of at most 3.9 mm that makes it fall
 (`e3_not_solid`, `e7_not_solid`, `e9_not_solid`).
 
 Placement errors are taken over the whole R1 box (every plank within ε along `x` and `y`).
@@ -108,7 +128,7 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 `physicsMock`; `app/Main.lean` (owner D) has to pass it to the planner.
 `coreCheck_ok_sound` says what its `ok` means.
 
-- **Steps.** Core places 1–2 blocks per step (`hands`); K1 places one plank per step. The
+- **Steps.** Core places 1 to `hands` blocks per step (default 1); K1 places one plank per step. The
   adapter checks the build after every block, in list order. This is cautious: a step
   whose blocks stand only together is refused.
 - **Rotations.** Core's `Rot` allows any exact turn; physics has only the six axis-aligned
@@ -117,11 +137,11 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 - **Reference point.** Core places a block by its centre, physics by its lowest corner.
   `plankOf` converts, and `plankOf_box` proves the block stays where it was.
 - **Placement error: R1 is the model (team decision).** The two models measure error
-  differently, even though both defaults are 10/39 (2 mm):
+  differently, even though both defaults are 1/2 (3.9 mm):
   - physics (R1, `SmallShift ε`): every plank lands within ε of its own planned spot,
     along `x` and along `y`;
   - Core (`HumanModel`): `epsRel` is the error against the block(s) a block rests on, and
-    `eAbs` (default 50/39 = 5ε) caps the total drift from the plan. Errors can add up from
+    `eAbs` (default 50/39) caps the total drift from the plan. Errors can add up from
     level to level (docs/DESIGN.md §2.2).
 
   The adapter uses ε = `epsRel` with R1. So `ok` does **not** cover all of Core's errors.
@@ -133,18 +153,23 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
   only up to one level (measured: ε = 30/39 already fails both), so the planner could build
   almost nothing. Core's `HumanModel` docs should be brought in line with R1 (a change to
   `core/`, for the team).
-- **Clearance.** `physicsEngine` uses the default `PlanOptions` (clearance off).
-  `kapla check --clearance` uses `coreCheck { clearance := true }`: blocks that touch in
-  the plan are fine, and blocks with a gap below 2ε get a `clearance` diagnostic. Core's
-  `clear` is not used.
+- **Clearance.** `physicsEngine` and `kapla check` use the default `PlanOptions`
+  (clearance on); `kapla check --no-clearance` turns it off. Blocks face to face in the
+  plan are fine, blocks that touch only at an edge or a corner must keep a gap, blocks with a gap below 2ε get a `clearance` diagnostic, and a block dropped
+  into a tight slot gets a `tightSlot` diagnostic. Core's `clear` is not used.
 - **Reach.** K3 gives `unreachable` warnings, which do not change `ok`.
-- **Not used:** `eAbs`, `press`, `clear`, `muSafe`. The engine never reports `slides`,
-  `pressTips` or `unevenSupports`, and `slackPerBlock` is `none`. Core has no diagnostic for
+- **Not used:** `eAbs`, `clear`, `muSafe`. The engine never reports `slides` or
+  `unevenSupports`, and `slackPerBlock` is `none`. Core has no diagnostic for
   "risky" or "this turn has no physics pose", so both are reported as `unstable step block`
   for the block where things first go wrong.
 
 ## Not done yet
 
+- **Only soundness is proven.** An engine that never says "yes" would pass every theorem.
+  Only the `#guard`s in `Examples.lean` show that the engine accepts good builds. A theorem
+  such as `checkPlan {} ε (2 * n) (squareTower n) = true` would close this, but it means
+  proving what the exact simplex returns on every tower, which is a large piece of work.
+  `squareTower_safe` proves the rules side (the tower *is* a safe plan) for every height.
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
 - Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses
   the global LPs only for builds of at most 40 planks. Measured with the interpreter on a

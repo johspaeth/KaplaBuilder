@@ -126,8 +126,8 @@ namespace KaplaPhysics
 
 /-! ## Placement errors (R1–R3) -/
 
-/-- R1. The default placement error: 2 mm, which is 10/39 of a unit. -/
-def placementError : Rat := 10 / 39
+/-- R1. The default placement error: 1/2 unit, which is 3.9 mm. -/
+def placementError : Rat := 1 / 2
 
 /-- R1, R2. The build after plank `i` lands `(d i).1` off along `x` and `(d i).2` off
 along `y`. Heights do not change. -/
@@ -154,53 +154,100 @@ combinations, so a build that is solid here is also solid under R5. -/
 def SolidWithin (ε : Rat) (b : Build) : Prop :=
   0 ≤ ε ∧ ∀ d, SmallShift ε b.length d → Stable (b.shift d)
 
-/-- R3 with the default error of 2 mm. -/
+/-- R3 with the default error of 3.9 mm. -/
 def Solid (b : Build) : Prop := SolidWithin placementError b
 
 /-! ## Build plans (K1, K4, K5) -/
 
-/-- Planks `a` and `b` meet: their boxes touch at a face, an edge or a corner, or share
-inside space. There is no gap between them along `x`, along `y` or along `z`. -/
-def Meets (a b : Plank) : Prop :=
-  (a.x ≤ b.x1 ∧ b.x ≤ a.x1) ∧ (a.y ≤ b.y1 ∧ b.y ≤ a.y1) ∧ (a.z ≤ b.top ∧ b.z ≤ a.top)
+/-- The side faces of `p` and `q` that face each other along `x` share an area bigger than
+zero: their `y` ranges and their `z` ranges overlap by more than a line. -/
+def FacingAlongX (p q : Plank) : Prop :=
+  (p.y < q.y1 ∧ q.y < p.y1) ∧ (p.z < q.top ∧ q.z < p.top)
 
-instance (a b : Plank) : Decidable (Meets a b) := by unfold Meets; infer_instance
+/-- The same along `y`: their `x` ranges and their `z` ranges overlap by more than a line. -/
+def FacingAlongY (p q : Plank) : Prop :=
+  (p.x < q.x1 ∧ q.x < p.x1) ∧ (p.z < q.top ∧ q.z < p.top)
 
-/-- Example: two flat planks side by side, touching along a face, meet. -/
-example : Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
+instance (p q : Plank) : Decidable (FacingAlongX p q) := by unfold FacingAlongX; infer_instance
+instance (p q : Plank) : Decidable (FacingAlongY p q) := by unfold FacingAlongY; infer_instance
 
-/-- Example: with a gap of 1/4 between them, they do not meet. -/
-example : ¬ Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 13 / 4, 0⟩ := by decide +kernel
+/-- R5. Planks `a` and `b` touch side by side, face to face: an end or a side of one is
+flush against the other along `x` or along `y`, and the two faces share an area bigger
+than zero. Touching only at an edge or a corner does not count. -/
+def FaceToFace (a b : Plank) : Prop :=
+  ((a.x1 = b.x ∨ b.x1 = a.x) ∧ FacingAlongX a b) ∨
+    ((a.y1 = b.y ∨ b.y1 = a.y) ∧ FacingAlongY a b)
 
-/-- R1 with P1 (H6 in docs/DESIGN.md: gaps are 0 or big enough). Planks with a gap between
-them in the plan keep a gap: for every combination of placement errors of at most `ε`, two
-planks that do not meet at the planned positions do not share inside space.
+instance (a b : Plank) : Decidable (FaceToFace a b) := by unfold FaceToFace; infer_instance
 
-Planks that meet in the plan (side by side and touching, or one on another) are left out
-on purpose: they touch by design, and R5 says a plank pushed against its neighbour moves
-with it. So walls of touching planks are fine. Only near misses fail: a gap above 0 but
-small enough that an error can close it. -/
+/-- Example: two flat planks side by side, touching along a long side, are face to face. -/
+example : FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
+
+/-- Example: two flat planks end to end are face to face. -/
+example : FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 15, 0, 0⟩ := by decide +kernel
+
+/-- Example: two planks that touch only along a vertical edge are not. -/
+example : ¬ FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 15, 3, 0⟩ := by decide +kernel
+
+/-- Example: with a gap of 1/4 between them, they are not. -/
+example : ¬ FaceToFace ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 13 / 4, 0⟩ := by decide +kernel
+
+/-- R6 (H6 in docs/DESIGN.md: gaps are 0 or big enough). Two different planks that are not
+face to face in the plan do not share inside space, for every combination of placement
+errors of at most `ε`.
+
+Planks that are face to face in the plan are left out on purpose: R5 says a plank pushed
+against its neighbour moves with it, so walls of touching planks are fine. Planks that
+touch only at an edge or a corner are not left out: R5 does not line them up, so an error
+can push one into the other. Planks one on another never collide, because heights do not
+change (R2). -/
 def KeepsGaps (ε : Rat) (b : Build) : Prop :=
-  ∀ d, SmallShift ε b.length d → ∀ i < b.length, ∀ j < b.length,
-    ¬ Meets (b.get i) (b.get j) → ¬ Overlap ((b.shift d).get i) ((b.shift d).get j)
+  ∀ d, SmallShift ε b.length d → ∀ i < b.length, ∀ j < b.length, i ≠ j →
+    ¬ FaceToFace (b.get i) (b.get j) → ¬ Overlap ((b.shift d).get i) ((b.shift d).get j)
+
+/-- R7, H6 (tight fits). Plank `p` goes into a slot exactly its own width: one plank already
+`placed` touches its low side and another touches its high side, along `x` or along `y`.
+Each wall can land up to `ε` towards the other, so the slot can end up too narrow for `p`. -/
+def InTightSlot (placed : Build) (p : Plank) : Prop :=
+  (∃ a ∈ placed, ∃ c ∈ placed,
+    a.x1 = p.x ∧ p.x1 = c.x ∧ FacingAlongX p a ∧ FacingAlongX p c) ∨
+  (∃ a ∈ placed, ∃ c ∈ placed,
+    a.y1 = p.y ∧ p.y1 = c.y ∧ FacingAlongY p a ∧ FacingAlongY p c)
+
+instance (placed : Build) (p : Plank) : Decidable (InTightSlot placed p) := by
+  unfold InTightSlot; infer_instance
+
+/-- Example: a plank dropped between two planks 3 apart is in a tight slot. -/
+example : InTightSlot [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 6, 0⟩] ⟨.flatX, 0, 3, 0⟩ := by
+  decide +kernel
+
+/-- Example: placed next to only one plank, it is not. -/
+example : ¬ InTightSlot [⟨.flatX, 0, 0, 0⟩] ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
 
 /-- Which checks a plan must pass. -/
 structure PlanOptions where
-  /-- Also ask that no placement error can close a small gap (`KeepsGaps`). Off by
-  default. Planks that touch by design are allowed either way. -/
-  clearance : Bool := false
+  /-- Also ask that no placement error can close a small gap (`KeepsGaps`), and that no
+  plank goes into a slot exactly its own width (`InTightSlot`). On by default. Planks
+  face to face by design are allowed either way. -/
+  clearance : Bool := true
+  /-- Accept a plan with turned blocks (B6), which is checked at the planned positions only
+  (a `nominal` result). On by default. Switch it off when only a check with placement
+  errors will do: then every accepted plan has the full check. -/
+  allowNominal : Bool := true
   deriving Repr, DecidableEq, Inhabited
 
 /-- K1, K4, K5: the plan places one plank per step, uses at most `maxPlanks` planks, and
 after every step the build so far is
 1. well-formed at the planned positions,
 2. if `opts.clearance` is on: planks with a gap keep it with placement errors up to `ε`,
-   and
+   and the plank of this step did not go into a tight slot between earlier planks, and
 3. solid with placement errors up to `ε`. -/
 def SafePlan (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build) : Prop :=
   steps.length ≤ maxPlanks ∧
     ∀ k, 1 ≤ k → k ≤ steps.length →
-      WellFormed (steps.take k) ∧ (opts.clearance → KeepsGaps ε (steps.take k)) ∧
+      WellFormed (steps.take k) ∧
+        (opts.clearance → KeepsGaps ε (steps.take k) ∧
+          ¬ InTightSlot (steps.take (k - 1)) (steps.get (k - 1))) ∧
         SolidWithin ε (steps.take k)
 
 end KaplaPhysics

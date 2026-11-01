@@ -1,12 +1,12 @@
 # CLAUDE.md for `semantics/` (KaplaSemantics, person B)
 
-You act as person B. Read `semantics/APPROACH.md` first (design, file map, open questions).
+You act as person B. For step 7 read `semantics/STEP7.md` first. Then `semantics/APPROACH.md` (design, file map, open questions).
 The repo root `CLAUDE.md` and `README.md` still apply. Ask before deciding anything the file
 leaves open; never resolve a design choice on your own.
 
 ## Before any edit
 - `git branch --show-current` decides what you may touch; any other branch: stop and say so.
-  `feature-semantics` → `semantics/` only · `web/bubble-viewer` → `web/` only (draw ellipsoids
+  `app/chat-ui` → `app/`, `web/`, `semantics/`, `models/` (step 7, see `semantics/STEP7.md`) · `feature-semantics` → `semantics/` only · `web/bubble-viewer` → `web/` only (draw ellipsoids
   from the bubble JSON, take data by file or URL) · `core/semantics-contract` → `core/` only.
 - Contract and viewer changes are designed with the person first: list the decisions, get a
   ruling on each, then write. Never draft them from your own theory of what they should be.
@@ -19,7 +19,7 @@ leaves open; never resolve a design choice on your own.
   Planner, Web. `Rat` everywhere, never `Float`. `autoImplicit` is off: name every variable.
 - Block units everywhere: 1 unit = block thickness, a block is 15 × 3 × 1. No other unit exists
   in the project. Only `Engine.lean` uses the engine and report types (`SemanticEngine`,
-  `TargetSpec`, `ScoreReport`). Any file may use `Q3`, `Bubble`, `BubbleModel`, `Frame` and `Pose`.
+  `TargetSpec`, `ScoreReport`). Any file may use `Q3`, `Bubble`, `BubbleModel` and `Pose`.
 - Forbidden words, also inside comments and docstrings: sorry, admit, axiom, native_decide,
   implemented_by, extern, unsafe, maxHeartbeats 0, debug.skipKernelTC. Rephrase. Warnings fail
   CI: no unused variables, no deprecated names, no unfinished proofs in a PR (WIP commits may).
@@ -38,10 +38,10 @@ leaves open; never resolve a design choice on your own.
 cells, targetCells, blockCells · `Score.lean` covered (per-bubble fill), extra, missing, score,
 solid, perBubble · `Check.lean` WithinTarget, CoversTarget, checkers, too-small list · `Engine.lean`
 SemanticEngine, `componentName` · In `KaplaCore.Bubble`: `Bubble`, `BubbleModel`,
-`contains`, `wellFormed`, `Frame`, `place` · `Claude.lean` API client · `semantics/dev/*.lean` CLI tools
+`contains`, `wellFormed`, `place` · `Claude.lean` API client · `semantics/dev/*.lean` CLI tools
 (the chat page's backend) · `Proofs/*.lean` one per spec file, same theorem names ·
 `semantics/fixtures/{targets,plans,score_expected}/` · `semantics/dev/` Docker, shell helpers,
-chat page. The frame is always an argument; nothing picks one silently.
+chat page. The height is always an argument; nothing picks one silently.
 
 ## Adding a theorem
 1. Statement in `specs/KaplaSpecs/Semantics.lean` (unproven there on purpose).

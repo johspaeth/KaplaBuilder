@@ -60,6 +60,14 @@ and is not part of what we verify.
 - **B5. Position.** A plank's position is the corner with the smallest
   `x`, `y` and `z`. Any fraction is allowed. (The app may snap to a grid; the
   engine does not need one.)
+- **B6. Turned planks.** A plank may also be turned about the vertical axis in steps of
+  15° (15°, 30°, 45°, 60°, 75°, and so on all the way round). It is still never tilted:
+  its top and bottom faces stay horizontal, so every contact is still a flat, horizontal
+  patch and F3 still holds. 15° and its multiples have no exact fraction for their cosine,
+  so the engine uses the closest exact turns (15.19°, 29.86°, 45.24°, 60.14°, 74.81°).
+  For now a plan with a turned plank is checked only at the planned positions (P1–P3 and
+  S2 after every step); R1, R5, gaps and K3 are not checked for it. The engine's report
+  says so (*nominal*, not *robust*), and the app can be told to refuse such plans.
 
 *Why B4:* if every plank is parallel to the axes, every contact between planks
 is a flat, horizontal patch. That makes the physics much simpler (see F3).
@@ -147,7 +155,7 @@ sure a build still stands when every plank is a little off.
 - **R1. Placement error.** When the builder places a plank, it ends up within
   `ε` of its planned position along `x` and within `ε` along `y`. Each plank's
   error is separate from every other plank's, except as in R5. We use
-  **ε = 2 mm**, which is exactly 10/39 of a unit.
+  **ε = 1/2 unit**, which is 3.9 mm.
 - **R2. Height follows.** A plank's height is not an error: it sits on whatever
   it rests on, so its height is the same as planned.
 - **R3. Solid build.** A build is *solid* when it is stable (S2) for **every**
@@ -160,7 +168,7 @@ sure a build still stands when every plank is a little off.
 
 *Why "Solid" needs its own check:* in a contact between two planks, both planks
 can be off, in opposite directions. So the contact patch can shrink and the
-centre of mass of the upper plank can move by up to `2ε` (about 4 mm) relative
+centre of mass of the upper plank can move by up to `2ε` (1 unit, 7.8 mm) relative
 to the plank below. For thin faces (a plank on edge or standing is only 7.8 mm
 thick) that is a lot.
 
@@ -177,9 +185,22 @@ may report "Risky" for a build that is really solid. It must never report
   the neighbour.
 
 *Why R5:* a real builder lines planks up by feel, against each other. Treating
-a touching pair as exact is closer to reality than giving each its own 2 mm,
-and it removes the case where a 2 mm error would make two planks overlap.
+a touching pair as exact is closer to reality than giving each its own 3.9 mm,
+and it removes the case where a 3.9 mm error would make two planks overlap.
 Side contacts still carry no force (C4); R5 is only about where planks end up.
+
+- **R6. Gaps stay open.** If two planks are not face to face in the plan, no combination
+  of placement errors allowed by R1 may make them share inside space. *Face to face* means
+  side by side or end to end, flush, over a face of area bigger than zero. Those pairs are
+  left out, because of R5. Planks that touch only at an edge or a corner are not left out:
+  R5 does not line them up. In Lean: `FaceToFace`, `KeepsGaps`. The engine asks for a gap
+  of at least `2ε`, or no shared height (`Clear`).
+- **R7. No tight slots.** A plank must not go into a slot exactly its own width, between
+  two planks placed before it. Each wall can land `ε` towards the other, so the slot can
+  end up too narrow. In Lean: `InTightSlot`.
+
+R6 and R7 are checked when the clearance option is on (the default; `PlanOptions`).
+They are H6 in docs/DESIGN.md.
 
 ## 9. The build plan
 
@@ -212,7 +233,8 @@ gap above it (a plank already placed sits right on top of the spot), there is
 no room for the drop in K2. The builder would have to slide it in, rubbing
 both planks. The app should suggest a different order for that step.
 - **K4. Every step stands.** After every step, the build so far must be
-  well-formed (P1–P3) and **solid** (R3), not only the finished build.
+  well-formed (P1–P3) and **solid** (R3), not only the finished build. With the clearance
+  option on (the default), R6 and R7 must also hold after every step.
 - **K5. Plank count.** A plan uses at most 200 planks (one Kapla box).
 
 *Why K4:* a design can stand when finished but fall halfway. A plank that is
@@ -225,7 +247,7 @@ the user that no such order exists.
 Say these out loud in the demo and the README:
 
 - No motion, speed, or falling sequence (section 1).
-- No placement error bigger than 2 mm (R1).
+- No placement error bigger than 3.9 mm (R1).
 - No twisting error: we assume the builder lines each plank up square with
   the others.
 - No difference between planks: all have exactly the same size and weight
@@ -234,6 +256,7 @@ Say these out loud in the demo and the README:
 - No help from friction or side contacts (F3, C4). This can only make us
   cautious.
 - No bumps, shaking, or dropping a plank from a height (K2, W4).
+- No pressing: the builder sets each plank down and lets go, without pushing on it.
 - No hands or fingers: the reachability check (K3) looks at the plank only,
   and only at straight paths.
 - No tilted or leaning planks (B4).
@@ -269,32 +292,34 @@ hypothesis met, and a few known-bad outputs that the spec rejects.
 
 ## 12. Worked examples
 
-Positions are `(x, y, z)` of the plank's low corner. ε = 10/39 ≈ 0.26 units,
-so two planks can end up `2ε` ≈ 0.51 units (4 mm) off from each other.
+Positions are `(x, y, z)` of the plank's low corner. ε = 1/2 unit (3.9 mm),
+so two planks can end up `2ε` = 1 unit (7.8 mm) off from each other.
 
 | # | Build | Exact (S2) | Real (R4) | Why |
 |---|-------|------------|-----------|-----|
 | E1 | One flat plank on the ground | Stable | Solid | It rests on its own bottom face, which moves with it. |
-| E2 | Flat plank on flat plank, top shifted 5 along its length | Stable | Solid | Top centre at 12.5, 2.5 units from the edge. 0.51 of error cannot push it past. |
+| E2 | Flat plank on flat plank, top shifted 5 along its length | Stable | Solid | Top centre at 12.5, 2.5 units from the edge. 1 unit of error cannot push it past. |
 | E3 | Same, shifted exactly 7.5 | Stable | Risky | Centre exactly over the edge (S4). Any error the wrong way tips it. |
 | E4 | Same, shifted 8 | Falls | Falls | Top centre at 15.5, past the edge at 15. |
 | E5 | A plank resting only on an edge line of another | Not well-formed | — | Edge touch is not a contact (C3), so P3 fails. |
 | E6 | One plank standing on the ground (3 × 1 footprint, 15 tall) | Stable | Solid | It rests on its own footprint, which moves with it. |
 | E7 | Staircase: 3 flat planks along `x`, middle shifted 3.75 from the bottom, top shifted 7.5 from the middle | Stable | Risky | Two centres sit exactly over edges. Beautiful on paper, falls in real life. |
-| E8 | Square tower, `n` levels, built level by level: level `k` at `z = k`. Even levels: flat along `x` at `y = 0` and `y = 12`. Odd levels: flat along `y` at `x = 0` and `x = 12`. | Stable | Solid at every step | Every centre is at least 1.5 units inside its support, far more than 0.51. |
-| E9 | Bridge: two standing planks (3 × 1 footprint) at `(0, 1, 0)` and `(12, 1, 0)`, one flat plank along `x` at `(0, 0, 15)` | Stable | Risky | The top plank's centre is at `y = 1.5`, only 0.5 from the edge of the 1-unit-thick supports. A 0.51 error can put it past the edge. |
+| E8 | Square tower, `n` levels, built level by level: level `k` at `z = k`. Even levels: flat along `x` at `y = 0` and `y = 12`. Odd levels: flat along `y` at `x = 0` and `x = 12`. | Stable | Solid at every step | Every centre is at least 1.5 units inside its support, more than 1. |
+| E9 | Bridge: two standing planks (3 × 1 footprint) at `(0, 1, 0)` and `(12, 1, 0)`, one flat plank along `x` at `(0, 0, 15)` | Stable | Risky | The top plank's centre is at `y = 1.5`, only 0.5 from the edge of the 1-unit-thick supports. A 1-unit error can put it past the edge. |
 | E10 | Same bridge, but the standing planks at `y = 0` | Falls | Falls | Supports cover `y` from 0 to 1. The top plank's centre is at `y = 1.5`. |
 | E11 | Square tower (E8) with one plank of a middle level left out | Falls | Falls | The planks above rest on one end only. |
-| E12 | Counterweight: plank A flat along `x` at `(0, 0, 0)`; B flat along `x` at `(9, 0, 1)`; C flat along `y` at `(9, -6, 2)` | Stable | — | Finished, B and C together have their centre at `x = 13.5`, over A. But B alone has its centre at 16.5, past A's edge at 15, so B falls before C can be placed. No order works: **not buildable** (K4). |
+| E12 | Counterweight: plank A flat along `x` at `(0, 0, 0)`; B flat along `x` at `(9, 0, 1)`; C flat along `y` at `(9, -6, 2)` | Stable | Solid (finished build) | Finished, B and C together have their centre at `x = 13.5`, over A. But B alone has its centre at 16.5, past A's edge at 15, so B falls before C can be placed. No order works: **not buildable** (K4). |
 
 ## 13. Open questions
 
-1. **Checking method for R3.** We need a method that is cautious but not so
-   cautious that it calls simple builds (E1, E6, E8) risky. This is the main
-   design task for the engine.
-2. **Final drop gap.** What gap `h` do we use for the final drop in K3
-   (1 unit ≈ 8 mm?).
+None at the moment.
+
 Decided:
+
+- Checking method for R3: a certificate with a fixed load per contact, at a point that
+  moves with the placement errors (`SolidCertificate` in `physics/KaplaPhysics/Robust.lean`).
+  It calls E1, E6 and E8 solid.
+- Final drop gap for K3: `h` = 1 unit, about 8 mm (`dropGap`).
 
 - 3D from the start, no 2D version.
 - Side-by-side planks: the builder pushes them together (R5).

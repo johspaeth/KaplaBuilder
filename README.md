@@ -10,13 +10,24 @@ Details: [docs/DESIGN.md](docs/DESIGN.md). Who does what: [docs/WORKSPLIT.md](do
 
 - It uses **at most N blocks**.
 - It **stays standing after every step**, not only at the end.
-- It stays standing **even if your hands are a bit imprecise** (default: 10/39 of a block
-  thickness per block, 50/39 total drift), and while you **press down** on the block you are placing.
-- You can **put every block in place by hand**: no closed pockets, no gaps that are exactly
-  one block wide, and no step that needs more than two hands.
+- It stays standing **even if your hands are a bit imprecise**: each block may land up to
+  1/2 of a block thickness (3.9 mm) from its planned spot, along `x` and along `y`.
+- **Blocks fit where they go**: no gaps that a 3.9 mm error could close, no block dropped
+  into a slot exactly its own width, and one block per step (the `hands` setting, default 1).
+
 - **Every block is part of the target, and every part of the target is built.**
 - Its **likeness score** to the target is computed correctly. There is no minimum score: a
   person approves the design.
+
+Not guaranteed (yet):
+
+- Errors that **add up from level to level** (each block lined up against a block that is
+  itself off). The 3.9 mm is measured from the plan, not from the block below.
+- **Reaching** every block by hand: a block in a closed pocket only gets a warning
+  ("may be hard to reach").
+- **Turned blocks** (15°, 30°, 45°, 60°, 75°, ...): a plan with one is checked only at the
+  planned positions. It is well-formed and stands after every step, but placement errors,
+  gaps and reach are not checked.
 
 The full list of real-world failure modes (H1–H9) and how each one is ruled out is in
 [DESIGN.md §2](docs/DESIGN.md#2-physical-feasibility-is-not-enough-the-human-model).
@@ -51,14 +62,14 @@ kapla check blueprint.json
 kapla serve --port 8080
 ```
 
-Today `make run` only prints the list of components (scaffold). To look at a blueprint:
+`make run` starts the website (`kapla serve`) on http://localhost:8000. To look at one blueprint:
 `lake exe kapla view web/examples/house.json --out out/house` (format: [web/README.md](web/README.md)).
 
 ## Quick start
 
 ```sh
 make install   # needs elan; builds everything with Lean 4.35 (pinned in lean-toolchain)
-make run       # runs the `kapla` CLI
+make run       # starts the website on http://localhost:8000 (chat needs an API key)
 make check     # what CI checks (except `lake check` / `lake comparator`, Linux only)
 ```
 
@@ -95,11 +106,9 @@ CI fails if:
 4. **`lake check` fails.** The whole project is replayed through the Lean kernel, and only
    the standard axioms (`propext`, `Quot.sound`, `Classical.choice`) are allowed.
 
-**Comparator is disabled for now.** `lake comparator` (which checks that the proofs prove
-exactly the statements in `specs/`) is not part of **CI OK**, so it does not block merges.
-It runs only at the very end: start it by hand with the **Comparator** GitHub Actions workflow
-(`.github/workflows/comparator.yml`: Actions → Comparator → Run workflow).
-Before the final result, it must be green for every file in `comparator/`.
+5. **`lake comparator` fails** for a file in `comparator/`: the proofs must prove exactly
+   the statements in `specs/`. It runs in the same job as `lake check`, and can also be
+   started on its own with the **Comparator** workflow (Actions → Comparator → Run workflow).
 
 ## How to work
 
@@ -133,3 +142,10 @@ Get a review from the whole team before you merge them.
 
 - The Lean 4.35 kernel and the statements in `specs/` (and every definition they mention).
 - No extra axioms. No `opaque` contracts yet. Add them here when you add them.
+- **The Lean compiler.** The proofs are about the Lean definitions. When `kapla` runs, the
+  checkers (`checkPlan`, `coreCheck`, ...) run as compiled code, not in the kernel.
+- **The blueprint reader** in `app/Main.lean` (`readBuildPlan`, `ratOfJsonNumber`). It turns a
+  JSON file into the `BuildPlan` that the physics engine checks. It has no proof.
+- **The physics model** (`spec/physics-rules.md`), most of all: planks are rigid and all the
+  same (B1–B3); pushes at the corners of a patch can stand in for any spread-out push (F4);
+  side, edge and corner touches carry no force (C3, C4); errors stay within R1.

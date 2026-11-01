@@ -5,7 +5,7 @@ import KaplaSpecs.PhysicsRules.Examples
 /-! # Worked examples (section 12 of `spec/physics-rules.md`)
 
 Each `#guard` fails the build if the engine disagrees with the table in the spec: the
-"Exact (S2)" column, the "Real (R4)" column (with ε = 2 mm), and buildability (K4).
+"Exact (S2)" column, the "Real (R4)" column (with ε = 3.9 mm), and buildability (K4).
 The builds themselves (`e1` ... `e12`, `slotPlaced`, `underRoof`) are in
 `specs/KaplaSpecs/PhysicsRules/Examples.lean`, shared with the spec. -/
 
@@ -30,7 +30,7 @@ namespace KaplaPhysics.Examples
 -- an overhanging plank on top. The fall certificate moves only the top plank.
 #guard stabilityAnswer (squareTower 25 ++ [⟨.flatX, 8, 0, 25⟩]) == .falls
 
--- Placement errors (R4), with ε = 2 mm.
+-- Placement errors (R4), with ε = 3.9 mm.
 #guard verdict placementError e1 == .solid
 #guard verdict placementError e2 == .solid
 #guard verdict placementError e3 == .risky
@@ -106,7 +106,7 @@ example : ¬ Stable e4 := fun h =>
 example : StableWithFriction (2 / 5) e2 :=
   stable_withFriction _ (by decide +kernel) e2 (stabilityAnswer_stable_sound e2 (by decide +kernel))
 
-/-- E8 for every height, with the default 2 mm error: a 100-level tower (200 planks, a full
+/-- E8 for every height, with the default 3.9 mm error: a 100-level tower (200 planks, a full
 Kapla box) is safe to build level by level. -/
 example : SafePlan {} placementError 200 (squareTower 100) :=
   squareTower_safe {} placementError (by decide +kernel) (by decide +kernel) 100
@@ -114,31 +114,31 @@ example : SafePlan {} placementError 200 (squareTower 100) :=
 /-! ## "Risky" builds really are not solid (R3)
 
 "Risky" only means the engine could not show the build solid. For E3, E7 and E9 we show
-more: a placement error of at most 2 mm per plank that makes the build fall. E3 is
+more: a placement error of at most 3.9 mm per plank that makes the build fall. E3 is
 `e3_not_solid` (in `KaplaSpecs.PhysicsRules.Examples`, from the rules alone). For E7 and
 E9, the solver's fall certificate for the shifted build is written out here and checked by
 the kernel. -/
 
-/-- E7's errors: the top plank lands 2 mm further out along `x`. Its centre then lies past
+/-- E7's errors: the top plank lands 3.9 mm further out along `x`. Its centre then lies past
 the end of the middle plank. -/
 def e7Shift (i : Nat) : Rat × Rat := if i = 2 then (placementError, 0) else (0, 0)
 
 /-- How the shifted E7 falls: the top plank tips over the end of the middle plank. -/
 def e7Fall : List Solver.Motion := [{}, ⟨29 / 39, -116 / 585, 0⟩, ⟨-1, -1, 0⟩]
 
-/-- E7 is not solid (R3): the 2 mm error `e7Shift` makes it fall. -/
+/-- E7 is not solid (R3): the 3.9 mm error `e7Shift` makes it fall. -/
 theorem e7_not_solid : ¬ Solid e7 := fun h =>
   fallCertificate_sound _ e7Fall (by decide +kernel)
     (h.2 e7Shift (by unfold SmallShift; decide +kernel))
 
-/-- E9's errors: both standing planks land 2 mm towards `-y`, the top plank 2 mm towards
+/-- E9's errors: both standing planks land 3.9 mm towards `-y`, the top plank 3.9 mm towards
 `+y`. The top plank's centre is then 1/78 past the far side of its supports. -/
 def e9Shift (i : Nat) : Rat × Rat := if i = 2 then (0, placementError) else (0, -placementError)
 
 /-- How the shifted E9 falls: the top plank tips over the far side of its supports. -/
 def e9Fall : List Solver.Motion := [{}, {}, ⟨-1 / 78, 0, -1⟩]
 
-/-- E9 is not solid (R3): the 2 mm errors `e9Shift` make it fall. -/
+/-- E9 is not solid (R3): the 3.9 mm errors `e9Shift` make it fall. -/
 theorem e9_not_solid : ¬ Solid e9 := fun h =>
   fallCertificate_sound _ e9Fall (by decide +kernel)
     (h.2 e9Shift (by unfold SmallShift; decide +kernel))
@@ -206,7 +206,7 @@ example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
 /-! ## Review regressions (PR #14) -/
 
 /-- Two planks side by side with a gap of 1/4. Each is stable and well-formed where it is
-planned, but moving them 1/4 towards each other (within the 10/39 error) makes them share
+planned, but moving them 1/4 towards each other (within the 1/2 error) makes them share
 a strip of inside space. -/
 def nearlyTouching : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩]
 
@@ -226,19 +226,65 @@ def withClearance : PlanOptions := { clearance := true }
 /-- With the clearance check on, the plan is not safe: the errors `towardsEachOther` are
 allowed and close the gap (P1). -/
 example : ¬ SafePlan withClearance placementError 200 nearlyTouching := fun h =>
-  (h.2 2 (by decide) (by decide)).2.1 rfl towardsEachOther
-    (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide)
+  ((h.2 2 (by decide) (by decide)).2.1 rfl).1 towardsEachOther
+    (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide) (by decide)
     (by decide +kernel) (by decide +kernel)
 
--- The clearance check is off by default. Then the plan is accepted: each step is
+/-- Two planks that touch only along a vertical edge, at a corner of each. R5 does not line
+them up, so they are not left out of the gap check (found in review). -/
+def cornerTouch : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 3, 0⟩]
+
+/-- Moving the second plank back by 1/2 along `x` and `y` pushes it into the first. -/
+def cornerShift (i : Nat) : Rat × Rat := if i = 1 then (-1 / 2, -1 / 2) else (0, 0)
+
+#guard decide (WellFormed cornerTouch)
+#guard !decide (WellFormed (cornerTouch.shift cornerShift))
+#guard !checkPlan withClearance placementError 200 cornerTouch
+
+/-- With the clearance check on, the corner-touch plan is not safe. -/
+example : ¬ SafePlan withClearance placementError 200 cornerTouch := fun h =>
+  ((h.2 2 (by decide) (by decide)).2.1 rfl).1 cornerShift
+    (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide) (by decide)
+    (by decide +kernel) (by decide +kernel)
+
+-- Walls are still fine: planks side by side or end to end pass the clearance check.
+#guard checkPlan withClearance placementError 200 sideBySide
+#guard checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 0, 0⟩]
+
+/-- The clearance check, switched off. -/
+def noClearance : PlanOptions := { clearance := false }
+
+-- The clearance check is on by default. Switched off, the plan is accepted: each step is
 -- well-formed at the planned positions and solid.
-#guard checkPlan {} placementError 200 nearlyTouching
+#guard !checkPlan {} placementError 200 nearlyTouching
+#guard checkPlan noClearance placementError 200 nearlyTouching
+
+/-! ## Tight slots (H6) -/
+
+/-- Two planks 3 apart, then a third dropped into the gap between them. -/
+def tightSlot : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 6, 0⟩, ⟨.flatX, 0, 3, 0⟩]
+
+/-- The same three planks, but the middle one goes down second: each plank is pushed
+against the one before it, so there is no slot to fit into. -/
+def wallInOrder : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 3, 0⟩, ⟨.flatX, 0, 6, 0⟩]
+
+#guard !checkPlan {} placementError 200 tightSlot
+#guard checkPlan noClearance placementError 200 tightSlot
+#guard checkPlan {} placementError 200 wallInOrder
+
+/-- Why a tight slot is refused: when each wall lands 1/2 towards the other, the middle
+plank shares inside space with a wall wherever it lands within 1/2 of its spot. -/
+example (e : Rat) (he : -(1 / 2) ≤ e ∧ e ≤ 1 / 2) :
+    Overlap ⟨.flatX, 0, 3 + e, 0⟩ ⟨.flatX, 0, 1 / 2, 0⟩ ∨
+      Overlap ⟨.flatX, 0, 3 + e, 0⟩ ⟨.flatX, 0, 11 / 2, 0⟩ := by
+  simp only [Overlap, Plank.x1, Plank.y1, Plank.top, Pose.size]
+  grind
 
 -- Switching the check off never lets through a plan that falls or is risky.
 #guard !checkPlan {} placementError 200 e7
 #guard !checkPlan {} placementError 200 e12
 
--- Planks that touch by design are fine, with the check on or off: a wall, a tower, E2.
+-- Planks face to face by design are fine, with the check on or off: a wall, a tower, E2.
 #guard checkPlan withClearance placementError 200 sideBySide
 #guard checkPlan {} placementError 200 sideBySide
 #guard checkPlan withClearance placementError 200 (squareTower 8)
@@ -301,6 +347,8 @@ def coreE2 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 5 0 1]
 def coreE7 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt (15 / 4) 0 1, flatAt (45 / 4) 0 2]
 /-- E12 as a core plan. -/
 def coreE12 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)]
+/-- A builder who may place two blocks in one step, one in each hand. -/
+def twoHands : HumanModel := { HumanModel.default with hands := 2 }
 /-- E12 with B and C put on in the same step, one in each hand. -/
 def coreE12TwoHands : BuildPlan :=
   ⟨[{ blocks := [flatAt 0 0 0] }, { blocks := [flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)] }]⟩
@@ -320,40 +368,57 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 #guard buildOf coreE12.blocks == some e12
 #guard buildOf coreTower.blocks == some (squareTower 2)
 
-#guard coreCheck {} .default 200 coreE2 == { ok := true }
-#guard coreCheck {} .default 200 coreTower == { ok := true }
+#guard coreCheck {} .default 200 coreE2 == { assurance := .robust, ok := true }
+#guard coreCheck {} .default 200 coreTower == { assurance := .robust, ok := true }
 -- E7 stands on paper but is risky: block 2 (step 2) is where it goes wrong.
-#guard coreCheck {} .default 200 coreE7 == { ok := false, diagnostics := [.unstable 2 2] }
+#guard coreCheck {} .default 200 coreE7 == { assurance := .robust, ok := false, diagnostics := [.unstable 2 2] }
 -- E12: B falls before C can hold it down.
-#guard coreCheck {} .default 200 coreE12 == { ok := false, diagnostics := [.unstable 1 1] }
+#guard coreCheck {} .default 200 coreE12 == { assurance := .robust, ok := false, diagnostics := [.unstable 1 1] }
 -- Blocks of one step are checked one after the other, so two hands do not save E12.
-#guard coreCheck {} .default 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
+#guard coreCheck {} twoHands 200 coreE12TwoHands == { assurance := .robust, ok := false, diagnostics := [.unstable 1 1] }
 -- A block turned by the 3-4-5 angle has no physics pose.
 #guard coreCheck {} .default 200 (.ofBlocks [⟨.flat, .ofTriple 3 4 5, ⟨0, 0, 1 / 2⟩⟩]) ==
   { ok := false, diagnostics := [.unstable 0 0] }
 #guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 1 0 0]) ==
-  { ok := false, diagnostics := [.overlap 0 1, .unstable 1 1, .unreachable 1] }
+  { assurance := .robust, ok := false, diagnostics := [.overlap 0 1, .unstable 1 1, .unreachable 1] }
 -- Two blocks side by side, touching: `ok`, with the clearance check on or off.
-#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) == { ok := true }
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) == { assurance := .robust, ok := true }
 #guard coreCheck { clearance := true } .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) ==
-  { ok := true }
+  { assurance := .robust, ok := true }
 -- A gap of 1/4: a near miss. Only the clearance check rejects it.
 #guard coreCheck { clearance := true } .default 200
     (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) ==
-  { ok := false, diagnostics := [.clearance 0 1] }
-#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) == { ok := true }
-#guard coreCheck {} .default 3 coreTower == { ok := false, diagnostics := [.tooManyBlocks 4 3] }
+  { assurance := .robust, ok := false, diagnostics := [.clearance 0 1] }
+#guard coreCheck { clearance := false } .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) ==
+  { assurance := .robust, ok := true }
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 6 0, flatAt 0 3 0]) ==
+  { assurance := .robust, ok := false, diagnostics := [.tightSlot 2] }
+#guard coreCheck {} .default 3 coreTower == { assurance := .robust, ok := false, diagnostics := [.tooManyBlocks 4 3] }
 #guard coreCheck {} .default 200 ⟨[{ blocks := [] }]⟩ ==
-  { ok := false, diagnostics := [.emptyStep 0] }
-#guard coreCheck {} { HumanModel.default with hands := 1 } 200 coreE12TwoHands ==
-  { ok := false, diagnostics := [.tooManyHands 1, .unstable 1 1] }
+  { assurance := .robust, ok := false, diagnostics := [.emptyStep 0] }
+-- The default builder places one block per step, so a two-block step is refused.
+#guard coreCheck {} .default 200 coreE12TwoHands ==
+  { assurance := .robust, ok := false, diagnostics := [.tooManyHands 1, .unstable 1 1] }
 -- Hard to reach is a warning only (K3): the plan is still `ok`.
-#guard coreCheck {} .default 200 coreBoxedIn == { ok := true, diagnostics := [.unreachable 9] }
+#guard coreCheck {} .default 200 coreBoxedIn == { assurance := .robust, ok := true, diagnostics := [.unreachable 9] }
+
+-- A turned block (B6): the plan is checked at the planned positions only, and the report
+-- says so (found in review: `ok` alone did not tell the two checks apart).
+def isolatedTurn : KaplaCore.Pose := ⟨.flat, .step15 3, ⟨100, 100, 1 / 2⟩⟩
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, isolatedTurn]) ==
+  { ok := true, assurance := .nominal }
+-- E3 (risky) is refused by the full check, and accepted only as `nominal` with a turned block.
+#guard !(coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt (15 / 2) 0 1])).ok
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt (15 / 2) 0 1, isolatedTurn]) ==
+  { ok := true, assurance := .nominal }
+-- With `allowNominal` off, a plan with a turned block is not `ok`.
+#guard !(coreCheck { allowNominal := false } .default 200
+  (.ofBlocks [flatAt 0 0 0, isolatedTurn])).ok
 
 -- Where the mock is too kind: it ignores placement error and lets two blocks of a step hold
 -- each other up.
 #guard (physicsMock.check .default 200 coreE7).ok
-#guard (physicsMock.check .default 200 coreE12TwoHands).ok
+#guard (physicsMock.check twoHands 200 coreE12TwoHands).ok
 
 end Core
 

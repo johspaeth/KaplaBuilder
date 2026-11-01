@@ -1,5 +1,6 @@
 import KaplaSemantics.Check
 import KaplaSemantics.Json
+import KaplaSemantics.Claude
 
 /-! # The score report
 
@@ -29,6 +30,26 @@ def scoreReport (m : BubbleModel) (height : Q) (plan : List Pose) : ScoreReport 
     outside := outsideBlocks placed plan
     uncovered := uncoveredBubbles placed built
     tooSmall := tooSmallBubbles placed }
+
+/-- A target from one message to Claude, with no earlier conversation. -/
+private def askClaude (key : Option String) (current : Option BubbleModel) (text : String) :
+    IO TargetSpec := do
+  let some key := key
+    | throw (IO.userError "no API key: put it in semantics/dev/.env")
+  match ← chat key [] current text with
+  | .error e => throw (IO.userError e)
+  | .ok { model := some m, .. } => return .ofBubbles m
+  | .ok { reply, .. } => throw (IO.userError s!"Claude gave no model: {reply}")
+
+/-- The real semantic engine, with this API key. The website calls `chat` directly, because it also
+sends the earlier conversation, which this contract has no place for. -/
+def engineWithKey (key : Option String) : SemanticEngine :=
+  { interpret := fun req => askClaude key none req.prompt
+    refine := fun t remark => askClaude key (some t.model) remark
+    score := fun t height blocks => scoreReport t.model height blocks }
+
+/-- The semantic engine for planners. They only need `score`, which needs no key. -/
+def semanticEngine : SemanticEngine := engineWithKey none
 
 /-- The verdict as a word. -/
 def verdictName : Verdict → String
@@ -113,6 +134,15 @@ private def twoBalls : BubbleModel :=
 #guard
   let r := scoreReport ballModel (1 / 2) [flatBlock]
   r.outside == [0] && !r.accepted
+
+/-- Example: two walls with a gap between them, inside the egg at height 30. -/
+private def eggWalls : List Pose :=
+  [⟨.flat, .id, ⟨0, -9 / 2, 31 / 2⟩⟩, ⟨.flat, .id, ⟨0, 9 / 2, 31 / 2⟩⟩]
+
+-- The engine gives the same answer as `scoreReport`.
+#guard semanticEngine.score .egg 30 eggWalls == scoreReport .egg 30 eggWalls
+-- It credits the hollow middle, so it scores higher than the stand-in in Core.
+#guard (semanticEngine.score .egg 30 eggWalls).score > (semanticMock.score .egg 30 eggWalls).score
 
 /-- The block files in `fixtures/plans/`, read from the real files when this module is built. -/
 def oneBlockText : String := include_str "../fixtures/plans/one-block.json"

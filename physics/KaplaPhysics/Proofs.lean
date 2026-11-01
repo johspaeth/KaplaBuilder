@@ -275,9 +275,9 @@ theorem verdict_falls_sound (ε : Rat) (b : Build) (h : verdict ε b = .falls) :
 
 /-! ## Accepted plans are safe at every step -/
 
-/-- Two planks that are clear of each other (`ClearPair`) and do not meet do not overlap
-after moves of at most `ε` along `x` and `y`. -/
-theorem clearPair_moved (ε : Rat) (p q : Plank) (hc : ClearPair ε p q) (hm : ¬ Meets p q)
+/-- Two planks that are clear of each other (`ClearPair`) and are not face to face do not
+overlap after moves of at most `ε` along `x` and `y`. -/
+theorem clearPair_moved (ε : Rat) (p q : Plank) (hc : ClearPair ε p q) (hm : ¬ FaceToFace p q)
     (a b c e : Rat)
     (ha : -ε ≤ a ∧ a ≤ ε) (hb : -ε ≤ b ∧ b ≤ ε) (hc' : -ε ≤ c ∧ c ≤ ε) (he : -ε ≤ e ∧ e ≤ ε) :
     ¬ Overlap { p with x := p.x + a, y := p.y + b } { q with x := q.x + c, y := q.y + e } := by
@@ -287,16 +287,10 @@ theorem clearPair_moved (ε : Rat) (p q : Plank) (hc : ClearPair ε p q) (hm : �
   simp only [Overlap, Plank.x1, Plank.y1, Plank.top]
   grind
 
-/-- Every plank meets itself. -/
-theorem meets_self (p : Plank) : Meets p p := by
-  obtain ⟨pose, x, y, z⟩ := p
-  cases pose <;> simp only [Meets, Plank.x1, Plank.y1, Plank.top, Pose.size] <;> grind
-
 /-- A build that passes the clearance check (`Clear`) keeps its gaps for every placement
 error up to `ε`. -/
 theorem keepsGaps_of_clear (ε : Rat) (b : Build) (hc : Clear ε b) : KeepsGaps ε b := by
-  intro d hd i hi j hj hm
-  have hij : i ≠ j := by rintro rfl; exact hm (meets_self _)
+  intro d hd i hi j hj hij hm
   rw [shift_get b d i hi, shift_get b d j hj]
   have hi' := hd i hi
   have hj' := hd j hj
@@ -304,8 +298,9 @@ theorem keepsGaps_of_clear (ε : Rat) (b : Build) (hc : Clear ε b) : KeepsGaps 
     ⟨hi'.1, hi'.2.1⟩ ⟨hi'.2.2.1, hi'.2.2.2⟩ ⟨hj'.1, hj'.2.1⟩ ⟨hj'.2.2.1, hj'.2.2.2⟩
 
 /-- Property 4: an accepted plan uses at most `maxPlanks` planks, and after every step the
-build so far is well-formed, keeps its gaps with placement errors up to `ε` (when
-`opts.clearance` is on), and is solid for those errors (K4, K5). -/
+build so far is well-formed, keeps its gaps with placement errors up to `ε` and puts no
+plank into a tight slot (when `opts.clearance` is on), and is solid for those errors
+(K4, K5, H6). -/
 theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   simp only [checkPlan, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true',
@@ -315,9 +310,9 @@ theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps
   rw [show k - 1 + 1 = k by omega] at hw hc hs
   have hs := solidAnswer_sound ε _ hs
   refine ⟨hw, fun ho => ?_, hs⟩
-  rcases hc with hc | hc
+  rcases hc with hc | ⟨hc, hslot⟩
   · rw [hc] at ho; cases ho
-  · exact keepsGaps_of_clear ε _ hc
+  · exact ⟨keepsGaps_of_clear ε _ hc, of_decide_eq_false hslot⟩
 
 /-! ## The simple rule for a column (property 6) -/
 
@@ -386,6 +381,44 @@ theorem tower_clearPair (ε : Rat) (hε : ε ≤ 1 / 2) (i j : Nat) (hij : i ≠
       simp only [Plank.top, Pose.size]
       grind
 
+/-- Two different planks of the square tower never touch side by side: planks on different
+levels share no height, and the two planks of one level are 9 apart. -/
+theorem tower_noSideTouch (i j : Nat) (hij : i ≠ j) :
+    (FacingAlongX (towerPlank i) (towerPlank j) →
+      (towerPlank j).x1 ≠ (towerPlank i).x ∧ (towerPlank i).x1 ≠ (towerPlank j).x) ∧
+    (FacingAlongY (towerPlank i) (towerPlank j) →
+      (towerPlank j).y1 ≠ (towerPlank i).y ∧ (towerPlank i).y1 ≠ (towerPlank j).y) := by
+  by_cases hl : i / 2 = j / 2
+  · have hp : i % 2 ≠ j % 2 := by omega
+    rcases towerPlank_cases i with ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ <;>
+    (try omega) <;>
+    · rw [ei, ej]
+      simp only [FacingAlongX, FacingAlongY, Plank.x1, Plank.y1, Plank.top, Pose.size]
+      grind
+  · have hc : ((i / 2 : Nat) : Rat) + 1 ≤ ((j / 2 : Nat) : Rat) ∨
+        ((j / 2 : Nat) : Rat) + 1 ≤ ((i / 2 : Nat) : Rat) := by
+      rcases Nat.lt_or_gt_of_ne hl with h' | h'
+      · left; exact_mod_cast h'
+      · right; exact_mod_cast h'
+    rcases towerPlank_cases i with ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ <;>
+    · rw [ei, ej]
+      simp only [FacingAlongX, FacingAlongY, Plank.top, Pose.size]
+      grind
+
+/-- No plank of the square tower goes into a tight slot. -/
+theorem tower_noTightSlot (m : Nat) : ¬ InTightSlot (towerBuild m) (towerPlank m) := by
+  rintro (⟨a, ha, c, -, h1, -, h3, -⟩ | ⟨a, ha, c, -, h1, -, h3, -⟩) <;>
+  · simp only [towerBuild, List.mem_map, List.mem_range] at ha
+    obtain ⟨i, hi, rfl⟩ := ha
+    first
+      | exact ((tower_noSideTouch m i (by omega)).1 h3).1 h1
+      | exact ((tower_noSideTouch m i (by omega)).2 h3).1 h1
+
+theorem squareTower_get (n m : Nat) (h : m < 2 * n) : (squareTower n).get m = towerPlank m := by
+  simp [squareTower, Build.get, List.getD_eq_getElem?_getD, h]
+
 /-- The square tower passes the clearance check for errors up to `ε ≤ 1/2`. -/
 theorem tower_clear (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : Clear ε (towerBuild k) := by
   intro i hi j hj hij
@@ -395,7 +428,7 @@ theorem tower_clear (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : Clear ε (towerB
 
 /-- Property 9: building the square tower level by level is a safe plan, at any height
 `n`: after every step it is well-formed, keeps its gaps with placement errors up to `ε`,
-and is solid for those errors, for any `ε` from 0 to 1/2 (3.9 mm; the default is 2 mm).
+and is solid for those errors, for any `ε` from 0 to 1/2 (3.9 mm; this is also the default).
 This holds with the clearance check on or off. -/
 theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε : ε ≤ 1 / 2)
     (n : Nat) : SafePlan opts ε (2 * n) (squareTower n) := by
@@ -403,8 +436,9 @@ theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε 
   refine ⟨by omega, fun k _ hk => ?_⟩
   rw [squareTower_take n k (by omega)]
   have hs := tower_solid ε hε0 hε k
-  exact ⟨tower_wellFormed k,
-    fun _ => keepsGaps_of_clear ε _ (tower_clear ε hε k), hs⟩
+  refine ⟨tower_wellFormed k, fun _ => ⟨keepsGaps_of_clear ε _ (tower_clear ε hε k), ?_⟩, hs⟩
+  rw [squareTower_take n (k - 1) (by omega), squareTower_get n (k - 1) (by omega)]
+  exact tower_noTightSlot (k - 1)
 
 /-! ## Reaching the spot (property 5, K3) -/
 
@@ -495,17 +529,257 @@ theorem stepDiagnostics_nil (h : KaplaCore.HumanModel) (plan : KaplaCore.BuildPl
     · simp at h2
     · omega
 
-/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
-block has a physics pose, and the blocks, one per step, are a safe plan (K4, K5). -/
+/-! ## Turned plans (B6) -/
+
+/-- The push checker for turned builds is right: pushes that pass it show the build stands
+(S2). -/
+theorem checkTPushes_sound (b : TBuild) (ps : List Push) (h : checkTPushes b ps = true) :
+    TStable b := by
+  simp only [checkTPushes, Bool.and_eq_true, decide_eq_true_eq] at h
+  exact ⟨ps, h.1, h.2⟩
+
+theorem tStands_sound (b : TBuild) (h : tStands b = true) : TStable b := by
+  unfold tStands at h
+  split at h
+  · exact checkTPushes_sound b _ h
+  · cases h
+
+/-- An accepted turned plan uses at most `maxPlanks` planks, and after every step the
+build so far is well-formed and stable at the planned positions (B6, K4, K5). -/
+theorem checkTurnedPlan_sound (maxPlanks : Nat) (steps : TBuild)
+    (h : checkTurnedPlan maxPlanks steps = true) : TSafePlan maxPlanks steps := by
+  simp only [checkTurnedPlan, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
+    List.mem_range] at h
+  refine ⟨h.1, fun k hk1 hk2 => ?_⟩
+  obtain ⟨hw, hs⟩ := h.2 (k - 1) (by omega)
+  rw [show k - 1 + 1 = k by omega] at hw hs
+  exact ⟨hw, tStands_sound _ hs⟩
+
+/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, and
+either every block has a physics pose and the blocks, one per step, are a safe plan
+(K4, K5), or some block is turned by a 15° step and the blocks are a safe turned plan:
+well-formed and stable at the planned positions after every block (B6). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b := by
-  unfold coreCheck at hok
-  split at hok
-  · simp at hok
-  · rename_i b hb
-    simp only [Bool.and_eq_true] at hok
-    exact ⟨stepDiagnostics_nil h plan hok.1, b, hb, checkPlan_sound _ _ _ _ hok.2⟩
+      (((coreCheck opts h maxBlocks plan).assurance = .robust ∧
+          ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
+        ((coreCheck opts h maxBlocks plan).assurance = .nominal ∧ opts.allowNominal = true ∧
+          buildOf plan.blocks = none ∧
+          ∃ tb, turnedBuildOf plan.blocks = some tb ∧ TSafePlan maxBlocks tb)) := by
+  unfold coreCheck at hok ⊢
+  cases hb : buildOf plan.blocks with
+  | none =>
+    cases htb : turnedBuildOf plan.blocks with
+    | none => simp [hb, htb] at hok
+    | some tb =>
+      simp only [hb, htb, Bool.and_eq_true] at hok ⊢
+      exact ⟨stepDiagnostics_nil h plan hok.1.2,
+        Or.inr ⟨trivial, hok.1.1, trivial, tb, rfl, checkTurnedPlan_sound _ _ hok.2⟩⟩
+  | some b =>
+    simp only [hb, Bool.and_eq_true] at hok ⊢
+    exact ⟨stepDiagnostics_nil h plan hok.1, Or.inl ⟨trivial, b, rfl, checkPlan_sound _ _ _ _ hok.2⟩⟩
+
+/-! ## Two forms of F4 agree (B4 and B6) -/
+
+theorem toT_z (p : Plank) : (p.toT).z = p.z := rfl
+theorem toT_top (p : Plank) : (p.toT).top = p.top := by
+  obtain ⟨pose, x, y, z⟩ := p
+  cases pose <;> simp [Plank.toT, TPlank.top, Plank.top, Pose.upRot, Pose.size, KaplaCore.Upright.dims,
+    KaplaCore.blockLength, KaplaCore.blockWidth, KaplaCore.blockThickness]
+
+theorem absQ_neg (a : Rat) : absQ (-a) = absQ a := by unfold absQ; grind
+
+theorem reach_toT (p : Plank) (nx ny : Rat) :
+    (p.toT).reach nx ny = p.pose.size.dx / 2 * absQ nx + p.pose.size.dy / 2 * absQ ny := by
+  obtain ⟨pose, x, y, z⟩ := p
+  cases pose <;> simp [Plank.toT, TPlank.reach, TPlank.halfLength, TPlank.halfWidth, Pose.upRot,
+    Pose.size, KaplaCore.Upright.dims, KaplaCore.Rot.id, KaplaCore.Rot.quarter,
+    KaplaCore.blockLength, KaplaCore.blockWidth, KaplaCore.blockThickness, absQ] <;> grind
+
+theorem covers_toT (p : Plank) (x y : Rat) :
+    (p.toT).Covers x y ↔ p.footprint.Contains x y := by
+  obtain ⟨pose, px, py, pz⟩ := p
+  cases pose <;> simp [Plank.toT, TPlank.Covers, TPlank.along, TPlank.across, TPlank.halfLength,
+    TPlank.halfWidth, Pose.upRot, Pose.size, KaplaCore.Upright.dims, KaplaCore.Rot.id, KaplaCore.Rot.quarter, Plank.footprint,
+    Rect.Contains, Plank.centerX, Plank.centerY, Plank.x1, Plank.y1,
+    KaplaCore.blockLength, KaplaCore.blockWidth, KaplaCore.blockThickness] <;> grind
+
+
+theorem rot_toT (p : Plank) : (p.toT).rot = .id ∨ (p.toT).rot = .quarter := by
+  obtain ⟨pose, x, y, z⟩ := p
+  cases pose <;> simp [Plank.toT, Pose.upRot]
+
+theorem absQ_one : absQ 1 = 1 := by decide
+theorem absQ_neg_one : absQ (-1) = 1 := by decide
+theorem absQ_zero : absQ 0 = 0 := by decide
+
+theorem so_x (p q : Plank) (nx : Rat) (hn : nx = 1 ∨ nx = -1) :
+    ShadowsOverlap p.toT q.toT nx 0 ↔ (p.x < q.x1 ∧ q.x < p.x1) := by
+  have hp := (pose_size_pos p.pose).1
+  have hq := (pose_size_pos q.pose).1
+  unfold ShadowsOverlap
+  rw [reach_toT, reach_toT]
+  rcases hn with rfl | rfl <;>
+    simp only [absQ_one, absQ_neg_one, absQ_zero, Plank.toT, Plank.centerX, Plank.centerY,
+      Plank.x1] <;> unfold absQ <;> grind
+
+theorem so_y (p q : Plank) :
+    ShadowsOverlap p.toT q.toT 0 1 ↔ (p.y < q.y1 ∧ q.y < p.y1) := by
+  have hp := (pose_size_pos p.pose).2
+  have hq := (pose_size_pos q.pose).2
+  unfold ShadowsOverlap
+  rw [reach_toT, reach_toT]
+  simp only [absQ_one, absQ_zero, Plank.toT, Plank.centerX, Plank.centerY, Plank.y1]
+  unfold absQ; grind
+
+theorem facesOverlap_toT (p q : Plank) :
+    FacesOverlap p.toT q.toT ↔ (p.footprint.inter q.footprint).HasArea := by
+  have hp := pose_size_pos p.pose
+  have hq := pose_size_pos q.pose
+  have hx : (p.x < q.x1 ∧ q.x < p.x1) ↔ max p.x q.x < min p.x1 q.x1 := by
+    simp only [Plank.x1, Rat.max_def, Rat.min_def]; split <;> split <;> grind
+  have hy : (p.y < q.y1 ∧ q.y < p.y1) ↔ max p.y q.y < min p.y1 q.y1 := by
+    simp only [Plank.y1, Rat.max_def, Rat.min_def]; split <;> split <;> grind
+  simp only [Rect.HasArea, Rect.inter, Plank.footprint, ← hx, ← hy]
+  unfold FacesOverlap
+  rcases rot_toT p with hp | hp <;> rcases rot_toT q with hq | hq <;>
+    rw [hp, hq] <;> simp only [KaplaCore.Rot.id, KaplaCore.Rot.quarter, Rat.neg_zero] <;>
+    simp only [so_x p q 1 (Or.inl rfl), so_x p q (-1) (Or.inr rfl), so_y] <;> grind
+
+
+theorem toT_length (b : Build) : (b.map Plank.toT).length = b.length := by simp
+
+theorem toT_get (b : Build) (i : Nat) (h : i < b.length) :
+    TBuild.get (b.map Plank.toT) i = (b.get i).toT := by
+  simp [TBuild.get, Build.get, List.getD_eq_getElem?_getD, h]
+
+/-- Plank `i` rests on `s` in the turned build exactly when it has a contact patch with `s`
+in the plank build. -/
+theorem tRestsOn_toT (b : Build) (i : Nat) (hi : i < b.length) (s : Support)
+    (hs : s.InBuild b.length) :
+    TRestsOn (b.map Plank.toT) i s ↔ (restPatch b i s).isSome := by
+  cases s with
+  | ground =>
+    simp only [TRestsOn, toT_get b i hi, toT_z, restPatch]
+    split <;> simp_all
+  | plank j =>
+    simp only [Support.InBuild] at hs
+    simp only [TRestsOn, toT_get b i hi, toT_get b j hs, toT_z, toT_top, facesOverlap_toT,
+      restPatch]
+    split <;> simp_all
+
+/-- The corners of the overlap of two footprints lie in both footprints. -/
+theorem corner_mem_inter (a c : Rect) (x y : Rat) (hr : (a.inter c).HasArea)
+    (hm : (x, y) ∈ (a.inter c).corners) : a.Contains x y ∧ c.Contains x y := by
+  simp only [Rect.HasArea, Rect.inter] at hr
+  simp only [Rect.corners, Rect.inter, List.mem_cons, List.mem_nil_iff, or_false,
+    Prod.mk.injEq] at hm
+  simp only [Rect.Contains]
+  rcases hm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
+    simp only [Rat.max_def, Rat.min_def] at hr ⊢ <;> split at hr <;> split at hr <;>
+    split <;> split <;> grind
+
+/-- The corners of a plank's footprint lie in it. -/
+theorem corner_mem_footprint (p : Plank) (x y : Rat) (hm : (x, y) ∈ p.footprint.corners) :
+    p.footprint.Contains x y := by
+  have := pose_size_pos p.pose
+  simp only [Rect.corners, Plank.footprint, List.mem_cons, List.mem_nil_iff, or_false,
+    Prod.mk.injEq] at hm
+  rcases hm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
+    simp only [Rect.Contains, Plank.footprint, Plank.x1, Plank.y1] <;> grind
+
+/-- A corner push allowed in the plank build is allowed in the turned build. -/
+theorem tPushAllowed_of_allowed (b : Build) (p : Push) (h : p.Allowed b) :
+    TPushAllowed (b.map Plank.toT) p := by
+  obtain ⟨hf, hu, hl, hc⟩ := h
+  have hrest : (restPatch b p.upper p.lower).isSome := by
+    revert hc; cases restPatch b p.upper p.lower <;> simp
+  refine ⟨hf, by simpa using hu, by simpa using hl,
+    (tRestsOn_toT b _ hu _ hl).2 hrest, ?_⟩
+  obtain ⟨r, hr⟩ := Option.isSome_iff_exists.mp hrest
+  simp only [hr] at hc
+  rw [toT_get b _ hu, covers_toT]
+  cases hlow : p.lower with
+  | ground =>
+    rw [hlow] at hr
+    obtain ⟨-, rfl⟩ := (restPatch_ground_iff b _ r).1 hr
+    exact ⟨corner_mem_footprint _ _ _ hc, trivial⟩
+  | plank j =>
+    rw [hlow] at hr hl
+    simp only [Support.InBuild] at hl
+    obtain ⟨-, rfl, ha⟩ := (restPatch_plank_iff b _ j r).1 hr
+    obtain ⟨h1, h2⟩ := corner_mem_inter _ _ _ _ ha hc
+    exact ⟨h1, by simp only []; rw [toT_get b j hl, covers_toT]; exact h2⟩
+
+/-- A push allowed in the turned build sits inside a contact patch with area of the plank
+build. -/
+theorem patch_of_tPushAllowed (b : Build) (p : Push) (h : TPushAllowed (b.map Plank.toT) p) :
+    ∃ r, restPatch b p.upper p.lower = some r ∧ r.x0 < r.x1 ∧ r.y0 < r.y1 ∧
+      r.x0 ≤ p.x ∧ p.x ≤ r.x1 ∧ r.y0 ≤ p.y ∧ p.y ≤ r.y1 := by
+  obtain ⟨-, hu, hl, hrest, hcu, hcl⟩ := h
+  rw [toT_length] at hu hl
+  obtain ⟨r, hr⟩ := Option.isSome_iff_exists.mp ((tRestsOn_toT b _ hu _ hl).1 hrest)
+  rw [toT_get b _ hu, covers_toT] at hcu
+  refine ⟨r, hr, ?_⟩
+  cases hlow : p.lower with
+  | ground =>
+    rw [hlow] at hr
+    obtain ⟨-, rfl⟩ := (restPatch_ground_iff b _ r).1 hr
+    have := pose_size_pos (b.get p.upper).pose
+    simp only [Rect.Contains, Plank.footprint, Plank.x1, Plank.y1] at hcu ⊢
+    grind
+  | plank j =>
+    rw [hlow] at hr hl hcl
+    simp only [Support.InBuild] at hl
+    simp only [] at hcl
+    rw [toT_get b j hl, covers_toT] at hcl
+    obtain ⟨-, rfl, ha⟩ := (restPatch_plank_iff b _ j r).1 hr
+    simp only [Rect.HasArea, Rect.inter] at ha
+    simp only [Rect.Contains, Rect.inter, Plank.footprint] at hcu hcl ⊢
+    refine ⟨ha.1, ha.2, ?_⟩
+    simp only [Rat.max_def, Rat.min_def]
+    split <;> split <;> split <;> split <;> grind
+
+/-- F4, two ways: an axis-aligned build is stable with pushes at the corners of its
+contact patches (`Stable`) exactly when it is stable with pushes anywhere in its patches,
+read as a build of turned planks (`TStable`). -/
+theorem stable_iff_tStable (b : Build) : Stable b ↔ TStable (b.map Plank.toT) := by
+  constructor
+  · rintro ⟨ps, hall, hbal⟩
+    refine ⟨ps, fun p hp => tPushAllowed_of_allowed b p (hall p hp), fun i hi => ?_⟩
+    rw [toT_length] at hi
+    obtain ⟨h1, h2, h3⟩ := hbal i hi
+    exact ⟨h1, by rw [toT_get b i hi]; exact h2, by rw [toT_get b i hi]; exact h3⟩
+  · rintro ⟨ps, hall, hbal⟩
+    let patch := fun (p : Push) => (restPatch b p.upper p.lower).getD default
+    refine ⟨ps.flatMap fun p => spreadOver (patch p) p, ?_, fun i hi => ?_⟩
+    · intro q hq
+      obtain ⟨p, hp, hq⟩ := List.mem_flatMap.mp hq
+      have hpa := hall p hp
+      obtain ⟨r, hr, hx, hy, hx0, hx1, hy0, hy1⟩ := patch_of_tPushAllowed b p hpa
+      have hpr : patch p = r := by simp [patch, hr]
+      rw [hpr] at hq
+      obtain ⟨hf, hu, hl, -⟩ := hpa
+      rw [toT_length] at hu hl
+      exact spread_allowed b r p hf hu hl hr hx hy hx0 hx1 hy0 hy1 q hq
+    · have hi' : i < (b.map Plank.toT).length := by rw [toT_length]; exact hi
+      obtain ⟨h1, h2, h3⟩ := hbal i hi'
+      rw [toT_get b i hi] at h2 h3
+      have key : ∀ p ∈ ps, ∃ r, patch p = r ∧ r.x0 < r.x1 ∧ r.y0 < r.y1 := by
+        intro p hp
+        obtain ⟨r, hr, hx, hy, -⟩ := patch_of_tPushAllowed b p (hall p hp)
+        exact ⟨r, by simp [patch, hr], hx, hy⟩
+      refine ⟨?_, ?_, ?_⟩
+      · rw [sum_flatMap, ← h1]
+        apply sum_map_congr; intro p _; exact spread_force _ p i
+      · rw [sum_flatMap, ← h2]
+        apply sum_map_congr; intro p hp
+        obtain ⟨r, hr, hx, -⟩ := key p hp
+        rw [hr]; exact spread_turnX r p i _ hx
+      · rw [sum_flatMap, ← h3]
+        apply sum_map_congr; intro p hp
+        obtain ⟨r, hr, -, hy⟩ := key p hp
+        rw [hr]; exact spread_turnY r p i _ hy
 
 end KaplaPhysics

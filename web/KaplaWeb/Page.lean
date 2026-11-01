@@ -108,7 +108,8 @@ table{border-collapse:collapse}td,th{border-bottom:1px solid var(--line);padding
 "
 
 def js : String := "
-const D = DATA, B = D.blocks, S = D.steps, U = D.bubbles || [];
+const D = DATA, U = D.bubbles || [];
+let B = D.blocks, S = D.steps;
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 // ---------- step cards (top-down plan of the current layer) ----------
 function card(k){
@@ -133,7 +134,7 @@ document.getElementById('cards').innerHTML = S.map((_,k)=>card(k)).join('');
 // ---------- 3D view ----------
 const el = document.getElementById('view'), slider = document.getElementById('slider'), label = document.getElementById('label');
 slider.max = S.length; slider.value = S.length;
-let render = () => {}, drawBubbles = () => {};
+let render = () => {}, drawBubbles = () => {}, drawBlocks = () => {};
 const COLORS = ['#5b8fd9','#d9705b','#4fa66b','#a66bd9','#d9a93f','#3fb0b8','#d95b9c','#7f8c4f'];
 // the part of a bubble above the ground (z = 0): its size and where it reaches
 const aboveGround = u => { const [cx,cy,cz] = u.c, [a,b,c] = u.r, f = cz < 0 ? Math.sqrt(Math.max(0, 1-(cz/c)*(cz/c))) : 1;
@@ -147,9 +148,14 @@ if (window.THREE) {
   scene.add(ground);
   const wood = new THREE.MeshLambertMaterial({color:0xe2b47a}), hot = new THREE.MeshLambertMaterial({color:0xe07b2a});
   const edges = new THREE.LineBasicMaterial({color:0x6b4a2b, transparent:true, opacity:.5});
-  const meshes = B.map(b => { const g = new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]);
-    const m = new THREE.Mesh(g, wood); m.position.set(b.c[0], b.c[1], b.c[2]); m.rotation.z = b.yaw*Math.PI/180;
-    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), edges)); scene.add(m); return m; });
+  let meshes = [];
+  // Draw the blocks in B in place of the ones drawn now.
+  drawBlocks = () => {
+    meshes.forEach(m => { scene.remove(m); m.geometry.dispose(); m.children[0].geometry.dispose(); });
+    meshes = B.map(b => { const g = new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]);
+      const m = new THREE.Mesh(g, wood); m.position.set(b.c[0], b.c[1], b.c[2]); m.rotation.z = b.yaw*Math.PI/180;
+      m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), edges)); scene.add(m); return m; }); };
+  drawBlocks();
   // the target's bubbles: see-through ellipsoids, cut off at the ground (z = 0)
   ren.localClippingEnabled = true;
   const clip = [new THREE.Plane(new THREE.Vector3(0,0,1), 0)];
@@ -264,30 +270,40 @@ const showInfo = (title, list, unit) => { info.textContent = '';
 const showError = msg => { errorBox.textContent = `Cannot show this model: ${msg}`; errorBox.hidden = false; info.textContent = ''; drawBubbles([], 'blocks'); };
 // Show a model (height 1 and no fixed size) at a height. The model itself is not changed and never
 // rescaled to fit. With no height, the numbers are the model's own (0 to 1).
-const show = (model, height, shiftX = 0, shiftY = 0) => {
+const show = (model, height) => {
   try {
     const hasHeight = height !== undefined && height !== null, h = hasHeight ? height : 1;
     if (!(h > 0) || !Number.isFinite(h)) throw new Error('the height must be a number above 0');
-    if (!Number.isFinite(shiftX) || !Number.isFinite(shiftY)) throw new Error('the shift must be a number');
-    const placed = readModel(model).map(u => ({label:u.label, c:[u.c[0]*h+shiftX, u.c[1]*h+shiftY, u.c[2]*h], r:u.r.map(v => v*h)}));
+    const placed = readModel(model).map(u => ({label:u.label, c:u.c.map(v => v*h), r:u.r.map(v => v*h)}));
     const unit = hasHeight ? 'blocks' : 'model units', top = Math.max(...placed.map(u => aboveGround(u).top));
     errorBox.hidden = true;
     showInfo(`${model.name}: ${hasHeight ? `height ${fmt(h)} blocks` : 'no height given'}, top at z = ${fmt(top)}`, placed, unit);
     drawBubbles(placed, unit);
     return true;
   } catch (e) { showError(e.message); return false; } };
-// The chat calls this when it has a new model.
-window.KaplaViewer = {show, showError};
+// Replace the blocks and the slider. `plan` has `blocks` and `steps`, as in the page data.
+const setPlan = plan => { B = plan.blocks; S = plan.steps; drawBlocks();
+  slider.max = S.length; slider.value = S.length;
+  document.getElementById('controls').style.display = S.length ? '' : 'none'; update(); };
+// Show a plan with its model at the plan's height.
+const showPlan = (model, height, plan) => { setPlan(plan); return show(model, height); };
+const clearPlan = () => setPlan({blocks: [], steps: []});
+// The website calls these when it has a new model or plan.
+window.KaplaViewer = {show, showError, showPlan, clearPlan, checkModel: readModel, readNumber};
 const q = new URLSearchParams(location.search), src = q.get('bubbles');
-const addressNumber = (name, d) => q.has(name) ? Number(q.get(name)) : d;
 if (src) {
   fetch(src, {cache:'no-store'}).then(r => { if (!r.ok) throw new Error(`could not load ${src} (error ${r.status})`); return r.text(); })
     .then(t => { let m; try { m = JSON.parse(t); } catch (_) { throw new Error(`${src} is not valid JSON`); }
-      show(m, addressNumber('height'), addressNumber('shiftX', 0), addressNumber('shiftY', 0)); })
+      show(m, q.has('height') ? Number(q.get('height')) : undefined); })
     .catch(e => showError(e.message));
 } else if (U.length) { showInfo('The target', U, 'blocks'); drawBubbles(U, 'blocks'); }
 else if (!S.length) info.textContent = 'No model yet.';
 "
+
+/-- The script tags that load three.js, at a pinned version. -/
+def threeScripts : String :=
+  "<script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js\"></script>
+<script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js\"></script>"
 
 /-- The whole page for a blueprint. -/
 def render (p : ViewPlan) : String :=
@@ -298,8 +314,7 @@ def render (p : ViewPlan) : String :=
   s!"<!doctype html>
 <html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">
 <title>{escape p.title}</title><style>{css}</style>
-<script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js\"></script>
-<script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js\"></script>
+{threeScripts}
 </head><body>
 <header><h1>{escape p.title}</h1>
 <div class=\"sub\" id=\"sub\">{sub}{nBlocks} blocks · {p.steps.length} steps</div>{notes}</header>
@@ -318,7 +333,8 @@ def render (p : ViewPlan) : String :=
 </body></html>"
 
 #guard ((parsePlan exampleJson).map fun p => (render p).contains "three.min.js").toOption == some true
--- the page has the call the chat uses to show a new model
+-- the page has the calls the website uses to show a new model and a new plan
+#guard ((parsePlan exampleJson).map fun p => (render p).contains "showPlan").toOption == some true
 #guard ((parsePlan exampleJson).map fun p => (render p).contains "window.KaplaViewer").toOption == some true
 -- text from the file cannot break out of the page
 #guard ((parsePlan "{\"title\": \"<script>x\", \"steps\": []}").map fun p =>

@@ -182,13 +182,15 @@ def checkOrder (trials : List Trial) : List Trial :=
 
 /-! ## Physics and repair -/
 
-/-- The blocks a physics report blames. -/
+/-- The blocks a physics report blames. Every step of a planner plan places one block
+(`toPlan_hands`), so a step number is also a block number. -/
 def blamed (r : PhysicsReport) : List Nat :=
   r.diagnostics.filterMap fun
     | .unstable _ b => some b
     | .overlap _ j => some j
     | .clearance _ j => some j
-    | .pressTips s _ => some s
+    | .tightSlot s => some s
+    | .unevenSupports b => some b
     | _ => none
 
 /-- Remove the blamed blocks, and every block that no longer stands without them (by the local

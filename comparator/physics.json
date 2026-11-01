@@ -23,7 +23,10 @@
     "KaplaPhysics.solidCertificate_sound",
     "KaplaPhysics.not_stands_and_falls",
     "KaplaPhysics.plankOf_box",
-    "KaplaPhysics.coreCheck_ok_sound"
+    "KaplaPhysics.coreCheck_ok_sound",
+    "KaplaPhysics.checkTPushes_sound",
+    "KaplaPhysics.checkTurnedPlan_sound",
+    "KaplaPhysics.stable_iff_tStable"
   ],
   "permitted_axioms": [
     "propext",

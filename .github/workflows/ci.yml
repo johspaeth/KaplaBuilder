@@ -35,15 +35,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-lean
+      - name: Cache Lake build
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-build-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml', '**/*.lean') }}
+          restore-keys: |
+            lake-build-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml') }}
+            lake-build-${{ runner.os }}-${{ matrix.target }}-
       # Warnings fail the build: this catches `sorry` and unused/deprecated code.
       - run: lake build ${{ matrix.target }} --fail-level=warning
+      # Every file in gallery/ must be a good entry (web/README.md).
+      - if: matrix.target == 'kapla'
+        run: lake exe kapla gallery-check
 
   verify:
-    name: Kernel check
+    name: Kernel check and comparator
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-lean
+      - name: Cache Lake build
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-verify-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml', '**/*.lean') }}
+          restore-keys: |
+            lake-verify-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml') }}
+            lake-verify-${{ runner.os }}-
+            lake-build-${{ runner.os }}-
       - name: Install sandbox (bubblewrap)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
@@ -53,6 +73,14 @@ jobs:
         run: lake build KaplaSpecs
       - name: lake check (replay everything through the kernel, standard axioms only)
         run: lake check
+      - name: lake comparator (proofs prove exactly the statements in specs/)
+        run: |
+          shopt -s nullglob
+          for cfg in comparator/*.json; do
+            echo "::group::comparator $cfg"
+            lake comparator --config "$cfg"
+            echo "::endgroup::"
+          done
 
   ci-ok:
     name: CI OK

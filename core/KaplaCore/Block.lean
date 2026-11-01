@@ -60,6 +60,27 @@ def Rot.apply (r : Rot) (v : Q3) : Q3 :=
 
 #guard Rot.quarter.apply ⟨1, 0, 5⟩ == ⟨0, 1, 5⟩
 
+/-- The turns from 0° to 75° in steps of 15°. 15° and its multiples have no exact rational
+cosine, so we use the closest Pythagorean turns: 15.19°, 29.86°, 45.24°, 60.14° and
+74.81°. A builder cannot tell the difference. -/
+def Rot.step15Base : List Rot :=
+  [Rot.id, .ofTriple 221 60 229, .ofTriple 209 120 241, .ofTriple 119 120 169,
+   .ofTriple 120 209 241, .ofTriple 60 221 229]
+
+/-- `r`, then a further quarter turn counter-clockwise. -/
+def Rot.addQuarter (r : Rot) : Rot := ⟨-r.sin, r.cos⟩
+
+/-- About `15 * k` degrees (`k` is read modulo 24). -/
+def Rot.step15 (k : Nat) : Rot :=
+  (List.range (k % 24 / 6)).foldl (fun r _ => r.addQuarter) (Rot.step15Base.getD (k % 6) .id)
+
+/-- The 24 turns a plan may use: every 15°, all the way round. -/
+def Rot.menu : List Rot := (List.range 24).map Rot.step15
+
+#guard Rot.menu.all Rot.valid
+#guard Rot.step15 0 == Rot.id && Rot.step15 6 == Rot.quarter
+#guard Rot.step15 3 == Rot.ofTriple 119 120 169
+
 /-- Where one block is: which face is down, how it is turned, and its centre. -/
 structure Pose where
   up     : Upright

@@ -127,11 +127,12 @@ def verdict (ε : Rat) (b : Build) : Verdict :=
     | .falls => .falls
     | .unknown => .unknown
 
-/-- Planks `p` and `q` are fine for placement errors up to `ε`: they touch by design
-(`Meets`), or they do not share any height, or there is a gap of at least `2 * ε` between
-them along `x` or along `y`. Only a near miss fails: a gap above 0 and below `2 * ε`. -/
+/-- Planks `p` and `q` are fine for placement errors up to `ε`: they touch face to face by
+design (`FaceToFace`, R5), or they do not share any height, or there is a gap of at least
+`2 * ε` between them along `x` or along `y`. A near miss fails (a gap above 0 and below
+`2 * ε`), and so does a touch only at an edge or a corner. -/
 def ClearPair (ε : Rat) (p q : Plank) : Prop :=
-  Meets p q ∨ (p.top ≤ q.z ∨ q.top ≤ p.z) ∨
+  FaceToFace p q ∨ (p.top ≤ q.z ∨ q.top ≤ p.z) ∨
     (p.x1 + 2 * ε ≤ q.x ∨ q.x1 + 2 * ε ≤ p.x) ∨
     (p.y1 + 2 * ε ≤ q.y ∨ q.y1 + 2 * ε ≤ p.y)
 
@@ -146,13 +147,14 @@ instance (ε : Rat) (b : Build) : Decidable (Clear ε b) := by
   unfold Clear; infer_instance
 
 /-- Check a build plan (K4, K5): at most `maxPlanks` planks, and after every step the
-build so far is well-formed, keeps its gaps for placement errors up to `ε` (only if
-`opts.clearance` is on), and is solid for those errors. -/
+build so far is well-formed, keeps its gaps for placement errors up to `ε` and puts no plank
+into a tight slot (only if `opts.clearance` is on), and is solid for those errors. -/
 def checkPlan (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build) : Bool :=
   decide (steps.length ≤ maxPlanks) &&
     (List.range steps.length).all fun k =>
       decide (WellFormed (steps.take (k + 1))) &&
-        (!opts.clearance || decide (Clear ε (steps.take (k + 1)))) &&
+        (!opts.clearance ||
+          (decide (Clear ε (steps.take (k + 1))) && !decide (InTightSlot (steps.take k) (steps.get k)))) &&
         solidAnswer ε (steps.take (k + 1))
 
 /-- What the engine says about one step of a plan, for the planner and the web page. -/
