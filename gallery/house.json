@@ -1,0 +1,120 @@
+{"proposal":
+ {"steps":
+  [{"phase": "level 1",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-0.5, -1.5, 0.5]}]},
+   {"phase": "level 1",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [3.5, -1.5, 0.5]}]},
+   {"phase": "level 1",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -1.5, 0.5]}]},
+   {"phase": "level 2",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-0.5, -1.5, 1.5]}]},
+   {"phase": "level 2",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [3.5, -1.5, 1.5]}]},
+   {"phase": "level 2",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -1.5, 1.5]}]},
+   {"phase": "level 3",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-0.5, -1.5, 2.5]}]},
+   {"phase": "level 3",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [3.5, -1.5, 2.5]}]},
+   {"phase": "level 3",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -1.5, 2.5]}]},
+   {"phase": "level 4",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-0.5, -1.5, 3.5]}]},
+   {"phase": "level 4",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [3.5, -1.5, 3.5]}]},
+   {"phase": "level 4",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -1.5, 3.5]}]},
+   {"phase": "level 5",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -1.5, 4.5]}]},
+   {"phase": "level 5",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [3.5, -1.5, 4.5]}]},
+   {"phase": "level 6",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-0.5, -0.5, 5.5]}]},
+   {"phase": "level 6",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-0.5, 3.5, 5.5]}]},
+   {"phase": "level 6",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-0.5, -3.5, 5.5]}]},
+   {"phase": "level 7",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [2.5, -1.5, 6.5]}]},
+   {"phase": "level 7",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -1.5, 6.5]}]},
+   {"phase": "level 8",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-0.5, 0.5, 7.5]}]},
+   {"phase": "level 8",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-0.5, -3.5, 7.5]}]},
+   {"phase": "level 8",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-0.5, 3.5, 7.5]}]},
+   {"phase": "level 9",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [2.5, -1.5, 8.5]}]},
+   {"phase": "level 9",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -1.5, 8.5]}]},
+   {"phase": "level 10",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-0.5, 0.5, 9.5]}]},
+   {"phase": "level 10",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-1.5, -3.5, 9.5]}]},
+   {"phase": "level 10",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": [-1.5, 3.5, 9.5]}]},
+   {"phase": "level 11",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [2.5, -3.5, 10.5]}]},
+   {"phase": "level 11",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-3.5, -3.5, 10.5]}]}],
+  "planner": "layered-branch-and-bound",
+  "height": 13,
+  "blocks": 45},
+ "name": "house",
+ "model":
+ {"name": "house",
+  "bubbles":
+  [{"tags": ["wall"],
+    "semi": [0.5, 0.4, 0.3],
+    "label": "house body",
+    "center": [0, 0, 0.3]},
+   {"tags": ["roof"],
+    "semi": [0.56, 0.46, 0.26],
+    "label": "roof",
+    "center": [0, 0, 0.62]},
+   {"tags": ["tower"],
+    "semi": [0.06, 0.06, 0.12],
+    "label": "chimney",
+    "center": [0.25, 0.15, 0.88]},
+   {"tags": ["door"],
+    "semi": [0.09, 0.04, 0.15],
+    "label": "door",
+    "center": [0, -0.4, 0.15]},
+   {"tags": ["window"],
+    "semi": [0.08, 0.03, 0.07],
+    "label": "left window",
+    "center": [-0.3, -0.4, 0.35]},
+   {"tags": ["window"],
+    "semi": [0.08, 0.03, 0.07],
+    "label": "right window",
+    "center": [0.3, -0.4, 0.35]}]}}
