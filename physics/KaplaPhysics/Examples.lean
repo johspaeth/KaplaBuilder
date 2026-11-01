@@ -213,26 +213,45 @@ def nearlyTouching : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩
 /-- The errors that push the two planks of `nearlyTouching` into each other. -/
 def towardsEachOther (i : Nat) : Rat × Rat := if i = 0 then (0, 1 / 4) else (0, -1 / 4)
 
+/-- Two planks side by side and touching, as in a wall. -/
+def sideBySide : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 3, 0⟩]
+
+/-- The clearance check, switched on. -/
+def withClearance : PlanOptions := { clearance := true }
+
 #guard decide (WellFormed nearlyTouching)
-#guard !checkPlan {} placementError 200 nearlyTouching
+#guard !checkPlan withClearance placementError 200 nearlyTouching
 #guard !decide (WellFormed (nearlyTouching.shift towardsEachOther))
 
-/-- The plan is not safe: the errors `towardsEachOther` are allowed and break P1. -/
-example : ¬ SafePlan {} placementError 200 nearlyTouching := fun h =>
-  absurd ((h.2 2 (by decide) (by decide)).2.1 rfl towardsEachOther
-    (by unfold SmallShift; decide +kernel))
-    (by decide +kernel)
+/-- With the clearance check on, the plan is not safe: the errors `towardsEachOther` are
+allowed and close the gap (P1). -/
+example : ¬ SafePlan withClearance placementError 200 nearlyTouching := fun h =>
+  (h.2 2 (by decide) (by decide)).2.1 rfl towardsEachOther
+    (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide)
+    (by decide +kernel) (by decide +kernel)
 
--- With the clearance check switched off, the plan is accepted: each step is well-formed
--- at the planned positions and solid.
-#guard checkPlan { clearance := false } placementError 200 nearlyTouching
+-- The clearance check is off by default. Then the plan is accepted: each step is
+-- well-formed at the planned positions and solid.
+#guard checkPlan {} placementError 200 nearlyTouching
 
 -- Switching the check off never lets through a plan that falls or is risky.
-#guard !checkPlan { clearance := false } placementError 200 e7
-#guard !checkPlan { clearance := false } placementError 200 e12
+#guard !checkPlan {} placementError 200 e7
+#guard !checkPlan {} placementError 200 e12
 
--- With a gap of 1 (more than twice the error) the same plan is accepted.
-#guard checkPlan {} placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 4, 0⟩]
+-- Planks that touch by design are fine, with the check on or off: a wall, a tower, E2.
+#guard checkPlan withClearance placementError 200 sideBySide
+#guard checkPlan {} placementError 200 sideBySide
+#guard checkPlan withClearance placementError 200 (squareTower 8)
+#guard checkPlan withClearance placementError 200 e2
+-- Planks end to end on one level, touching, are fine too.
+#guard checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 0, 0⟩]
+-- Only near misses fail: a gap above 0 and below 2ε, here end to end with a gap of 1/4.
+#guard !checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 61 / 4, 0, 0⟩]
+-- Touching along `x` but 1/4 apart along `y` (corner to corner) is a near miss as well.
+#guard !checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 13 / 4, 0⟩]
+
+-- With a gap of 1 (more than twice the error) the plan is accepted.
+#guard checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 4, 0⟩]
 
 -- A negative error is never "solid": E4 falls at the exact positions.
 #guard verdict (-1) e4 == .falls
@@ -314,12 +333,15 @@ def coreBoxedIn : BuildPlan := .ofBlocks
   { ok := false, diagnostics := [.unstable 0 0] }
 #guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 1 0 0]) ==
   { ok := false, diagnostics := [.overlap 0 1, .unstable 1 1, .unreachable 1] }
--- Two blocks side by side, touching: a placement error could push one into the other.
-#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) ==
-  { ok := false, diagnostics := [.clearance 0 1] }
--- With clearance off, the same plan is `ok`.
-#guard coreCheck { clearance := false } .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) ==
+-- Two blocks side by side, touching: `ok`, with the clearance check on or off.
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) == { ok := true }
+#guard coreCheck { clearance := true } .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) ==
   { ok := true }
+-- A gap of 1/4: a near miss. Only the clearance check rejects it.
+#guard coreCheck { clearance := true } .default 200
+    (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) ==
+  { ok := false, diagnostics := [.clearance 0 1] }
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) == { ok := true }
 #guard coreCheck {} .default 3 coreTower == { ok := false, diagnostics := [.tooManyBlocks 4 3] }
 #guard coreCheck {} .default 200 ⟨[{ blocks := [] }]⟩ ==
   { ok := false, diagnostics := [.emptyStep 0] }

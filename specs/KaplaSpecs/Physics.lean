@@ -84,9 +84,9 @@ example : verdict placementError e4 = .falls := by decide +kernel
 example : ¬ ¬ Stable e1 := fun h => h e1_stable
 
 /-- Property 4 ("the plan is safe"): when the engine accepts a plan, it uses at most
-`maxPlanks` planks, and after every step the build so far is well-formed, stays
-well-formed with placement errors up to `ε` (only when `opts.clearance` is on), and is
-solid for those errors (K4, K5). -/
+`maxPlanks` planks, and after every step the build so far is well-formed, is solid for
+placement errors up to `ε`, and (only when `opts.clearance` is on) keeps its gaps for those
+errors: planks that do not touch in the plan are not pushed into each other (K4, K5). -/
 theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   sorry
@@ -106,10 +106,11 @@ example : ¬ SafePlan {} placementError 200 e5 := fun h =>
   absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
 -- Ruled out (clearance on): two planks 1/4 apart. Moving each 1/4 towards the other is
 -- within the 2 mm error and makes them share inside space (P1).
-example : ¬ SafePlan {} placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] :=
-  fun h => absurd ((h.2 2 (by decide) (by decide)).2.1 rfl
-      (fun i => if i = 0 then (0, 1 / 4) else (0, -1 / 4)) (by unfold SmallShift; decide +kernel))
-    (by decide +kernel)
+example : ¬ SafePlan { clearance := true } placementError 200
+    [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] := fun h =>
+  (h.2 2 (by decide) (by decide)).2.1 rfl
+    (fun i => if i = 0 then (0, 1 / 4) else (0, -1 / 4)) (by unfold SmallShift; decide +kernel)
+    0 (by decide) 1 (by decide) (by decide +kernel) (by decide +kernel)
 
 /-- Property 5 ("reachable" is right): when the checker finds a direction, the drop gap
 `h` is above zero, and the plank can come in along it in a straight line from far away and
@@ -166,7 +167,7 @@ example : ¬ StableWithFriction (2 / 5) floating := floating_not_stableWithFrict
 
 /-- Property 9 (square towers are safe to build, at any height): building the square tower
 (example E8) level by level is a safe plan for every height `n`: after every step it is
-well-formed, stays well-formed with placement errors up to `ε`, and is solid for those
+well-formed, keeps its gaps with placement errors up to `ε`, and is solid for those
 errors, for any `ε` from 0 to 1/2 (3.9 mm), with the clearance check on or off. -/
 theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε : ε ≤ 1 / 2)
     (n : Nat) : SafePlan opts ε (2 * n) (squareTower n) := by
@@ -304,7 +305,7 @@ example : KaplaCore.Pose.example.box ≠ (⟨.flatX, 0, 0, 1 / 2⟩ : Plank).toB
 block has a physics pose, and the blocks, placed one after the other in plan order, are a
 safe plan with options `opts`: at most `maxBlocks` of them, and after every block
 well-formed, solid for every placement error up to `epsRel`, and (if `opts.clearance` is on)
-still well-formed for every such error (R1, K4, K5). `physicsEngine` uses the default
+keeping its gaps for every such error (R1, K4, K5). `physicsEngine` uses the default
 options. Core's errors that add up from level to level are not covered (R1 is the model). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :

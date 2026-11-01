@@ -20,9 +20,9 @@ How core's plan is read:
   level to level (up to `eAbs`); those are not covered. With `ε = eAbs`, no build taller
   than one level would pass, so the team chose R1.
 * **Clearance.** `coreCheck` takes the `PlanOptions`; `physicsEngine` uses the default
-  (clearance on): blocks that share some height must be at least `2 * epsRel` apart, so no
-  placement error can push them into each other. When clearance is on, pairs that are
-  closer get a `clearance` diagnostic.
+  (clearance off). When it is on, blocks that touch in the plan are still fine, but two
+  blocks with a gap must keep it: the gap must be at least `2 * epsRel`, so no placement
+  error can close it. Pairs with a smaller gap get a `clearance` diagnostic.
 * **Turns.** Only quarter turns have a physics pose. A plan with any other turn is not
   `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
@@ -53,8 +53,8 @@ def overlapPairs (b : Build) : List Diagnostic :=
     ((List.range b.length).filter fun j => i < j && decide (Overlap (b.get i) (b.get j))).map
       fun j => .overlap i j
 
-/-- Every pair of blocks `i < j` that do not share inside space but are too close: a
-placement error up to `ε` could push them into each other (`ClearPair`). -/
+/-- Every pair of blocks `i < j` with a gap that a placement error up to `ε` could close:
+a near miss (`ClearPair`). -/
 def clearancePairs (ε : Rat) (b : Build) : List Diagnostic :=
   (List.range b.length).flatMap fun i =>
     ((List.range b.length).filter fun j =>
@@ -62,7 +62,7 @@ def clearancePairs (ε : Rat) (b : Build) : List Diagnostic :=
         !decide (ClearPair ε (b.get i) (b.get j))).map fun j => .clearance i j
 
 /-- The first block after which the build is not shown to be well-formed and solid.
-(Blocks that are too close get their own `clearance` diagnostic.) -/
+(Near misses get their own `clearance` diagnostic.) -/
 def firstUnsafeBlock (ε : Rat) (b : Build) : Option Nat :=
   (List.range b.length).find? fun k =>
     !(decide (WellFormed (b.take (k + 1))) && solidAnswer ε (b.take (k + 1)))
@@ -100,7 +100,7 @@ def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : Bu
           unsafeDiags ++ reachDiags }
 
 /-- The verified physics engine, for `app/Main.lean` to pass to the planner. Clearance is
-on (the default `PlanOptions`). -/
+off (the default `PlanOptions`). -/
 def physicsEngine : KaplaCore.PhysicsEngine := ⟨coreCheck {}⟩
 
 end KaplaPhysics
