@@ -155,7 +155,7 @@ def plan (name : String) (blocks : Nat) : IO UInt32 := do
     return 64
   | some s =>
     let req : KaplaCore.PlanRequest := { target := .egg, blocks }
-    let cands ← s.toPlanner.plan req KaplaPhysics.physicsEngine KaplaCore.semanticMock
+    let cands ← s.toPlanner.plan req KaplaPhysics.physicsEngine KaplaSemantics.semanticEngine
     IO.println s!"strategy {s.name}: {cands.length} candidates"
     for c in cands do
       IO.println s!"  {c.plan.blockCount} blocks, score {c.score.score}"
