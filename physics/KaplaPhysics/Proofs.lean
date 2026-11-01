@@ -217,6 +217,12 @@ theorem stabilityAnswer_falls_sound (b : Build) (h : stabilityAnswer b = .falls)
     · exact fallbackAnswer_falls_sound b 0 h
   · exact fallbackAnswer_falls_sound b _ h
 
+/-- No build gets both answers: a push set that passes the check and a fall certificate
+cannot exist for the same build. -/
+theorem not_stands_and_falls (b : Build) (ps : List Push) (ms : List Motion)
+    (h1 : checkPushes b ps = true) (h2 : FallCertificate b ms) : False :=
+  fallCertificate_sound b ms h2 (checkPushes_sound b ps h1)
+
 /-! ## "Solid" answers are right -/
 
 /-- If the solidity check passes, the build is solid. -/

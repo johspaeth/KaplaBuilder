@@ -9,6 +9,8 @@ mean is in `physics/KaplaPhysics/Rules.lean`; the engine is in
 
 namespace KaplaPhysics
 
+open Solver (Motion)
+
 /-- Property 1 ("stands" is right): when the engine answers "stable", there are allowed
 pushes that balance every plank (S2). -/
 theorem stabilityAnswer_stable_sound (b : Build) (h : stabilityAnswer b = .stable) :
@@ -98,6 +100,32 @@ theorem restPatch_plank_iff (b : Build) (i j : Nat) (r : Rect) :
 and `r` is its whole footprint (C1, C2). -/
 theorem restPatch_ground_iff (b : Build) (i : Nat) (r : Rect) :
     restPatch b i .ground = some r ↔ (b.get i).z = 0 ∧ r = (b.get i).footprint := by
+  sorry
+
+/-! ## Certificates
+
+A planner (or anyone) holding its own certificate can check it directly. These say the
+checkers are right on their own, whatever produced the certificate. -/
+
+/-- If the push check passes, the build is stable (S2). -/
+theorem checkPushes_sound (b : Build) (ps : List Push) (h : checkPushes b ps = true) :
+    Stable b := by
+  sorry
+
+/-- A fall certificate shows that the build is not stable (S3). -/
+theorem fallCertificate_sound (b : Build) (ms : List Motion) (hc : FallCertificate b ms) :
+    ¬ Stable b := by
+  sorry
+
+/-- A passing solidity certificate makes the build solid (R3). -/
+theorem solidCertificate_sound (ε : Rat) (b : Build) (ls : List Load)
+    (hc : SolidCertificate ε b ls) : SolidWithin ε b := by
+  sorry
+
+/-- No build gets both answers: a push set that passes the check and a fall certificate
+cannot exist for the same build. -/
+theorem not_stands_and_falls (b : Build) (ps : List Push) (ms : List Motion)
+    (h1 : checkPushes b ps = true) (h2 : FallCertificate b ms) : False := by
   sorry
 
 end KaplaPhysics

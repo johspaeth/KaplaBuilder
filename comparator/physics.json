@@ -16,7 +16,11 @@
     "KaplaPhysics.Rect.inter_contains",
     "KaplaPhysics.Rect.hasArea_iff",
     "KaplaPhysics.restPatch_plank_iff",
-    "KaplaPhysics.restPatch_ground_iff"
+    "KaplaPhysics.restPatch_ground_iff",
+    "KaplaPhysics.checkPushes_sound",
+    "KaplaPhysics.fallCertificate_sound",
+    "KaplaPhysics.solidCertificate_sound",
+    "KaplaPhysics.not_stands_and_falls"
   ],
   "permitted_axioms": [
     "propext",

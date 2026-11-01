@@ -55,6 +55,9 @@ appear in the docstrings.
   ε ≤ 1/2 (3.9 mm) (property 9). The proof gives explicit pushes for every error: each
   corner of the tower carries its loads straight down, and every load point stays in a
   small core square at its corner that every contact patch there contains.
+- `checkPushes_sound`, `fallCertificate_sound`, `solidCertificate_sound`: the checkers are
+  right on their own, for a certificate from any source. `not_stands_and_falls`: no build
+  gets both a passing push set and a fall certificate.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 
