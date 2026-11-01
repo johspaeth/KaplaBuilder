@@ -61,7 +61,8 @@ A planner gives one plan. The server runs physics and the scorer on it again, so
 do not depend on what a planner says about itself. A new model on screen clears the proposal.
 
 The conversation lives only in the page. It is gone when the page closes. `kapla serve` reads the key
-from `semantics/dev/.env` when it starts, and never sends it to the page.
+from `semantics/dev/.env` when it starts, or from `ANTHROPIC_API_KEY` in the shell when the file has
+none. The file wins when both are set. The key is never sent to the page.
 
 The server cleans the name ("My Bunny!" becomes `my-bunny`) and checks the model with `decode`. It
 answers 403 to a request that does not come from its own page, such as one from another website open
