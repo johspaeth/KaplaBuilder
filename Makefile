@@ -6,7 +6,7 @@ install:
 	lake build
 
 # The demo: the Defy Gravity website on http://localhost:8000. The API key comes from
-# semantics/dev/.env, or else from ANTHROPIC_API_KEY in the shell. Without one the chat is off;
+# .env in this folder, or else from ANTHROPIC_API_KEY in the shell. Without one the chat is off;
 # the rest of the site works.
 run:
 	lake exe kapla serve
