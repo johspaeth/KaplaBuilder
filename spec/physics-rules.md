@@ -147,7 +147,7 @@ sure a build still stands when every plank is a little off.
 - **R1. Placement error.** When the builder places a plank, it ends up within
   `ε` of its planned position along `x` and within `ε` along `y`. Each plank's
   error is separate from every other plank's, except as in R5. We use
-  **ε = 2 mm**, which is exactly 10/39 of a unit.
+  **ε = 1/2 unit**, which is 3.9 mm.
 - **R2. Height follows.** A plank's height is not an error: it sits on whatever
   it rests on, so its height is the same as planned.
 - **R3. Solid build.** A build is *solid* when it is stable (S2) for **every**
@@ -160,7 +160,7 @@ sure a build still stands when every plank is a little off.
 
 *Why "Solid" needs its own check:* in a contact between two planks, both planks
 can be off, in opposite directions. So the contact patch can shrink and the
-centre of mass of the upper plank can move by up to `2ε` (about 4 mm) relative
+centre of mass of the upper plank can move by up to `2ε` (1 unit, 7.8 mm) relative
 to the plank below. For thin faces (a plank on edge or standing is only 7.8 mm
 thick) that is a lot.
 
@@ -177,8 +177,8 @@ may report "Risky" for a build that is really solid. It must never report
   the neighbour.
 
 *Why R5:* a real builder lines planks up by feel, against each other. Treating
-a touching pair as exact is closer to reality than giving each its own 2 mm,
-and it removes the case where a 2 mm error would make two planks overlap.
+a touching pair as exact is closer to reality than giving each its own 3.9 mm,
+and it removes the case where a 3.9 mm error would make two planks overlap.
 Side contacts still carry no force (C4); R5 is only about where planks end up.
 
 ## 9. The build plan
@@ -225,7 +225,7 @@ the user that no such order exists.
 Say these out loud in the demo and the README:
 
 - No motion, speed, or falling sequence (section 1).
-- No placement error bigger than 2 mm (R1).
+- No placement error bigger than 3.9 mm (R1).
 - No twisting error: we assume the builder lines each plank up square with
   the others.
 - No difference between planks: all have exactly the same size and weight
@@ -269,20 +269,20 @@ hypothesis met, and a few known-bad outputs that the spec rejects.
 
 ## 12. Worked examples
 
-Positions are `(x, y, z)` of the plank's low corner. ε = 10/39 ≈ 0.26 units,
-so two planks can end up `2ε` ≈ 0.51 units (4 mm) off from each other.
+Positions are `(x, y, z)` of the plank's low corner. ε = 1/2 unit (3.9 mm),
+so two planks can end up `2ε` = 1 unit (7.8 mm) off from each other.
 
 | # | Build | Exact (S2) | Real (R4) | Why |
 |---|-------|------------|-----------|-----|
 | E1 | One flat plank on the ground | Stable | Solid | It rests on its own bottom face, which moves with it. |
-| E2 | Flat plank on flat plank, top shifted 5 along its length | Stable | Solid | Top centre at 12.5, 2.5 units from the edge. 0.51 of error cannot push it past. |
+| E2 | Flat plank on flat plank, top shifted 5 along its length | Stable | Solid | Top centre at 12.5, 2.5 units from the edge. 1 unit of error cannot push it past. |
 | E3 | Same, shifted exactly 7.5 | Stable | Risky | Centre exactly over the edge (S4). Any error the wrong way tips it. |
 | E4 | Same, shifted 8 | Falls | Falls | Top centre at 15.5, past the edge at 15. |
 | E5 | A plank resting only on an edge line of another | Not well-formed | — | Edge touch is not a contact (C3), so P3 fails. |
 | E6 | One plank standing on the ground (3 × 1 footprint, 15 tall) | Stable | Solid | It rests on its own footprint, which moves with it. |
 | E7 | Staircase: 3 flat planks along `x`, middle shifted 3.75 from the bottom, top shifted 7.5 from the middle | Stable | Risky | Two centres sit exactly over edges. Beautiful on paper, falls in real life. |
-| E8 | Square tower, `n` levels, built level by level: level `k` at `z = k`. Even levels: flat along `x` at `y = 0` and `y = 12`. Odd levels: flat along `y` at `x = 0` and `x = 12`. | Stable | Solid at every step | Every centre is at least 1.5 units inside its support, far more than 0.51. |
-| E9 | Bridge: two standing planks (3 × 1 footprint) at `(0, 1, 0)` and `(12, 1, 0)`, one flat plank along `x` at `(0, 0, 15)` | Stable | Risky | The top plank's centre is at `y = 1.5`, only 0.5 from the edge of the 1-unit-thick supports. A 0.51 error can put it past the edge. |
+| E8 | Square tower, `n` levels, built level by level: level `k` at `z = k`. Even levels: flat along `x` at `y = 0` and `y = 12`. Odd levels: flat along `y` at `x = 0` and `x = 12`. | Stable | Solid at every step | Every centre is at least 1.5 units inside its support, more than 1. |
+| E9 | Bridge: two standing planks (3 × 1 footprint) at `(0, 1, 0)` and `(12, 1, 0)`, one flat plank along `x` at `(0, 0, 15)` | Stable | Risky | The top plank's centre is at `y = 1.5`, only 0.5 from the edge of the 1-unit-thick supports. A 1-unit error can put it past the edge. |
 | E10 | Same bridge, but the standing planks at `y = 0` | Falls | Falls | Supports cover `y` from 0 to 1. The top plank's centre is at `y = 1.5`. |
 | E11 | Square tower (E8) with one plank of a middle level left out | Falls | Falls | The planks above rest on one end only. |
 | E12 | Counterweight: plank A flat along `x` at `(0, 0, 0)`; B flat along `x` at `(9, 0, 1)`; C flat along `y` at `(9, -6, 2)` | Stable | — | Finished, B and C together have their centre at `x = 13.5`, over A. But B alone has its centre at 16.5, past A's edge at 15, so B falls before C can be placed. No order works: **not buildable** (K4). |

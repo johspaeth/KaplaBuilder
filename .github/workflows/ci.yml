@@ -35,6 +35,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-lean
+      - name: Cache Lake build
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-build-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml', '**/*.lean') }}
+          restore-keys: |
+            lake-build-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml') }}
+            lake-build-${{ runner.os }}-${{ matrix.target }}-
       # Warnings fail the build: this catches `sorry` and unused/deprecated code.
       - run: lake build ${{ matrix.target }} --fail-level=warning
 
@@ -44,6 +52,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-lean
+      - name: Cache Lake build
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: lake-verify-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml', '**/*.lean') }}
+          restore-keys: |
+            lake-verify-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lake-manifest.json', 'lakefile.toml') }}
+            lake-verify-${{ runner.os }}-
+            lake-build-${{ runner.os }}-
       - name: Install sandbox (bubblewrap)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap

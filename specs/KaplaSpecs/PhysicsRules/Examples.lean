@@ -151,7 +151,7 @@ theorem not_solid_of_not_stable (ε : Rat) (b : Build) (h : ¬ Stable b) :
     ¬ SolidWithin ε b := fun ⟨hε, hs⟩ =>
   h (shift_zero b ▸ hs _ fun _ _ => ⟨by grind, hε, by grind, hε⟩)
 
-/-- E3 is not solid: moving its top plank 2 mm towards the open end makes it fall (R3). -/
+/-- E3 is not solid: moving its top plank 3.9 mm towards the open end makes it fall (R3). -/
 theorem e3_not_solid : ¬ SolidWithin placementError e3 := fun h => by
   have hshift : e3.shift (fun i => if i = 1 then (placementError, 0) else (0, 0)) =
       overhang (15 / 2 + placementError) := by decide +kernel

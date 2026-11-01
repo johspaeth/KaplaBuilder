@@ -14,7 +14,11 @@ import KaplaWeb
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
 
-`--clearance` also asks that a 2 mm error can never close a gap between two blocks. Blocks
+* `kapla plan [--blocks N] [--strategy NAME]` runs a planner strategy (default `empty`)
+  on the egg target, with the verified physics engine and the mock semantic engine, and lists
+  the candidates.
+
+`--clearance` also asks that a 3.9 mm error can never close a gap between two blocks. Blocks
 that touch in the plan (side by side, end to end, one on another) are fine either way.
 -/
 
@@ -96,7 +100,7 @@ def describe : Diagnostic → String
   | .pressTips s c => s!"step {s + 1}: pressing on corner {c + 1} tips something"
   | .unreachable s => s!"step {s + 1}: may be hard to reach (warning only)"
   | .overlap i j => s!"blocks {i + 1} and {j + 1} overlap"
-  | .clearance i j => s!"blocks {i + 1} and {j + 1} have a small gap: a 2 mm error could close it"
+  | .clearance i j => s!"blocks {i + 1} and {j + 1} have a small gap: a 3.9 mm error could close it"
   | .unevenSupports b => s!"block {b + 1} rests on supports built differently"
   | .tooManyHands s => s!"step {s + 1}: more blocks than the builder has hands"
   | .emptyStep s => s!"step {s + 1}: places no block"
@@ -105,7 +109,7 @@ def describe : Diagnostic → String
 /-- Short lines for the page notes and the terminal. -/
 def physicsLines (opts : KaplaPhysics.PlanOptions) (r : PhysicsReport) : List String :=
   let clearance := if opts.clearance then "" else " (small gaps not checked)"
-  (if r.ok then s!"Physics (verified): well-formed and solid after every block, for 2 mm placement errors{clearance}"
+  (if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
    else s!"Physics (verified): not shown to be safe to build{clearance}") :: r.diagnostics.map describe
 
 /-- Run the verified physics engine (`physicsEngine` when clearance is off). -/
@@ -141,9 +145,26 @@ def view (opts : KaplaPhysics.PlanOptions) (file : String) (out : String) : IO U
     IO.println s!"wrote {path} ({p.steps.length} steps, physics {if r.ok then "ok" else "not ok"})"
     return 0
 
+/-! ## Running the planner -/
+
+/-- Run a planner strategy on the egg target and list its candidates. -/
+def plan (name : String) (blocks : Nat) : IO UInt32 := do
+  match KaplaPlanner.strategyByName? name with
+  | none =>
+    IO.eprintln s!"unknown strategy \"{name}\"; known: {KaplaPlanner.strategies.map (·.name)}"
+    return 64
+  | some s =>
+    let req : KaplaCore.PlanRequest := { target := .egg, blocks }
+    let cands ← s.toPlanner.plan req KaplaPhysics.physicsEngine KaplaCore.semanticMock
+    IO.println s!"strategy {s.name}: {cands.length} candidates"
+    for c in cands do
+      IO.println s!"  {c.plan.blockCount} blocks, score {c.score.score}"
+    return 0
+
 def usage : String :=
   "usage: kapla check BLUEPRINT.json [--max N] [--clearance]\n" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--clearance]"
+  "       kapla view BLUEPRINT.json [--out DIR] [--clearance]\n" ++
+  "       kapla plan [--blocks N] [--strategy NAME]"
 
 def main (args : List String) : IO UInt32 := do
   let opts : KaplaPhysics.PlanOptions := { clearance := args.contains "--clearance" }
@@ -155,6 +176,15 @@ def main (args : List String) : IO UInt32 := do
     | none => IO.eprintln usage; return 64
   | ["view", file] => view opts file "out"
   | ["view", file, "--out", out] => view opts file out
+  | "plan" :: rest =>
+    let rec go (name : String) (blocks : Nat) : List String → IO UInt32
+      | [] => plan name blocks
+      | "--strategy" :: n :: r => go n blocks r
+      | "--blocks" :: n :: r => match n.toNat? with
+        | some n => go name n r
+        | none => do IO.eprintln usage; return 64
+      | _ => do IO.eprintln usage; return 64
+    go "empty" defaultMaxBlocks rest
   | [] =>
     IO.println "KaplaBuilder scaffold. Components:"
     for name in [KaplaPhysics.componentName, KaplaSemantics.componentName,
