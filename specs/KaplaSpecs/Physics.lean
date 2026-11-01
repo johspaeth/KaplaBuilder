@@ -49,9 +49,9 @@ theorem verdict_solid_sound (ε : Rat) (b : Build) (h : verdict ε b = .solid) :
     SolidWithin ε b := by
   sorry
 
--- The verdict for E1 with 2 mm of error is "solid".
+-- The verdict for E1 with 3.9 mm of error is "solid".
 example : verdict placementError e1 = .solid := by decide +kernel
--- Ruled out: "solid" for E3, which falls if its top plank lands 2 mm too far.
+-- Ruled out: "solid" for E3, which falls if its top plank lands 3.9 mm too far.
 example : ¬ SolidWithin placementError e3 := e3_not_solid
 
 /-- A "solid" verdict is only given for an error `ε` not below zero, and then the build
@@ -60,7 +60,7 @@ theorem verdict_solid_stable (ε : Rat) (b : Build) (h : verdict ε b = .solid) 
     0 ≤ ε ∧ Stable b := by
   sorry
 
--- The verdict for E1 with 2 mm of error is "solid".
+-- The verdict for E1 with 3.9 mm of error is "solid".
 example : verdict placementError e1 = .solid := by decide +kernel
 -- Ruled out: "solid" for E4 with a negative error. E4 falls at the exact positions.
 example : ¬ (0 ≤ (-1 : Rat) ∧ Stable e4) := fun h => e4_not_stable h.2
@@ -69,7 +69,7 @@ example : ¬ (0 ≤ (-1 : Rat) ∧ Stable e4) := fun h => e4_not_stable h.2
 theorem verdict_risky_sound (ε : Rat) (b : Build) (h : verdict ε b = .risky) : Stable b := by
   sorry
 
--- The verdict for E3 with 2 mm of error is "risky".
+-- The verdict for E3 with 3.9 mm of error is "risky".
 example : verdict placementError e3 = .risky := by decide +kernel
 -- Ruled out: "risky" for E4, which does not stand even at the exact positions.
 example : ¬ Stable e4 := e4_not_stable
@@ -78,7 +78,7 @@ example : ¬ Stable e4 := e4_not_stable
 theorem verdict_falls_sound (ε : Rat) (b : Build) (h : verdict ε b = .falls) : ¬ Stable b := by
   sorry
 
--- The verdict for E4 with 2 mm of error is "falls".
+-- The verdict for E4 with 3.9 mm of error is "falls".
 example : verdict placementError e4 = .falls := by decide +kernel
 -- Ruled out: "falls" for E1, which stands.
 example : ¬ ¬ Stable e1 := fun h => h e1_stable
@@ -105,7 +105,7 @@ example : ¬ SafePlan {} placementError 1 e2 := fun h => absurd h.1 (by decide)
 example : ¬ SafePlan {} placementError 200 e5 := fun h =>
   absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
 -- Ruled out (clearance on): two planks 1/4 apart. Moving each 1/4 towards the other is
--- within the 2 mm error and makes them share inside space (P1).
+-- within the 3.9 mm error and makes them share inside space (P1).
 example : ¬ SafePlan { clearance := true } placementError 200
     [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] := fun h =>
   (h.2 2 (by decide) (by decide)).2.1 rfl
@@ -173,7 +173,7 @@ theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε 
     (n : Nat) : SafePlan opts ε (2 * n) (squareTower n) := by
   sorry
 
--- The default error, 2 mm, is within the limits.
+-- The default error, 3.9 mm, is within the limits.
 example : 0 ≤ placementError ∧ placementError ≤ 1 / 2 := by decide +kernel
 -- Ruled out: building a tower of `n` levels with fewer than `2 * n` planks.
 example : ¬ SafePlan {} placementError 1 (squareTower 1) := fun h => absurd h.1 (by decide +kernel)

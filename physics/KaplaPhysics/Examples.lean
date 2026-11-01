@@ -5,7 +5,7 @@ import KaplaSpecs.PhysicsRules.Examples
 /-! # Worked examples (section 12 of `spec/physics-rules.md`)
 
 Each `#guard` fails the build if the engine disagrees with the table in the spec: the
-"Exact (S2)" column, the "Real (R4)" column (with ε = 2 mm), and buildability (K4).
+"Exact (S2)" column, the "Real (R4)" column (with ε = 3.9 mm), and buildability (K4).
 The builds themselves (`e1` ... `e12`, `slotPlaced`, `underRoof`) are in
 `specs/KaplaSpecs/PhysicsRules/Examples.lean`, shared with the spec. -/
 
@@ -30,7 +30,7 @@ namespace KaplaPhysics.Examples
 -- an overhanging plank on top. The fall certificate moves only the top plank.
 #guard stabilityAnswer (squareTower 25 ++ [⟨.flatX, 8, 0, 25⟩]) == .falls
 
--- Placement errors (R4), with ε = 2 mm.
+-- Placement errors (R4), with ε = 3.9 mm.
 #guard verdict placementError e1 == .solid
 #guard verdict placementError e2 == .solid
 #guard verdict placementError e3 == .risky
@@ -106,7 +106,7 @@ example : ¬ Stable e4 := fun h =>
 example : StableWithFriction (2 / 5) e2 :=
   stable_withFriction _ (by decide +kernel) e2 (stabilityAnswer_stable_sound e2 (by decide +kernel))
 
-/-- E8 for every height, with the default 2 mm error: a 100-level tower (200 planks, a full
+/-- E8 for every height, with the default 3.9 mm error: a 100-level tower (200 planks, a full
 Kapla box) is safe to build level by level. -/
 example : SafePlan {} placementError 200 (squareTower 100) :=
   squareTower_safe {} placementError (by decide +kernel) (by decide +kernel) 100
@@ -114,31 +114,31 @@ example : SafePlan {} placementError 200 (squareTower 100) :=
 /-! ## "Risky" builds really are not solid (R3)
 
 "Risky" only means the engine could not show the build solid. For E3, E7 and E9 we show
-more: a placement error of at most 2 mm per plank that makes the build fall. E3 is
+more: a placement error of at most 3.9 mm per plank that makes the build fall. E3 is
 `e3_not_solid` (in `KaplaSpecs.PhysicsRules.Examples`, from the rules alone). For E7 and
 E9, the solver's fall certificate for the shifted build is written out here and checked by
 the kernel. -/
 
-/-- E7's errors: the top plank lands 2 mm further out along `x`. Its centre then lies past
+/-- E7's errors: the top plank lands 3.9 mm further out along `x`. Its centre then lies past
 the end of the middle plank. -/
 def e7Shift (i : Nat) : Rat × Rat := if i = 2 then (placementError, 0) else (0, 0)
 
 /-- How the shifted E7 falls: the top plank tips over the end of the middle plank. -/
 def e7Fall : List Solver.Motion := [{}, ⟨29 / 39, -116 / 585, 0⟩, ⟨-1, -1, 0⟩]
 
-/-- E7 is not solid (R3): the 2 mm error `e7Shift` makes it fall. -/
+/-- E7 is not solid (R3): the 3.9 mm error `e7Shift` makes it fall. -/
 theorem e7_not_solid : ¬ Solid e7 := fun h =>
   fallCertificate_sound _ e7Fall (by decide +kernel)
     (h.2 e7Shift (by unfold SmallShift; decide +kernel))
 
-/-- E9's errors: both standing planks land 2 mm towards `-y`, the top plank 2 mm towards
+/-- E9's errors: both standing planks land 3.9 mm towards `-y`, the top plank 3.9 mm towards
 `+y`. The top plank's centre is then 1/78 past the far side of its supports. -/
 def e9Shift (i : Nat) : Rat × Rat := if i = 2 then (0, placementError) else (0, -placementError)
 
 /-- How the shifted E9 falls: the top plank tips over the far side of its supports. -/
 def e9Fall : List Solver.Motion := [{}, {}, ⟨-1 / 78, 0, -1⟩]
 
-/-- E9 is not solid (R3): the 2 mm errors `e9Shift` make it fall. -/
+/-- E9 is not solid (R3): the 3.9 mm errors `e9Shift` make it fall. -/
 theorem e9_not_solid : ¬ Solid e9 := fun h =>
   fallCertificate_sound _ e9Fall (by decide +kernel)
     (h.2 e9Shift (by unfold SmallShift; decide +kernel))
@@ -206,7 +206,7 @@ example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
 /-! ## Review regressions (PR #14) -/
 
 /-- Two planks side by side with a gap of 1/4. Each is stable and well-formed where it is
-planned, but moving them 1/4 towards each other (within the 10/39 error) makes them share
+planned, but moving them 1/4 towards each other (within the 1/2 error) makes them share
 a strip of inside space. -/
 def nearlyTouching : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩]
 

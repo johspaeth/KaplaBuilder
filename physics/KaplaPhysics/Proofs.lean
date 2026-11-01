@@ -395,7 +395,7 @@ theorem tower_clear (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : Clear ε (towerB
 
 /-- Property 9: building the square tower level by level is a safe plan, at any height
 `n`: after every step it is well-formed, keeps its gaps with placement errors up to `ε`,
-and is solid for those errors, for any `ε` from 0 to 1/2 (3.9 mm; the default is 2 mm).
+and is solid for those errors, for any `ε` from 0 to 1/2 (3.9 mm; this is also the default).
 This holds with the clearance check on or off. -/
 theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε : ε ≤ 1 / 2)
     (n : Nat) : SafePlan opts ε (2 * n) (squareTower n) := by
