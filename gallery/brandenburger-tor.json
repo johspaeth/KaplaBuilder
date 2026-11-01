@@ -1,0 +1,215 @@
+{"proposal":
+ {"steps":
+  [{"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-26, 0, 0.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-15.6, 0, 0.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-6.5, 0, 0.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [6.5, 0, 0.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [15.6, 0, 0.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [26, 0, 0.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [-26, -5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [-26, 5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [-15.6, -5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [-15.6, 5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [-6.5, -5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [-6.5, 5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [6.5, -5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [6.5, 5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [15.6, -5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [15.6, 5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [26, -5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "upright", "rot": {"s": 0, "c": 1}, "center": [26, 5.2, 8.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-26, 0, 16.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-15.6, 0, 16.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [-6.5, 0, 16.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [6.5, 0, 16.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [15.6, 0, 16.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat", "rot": {"s": 1, "c": 0}, "center": [26, 0, 16.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [-7.5, -3, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [7.5, -3, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [-7.5, -2, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [7.5, -2, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [-7.5, -1, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [7.5, -1, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [-7.5, 0, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [7.5, 0, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [-7.5, 1, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [7.5, 1, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [-7.5, 2, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [7.5, 2, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [0, 3, 18.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [0, -2.5, 21.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "edge", "rot": {"s": 0, "c": 1}, "center": [0, 1.5, 21.5]}]},
+   {"phase": "",
+    "blocks":
+    [{"up": "flat",
+      "rot": {"s": "120/169", "c": "119/169"},
+      "center": [0, -0.5, 23.5]}]}],
+  "planner": "ai",
+  "height": 26,
+  "blocks": 40},
+ "name": "brandenburger-tor",
+ "model":
+ {"name": "brandenburger-tor",
+  "bubbles":
+  [{"tags": ["foundation", "wall"],
+    "semi": [1.1, 0.3, 0.03],
+    "label": "plinth",
+    "center": [0, 0, 0.02]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column front 1",
+    "center": [-1, -0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column front 2",
+    "center": [-0.6, -0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column front 3",
+    "center": [-0.25, -0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column front 4",
+    "center": [0.25, -0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column front 5",
+    "center": [0.6, -0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column front 6",
+    "center": [1, -0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column back 1",
+    "center": [-1, 0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column back 2",
+    "center": [-0.6, 0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column back 3",
+    "center": [-0.25, 0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column back 4",
+    "center": [0.25, 0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column back 5",
+    "center": [0.6, 0.2, 0.33]},
+   {"tags": ["column", "tower"],
+    "semi": [0.05, 0.05, 0.28],
+    "label": "column back 6",
+    "center": [1, 0.2, 0.33]},
+   {"tags": ["beam", "roof"],
+    "semi": [1.1, 0.28, 0.05],
+    "label": "entablature",
+    "center": [0, 0, 0.65]},
+   {"tags": ["wall", "block"],
+    "semi": [0.75, 0.22, 0.05],
+    "label": "attic",
+    "center": [0, 0, 0.74]},
+   {"tags": ["sculpture"],
+    "semi": [0.08, 0.08, 0.06],
+    "label": "chariot",
+    "center": [0, 0.05, 0.85]},
+   {"tags": ["sculpture"],
+    "semi": [0.04, 0.1, 0.06],
+    "label": "horse 1",
+    "center": [-0.15, -0.1, 0.85]},
+   {"tags": ["sculpture"],
+    "semi": [0.04, 0.1, 0.06],
+    "label": "horse 2",
+    "center": [-0.05, -0.1, 0.85]},
+   {"tags": ["sculpture"],
+    "semi": [0.04, 0.1, 0.06],
+    "label": "horse 3",
+    "center": [0.05, -0.1, 0.85]},
+   {"tags": ["sculpture"],
+    "semi": [0.04, 0.1, 0.06],
+    "label": "horse 4",
+    "center": [0.15, -0.1, 0.85]},
+   {"tags": ["sculpture", "statue"],
+    "semi": [0.04, 0.04, 0.06],
+    "label": "victoria",
+    "center": [0, 0.05, 0.94]}]}}
