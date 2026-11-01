@@ -70,10 +70,10 @@ theorem sequence_perm (phase : String) (bs : List GridBlock) :
   sorry
 
 /-- Example: a block lying on top of another, listed first. -/
-def exampleBlocks : List GridBlock := [⟨.flatY, 0, 0, 1⟩, ⟨.flatX, 0, 0, 0⟩]
+def exampleBlocks : List GridBlock := [⟨.flatY, 0, 0, 4⟩, ⟨.flatX, 0, 0, 0⟩]
 
 -- The order changes (the lower block now comes first) ...
-#guard GridStep.allBlocks (sequence "" exampleBlocks) == [⟨.flatX, 0, 0, 0⟩, ⟨.flatY, 0, 0, 1⟩]
+#guard GridStep.allBlocks (sequence "" exampleBlocks) == [⟨.flatX, 0, 0, 0⟩, ⟨.flatY, 0, 0, 4⟩]
 
 /-- ... and the promise rules out dropping a block. -/
 example : ¬ ([⟨.flatX, 0, 0, 0⟩] : List GridBlock).Perm exampleBlocks := by
@@ -105,20 +105,20 @@ theorem insideBubbles_sound (bs : List Bubble) (design : List GridBlock)
 
 /-- A ball of radius 100 mm, 100 mm above the ground, and a flat block through its middle. -/
 def ballTarget : List Bubble := [Bubble.ball "ball" ⟨0, 0, 100⟩ 100]
-def blockInBall : GridBlock := ⟨.flatX, -8, -2, 12⟩
+def blockInBall : GridBlock := ⟨.flatX, -30, -6, 48⟩
 
 -- The condition can be met: the check accepts this block.
 #guard insideBubbles ballTarget [blockInBall]
 
-/-- The promise rules out a block that sticks out: the same block moved one block length
-along x has a corner point outside the ball. -/
-example : ¬ (∀ p : Q3, (GridBlock.mk .flatX 7 (-2) 12).boxMm.contains p →
+/-- The promise rules out a block that sticks out: a block from x = 54.6 mm to 171.6 mm
+has a corner point outside the ball. (Grid positions are in units of 1.95 mm.) -/
+example : ¬ (∀ p : Q3, (GridBlock.mk .flatX 28 (-8) 48).boxMm.contains p →
     ∃ b ∈ ballTarget, b.contains p) := by
   intro h
   -- the point (171.6, -15.6, 93.6) mm is a corner of the block, 171.6 mm from the centre axis
   obtain ⟨b, hb, hp⟩ := h ⟨858 / 5, -78 / 5, 468 / 5⟩ (by
     simp only [Box.contains, GridBlock.boxMm, GridBlock.sx, GridBlock.sy, GridBlock.sz,
-      Orient.size, blockThickness]
+      Orient.size, Orient.cubes, cubeSide, unit, blockThickness]
     grind)
   simp only [ballTarget, List.mem_singleton] at hb
   subst hb

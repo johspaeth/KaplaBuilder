@@ -87,7 +87,7 @@ def cellsOfPart (t : TargetSpec) (part : String) (s : Q) : Nat :=
 #guard
   let allowed := (allowedCells leaning.bubbles).toList
   let ysAt (k : Int) := (allowed.filter (·.2.2 == k)).map (·.2.1)
-  match ysAt 2 |>.max?, ysAt 30 |>.min? with
+  match ysAt 8 |>.max?, ysAt 120 |>.min? with
   | some lowTop, some highBottom => highBottom > lowTop
   | _, _ => false
 

@@ -60,8 +60,8 @@ def GridStep.toStep (s : GridStep) : Step :=
 def toBuildPlan (steps : List GridStep) : BuildPlan := ⟨steps.map GridStep.toStep⟩
 
 -- a block listed before the one it rests on is moved after it
-#guard (sequence "t" [⟨.flatY, 0, 0, 1⟩, ⟨.flatX, 0, 0, 0⟩]).map (·.blocks) ==
-  [[⟨.flatX, 0, 0, 0⟩], [⟨.flatY, 0, 0, 1⟩]]
+#guard (sequence "t" [⟨.flatY, 0, 0, 4⟩, ⟨.flatX, 0, 0, 0⟩]).map (·.blocks) ==
+  [[⟨.flatX, 0, 0, 0⟩], [⟨.flatY, 0, 0, 4⟩]]
 #guard (toBuildPlan (sequence "t" [⟨.uprightX, 0, 0, 0⟩])).steps.map (·.grip) == [.topEnd]
 
 end KaplaPlanner

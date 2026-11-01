@@ -3,15 +3,15 @@ import KaplaPlanner.Motif
 /-! # Solid column
 
 Like the log-cabin tower, but each layer is filled: 5 flat blocks side by side make a
-square of 15 × 15 cells (117 × 117 mm). Each layer is turned 90° against the one below.
+square of 117 × 117 mm. Each layer is turned 90° against the one below.
 It costs 5 blocks per layer instead of 2, but it fills solid shapes. -/
 
 namespace KaplaPlanner.Motifs
 
 /-- The five blocks of layer `k` (counting from 0 at the ground). -/
 def columnLayer (k : Nat) : List GridBlock :=
-  if k % 2 == 0 then [0, 3, 6, 9, 12].map fun y => ⟨.flatX, 0, y, k⟩
-  else [0, 3, 6, 9, 12].map fun x => ⟨.flatY, x, 0, k⟩
+  if k % 2 == 0 then [0, 12, 24, 36, 48].map fun y => ⟨.flatX, 0, y, 4 * k⟩
+  else [0, 12, 24, 36, 48].map fun x => ⟨.flatY, x, 0, 4 * k⟩
 
 /-- The first `n` layers, bottom to top. -/
 def columnLayers : Nat → List GridBlock

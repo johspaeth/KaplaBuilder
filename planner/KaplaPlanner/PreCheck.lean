@@ -35,9 +35,9 @@ def preCheck (maxBlocks : Nat) (steps : List GridStep) : List PreProblem :=
   (if supportsFirst bs then [] else [.unsupported])
 
 -- a two-block stack in the right order passes; in the wrong order it does not
-#guard preCheck 2 (sequence "t" [⟨.flatX, 0, 0, 0⟩, ⟨.flatY, 0, 0, 1⟩]) == []
-#guard preCheck 2 [⟨[⟨.flatY, 0, 0, 1⟩], ""⟩, ⟨[⟨.flatX, 0, 0, 0⟩], ""⟩] == [.unsupported]
-#guard preCheck 1 (sequence "t" [⟨.flatX, 0, 0, 0⟩, ⟨.flatY, 0, 0, 1⟩]) == [.tooManyBlocks]
+#guard preCheck 2 (sequence "t" [⟨.flatX, 0, 0, 0⟩, ⟨.flatY, 0, 0, 4⟩]) == []
+#guard preCheck 2 [⟨[⟨.flatY, 0, 0, 4⟩], ""⟩, ⟨[⟨.flatX, 0, 0, 0⟩], ""⟩] == [.unsupported]
+#guard preCheck 1 (sequence "t" [⟨.flatX, 0, 0, 0⟩, ⟨.flatY, 0, 0, 4⟩]) == [.tooManyBlocks]
 #guard preCheck 2 (sequence "t" [⟨.flatX, 0, 0, 0⟩, ⟨.flatY, 0, 0, 0⟩]) == [.overlap]
 
 end KaplaPlanner

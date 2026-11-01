@@ -91,52 +91,56 @@ theorem contains_of_corners (b : Bubble) (bx : Box) (hc : ∀ q ∈ bx.corners, 
   have := line_z b p.x p.y _ _ _ hz1 hz2 (ey _ (.inl rfl)) (ey _ (.inr rfl))
   exact this
 
-/-- A run of `n ≥ 1` cells from `lo` covers every point between its ends: each such point
-is in one of the cells `lo + m`, `m < n`. -/
-theorem split_run (h : Rat) : ∀ (n : Nat) (lo : Int) (x : Rat), 0 < n →
-    (lo : Rat) * h ≤ x → x ≤ ((lo + n : Int) : Rat) * h →
-    ∃ m < n, ((lo + m : Int) : Rat) * h ≤ x ∧ x ≤ ((lo + m + 1 : Int) : Rat) * h := by
+/-- A run of `n ≥ 1` pieces of length `h`, starting at `a`, covers every point between its
+ends: each such point is in one of the pieces `[a + m·h, a + (m+1)·h]`, `m < n`. -/
+theorem split_run (h : Rat) : ∀ (n : Nat) (a x : Rat), 0 < n →
+    a ≤ x → x ≤ a + n * h → ∃ m < n, a + m * h ≤ x ∧ x ≤ a + (m + 1) * h := by
   intro n
   induction n with
   | zero => intro _ _ h0; exact absurd h0 (Nat.lt_irrefl 0)
   | succ n ih =>
-    intro lo x _ h1 h2
-    by_cases hx : x ≤ ((lo + 1 : Int) : Rat) * h
-    · exact ⟨0, Nat.succ_pos n, by simpa using h1, by simpa using hx⟩
+    intro a x _ h1 h2
+    by_cases hx : x ≤ a + h
+    · exact ⟨0, Nat.succ_pos n, by push_cast; grind, by push_cast; grind⟩
     · have hn : 0 < n := by
         rcases Nat.eq_zero_or_pos n with rfl | hpos
-        · exact absurd (by simpa using h2) hx
+        · simp at h2; exact absurd h2 hx
         · exact hpos
-      have h1' : ((lo + 1 : Int) : Rat) * h ≤ x := by grind
-      have h2' : x ≤ ((lo + 1 + n : Int) : Rat) * h := by
-        have : (lo + 1 + (n : Int)) = lo + ((n + 1 : Nat) : Int) := by omega
-        rw [this]; exact h2
-      obtain ⟨m, hm, a1, a2⟩ := ih (lo + 1) x hn (by simpa using h1') h2'
-      refine ⟨m + 1, by omega, ?_, ?_⟩
-      · have : lo + ((m + 1 : Nat) : Int) = lo + 1 + m := by omega
-        rw [this]; exact a1
-      · have : lo + ((m + 1 : Nat) : Int) + 1 = lo + 1 + m + 1 := by omega
-        rw [this]; exact a2
+      have h2' : x ≤ (a + h) + n * h := by push_cast at h2; grind
+      obtain ⟨m, hm, a1, a2⟩ := ih (a + h) x hn (by grind) h2'
+      refine ⟨m + 1, by omega, ?_, ?_⟩ <;> push_cast <;> grind
 
-theorem mem_intRange (a : Int) (n m : Nat) (hm : m < n) : a + (m : Int) ∈ intRange a n := by
+theorem mem_intRange (a : Int) (n m d : Nat) (hm : m < n) :
+    a + ((d * m : Nat) : Int) ∈ intRange a n d := by
   simp only [intRange, List.mem_map, List.mem_range]
   exact ⟨m, hm, rfl⟩
 
-/-- Every block is at least one cell long in each direction. -/
-theorem Orient.size_pos (o : Orient) :
-    0 < o.size.1 ∧ 0 < o.size.2.1 ∧ 0 < o.size.2.2 := by
+/-- Every block is at least one cube long in each direction. -/
+theorem Orient.cubes_pos (o : Orient) :
+    0 < o.cubes.1 ∧ 0 < o.cubes.2.1 ∧ 0 < o.cubes.2.2 := by
   cases o <;> decide
 
-/-- Every point of a block lies in one of its cells. -/
+/-- One axis of `cell_of_point`: a point between the block's two faces lies in one of the
+block's cubes along that axis. -/
+theorem axis_cube (lo : Int) (n : Nat) (hn : 0 < n) (x : Rat)
+    (h1 : (lo : Rat) * unit ≤ x) (h2 : x ≤ ((lo + ((cubeSide * n : Nat) : Int) : Int) : Rat) * unit) :
+    ∃ m < n, ((lo + ((cubeSide * m : Nat) : Int) : Int) : Rat) * unit ≤ x ∧
+      x ≤ ((lo + ((cubeSide * m : Nat) : Int) + (cubeSide : Int) : Int) : Rat) * unit := by
+  have h2' : x ≤ (lo : Rat) * unit + n * (4 * unit) := by
+    simp only [cubeSide] at h2; push_cast at h2; grind
+  obtain ⟨m, hm, a1, a2⟩ := split_run (4 * unit) n ((lo : Rat) * unit) x hn h1 h2'
+  refine ⟨m, hm, ?_, ?_⟩ <;> simp only [cubeSide] <;> push_cast <;> grind
+
+/-- Every point of a block lies in one of its cubes. -/
 theorem cell_of_point (blk : GridBlock) (p : Q3) (hp : blk.boxMm.contains p) :
     ∃ c ∈ blk.cells, (cellBox c.1 c.2.1 c.2.2).contains p := by
   obtain ⟨hx1, hx2, hy1, hy2, hz1, hz2⟩ := hp
-  obtain ⟨sx, sy, sz⟩ := Orient.size_pos blk.orient
-  obtain ⟨i, hi, ix1, ix2⟩ := split_run _ _ blk.x p.x sx hx1 hx2
-  obtain ⟨j, hj, jy1, jy2⟩ := split_run _ _ blk.y p.y sy hy1 hy2
-  obtain ⟨k, hk, kz1, kz2⟩ := split_run _ _ blk.z p.z sz hz1 hz2
-  refine ⟨(blk.x + i, blk.y + j, blk.z + k), ?_, ix1, ix2, jy1, jy2, kz1, kz2⟩
+  obtain ⟨cx, cy, cz⟩ := Orient.cubes_pos blk.orient
+  obtain ⟨i, hi, ix1, ix2⟩ := axis_cube blk.x _ cx p.x hx1 hx2
+  obtain ⟨j, hj, jy1, jy2⟩ := axis_cube blk.y _ cy p.y hy1 hy2
+  obtain ⟨k, hk, kz1, kz2⟩ := axis_cube blk.z _ cz p.z hz1 hz2
+  refine ⟨(_, _, _), ?_, ix1, ix2, jy1, jy2, kz1, kz2⟩
   simp only [GridBlock.cells, List.mem_flatMap, List.mem_map]
-  exact ⟨_, mem_intRange _ _ _ hi, _, mem_intRange _ _ _ hj, _, mem_intRange _ _ _ hk, rfl⟩
+  exact ⟨_, mem_intRange _ _ _ _ hi, _, mem_intRange _ _ _ _ hj, _, mem_intRange _ _ _ _ hk, rfl⟩
 
 end KaplaPlanner

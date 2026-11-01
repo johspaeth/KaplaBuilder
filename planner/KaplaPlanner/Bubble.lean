@@ -48,17 +48,18 @@ def bubbleBounds (b : Bubble) : Option Box :=
 -- a flat bubble (one vector zero) is not bounded
 #guard bubbleBounds (Bubble.mk "x" ⟨0, 0, 0⟩ ⟨1, 0, 0⟩ ⟨0, 1, 0⟩ ⟨0, 0, 0⟩) == none
 
-/-- The integers from `⌊lo / h⌋ − 1` to `⌈hi / h⌉`: cell indices that may meet `[lo, hi]`. -/
+/-- Lowest corners (in units, multiples of 4) of the world cubes that may meet `[lo, hi]`. -/
 def cellSpan (lo hi : Q) : List Int :=
   let a := (lo / blockThickness).floor - 1
   let z := (hi / blockThickness).ceil
-  intRange a (z - a + 1).toNat
+  (intRange a (z - a + 1).toNat).map (· * (cubeSide : Int))
 
-/-- A grid cell `(i, j, k)`. -/
+/-- A world cube, given by its lowest corner in units (all three a multiple of 4). World
+cubes are 7.8 mm and fixed in space; the planner uses them to measure the target. -/
 abbrev Cell := Int × Int × Int
 
-/-- All allowed cells (DESIGN.md §3.3): cells whose 8 corners lie inside one bubble, and
-that are above the ground. Unbounded bubbles are ignored. -/
+/-- All allowed world cubes (DESIGN.md §3.3): cubes whose 8 corners lie inside one bubble,
+and that are above the ground. Unbounded bubbles are ignored. -/
 def allowedCells (bs : List Bubble) : Std.HashSet Cell := Id.run do
   let mut out : Std.HashSet Cell := {}
   for b in bs do
@@ -76,7 +77,7 @@ def allowedCells (bs : List Bubble) : Std.HashSet Cell := Id.run do
 /-- The 6 neighbours of a cell. -/
 def neighbours (c : Cell) : List Cell :=
   let (i, j, k) := c
-  [(i+1, j, k), (i-1, j, k), (i, j+1, k), (i, j-1, k), (i, j, k+1), (i, j, k-1)]
+  [(i+4, j, k), (i-4, j, k), (i, j+4, k), (i, j-4, k), (i, j, k+4), (i, j, k-4)]
 
 /-- Surface cells: allowed cells with at least one neighbour that is not allowed. Cells
 on the ground (k = 0) count as surface only if a side or top neighbour is not allowed. -/
