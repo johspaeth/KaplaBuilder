@@ -18,7 +18,7 @@ step 5. Nothing reaches `main` without a PR and a green **CI OK**.
 | 3 | **Bubble model + JSON.** `Bubble.lean`, `Json.lean` (exact `Rat` codec), `normalize`, `wellFormed`, round-trip `#guard`s, the one-ellipsoid fixture `egg.json` (centre (0, 0, ½), semi-axes (0.3, 0.3, 0.5)). | 30 min | `egg` decodes, normalises and round-trips. |
 | 4 | **Egg handover to the planner.** `egg.json` (scale-free) plus the placement-and-grid rule written down: scale by the planner's height, grid of spacing 1 with half-step centres, keep centres that pass the ellipsoid test. `Dev/Cells egg.json --height H` only if C would rather call than compute. The height is the planner's. | 10 min | C has the file and the rule and can produce cells for a height of their choosing. |
 | 5 | **Done, PR #17.** **Core semantics contract.** Design conversation, then the `core/semantics-contract` branch and PR. Three handover points: the bubble format in `TargetSpec`; how bubbles meet the grid when the planner proposes blocks (frame, units, where "inside" is computed: by asking the engine, or from `contains`/`place` in Core); what the checker returns to the planner (accepted or not, which block is outside, which bubble is uncovered, per-bubble coverage, score). Fastest with C reachable. | 45–60 min | Every decision has a ruling; the Core PR compiles. |
-| 6 | **Viewer bubbles.** On `web/bubble-viewer`: draw ellipsoids from the bubble JSON, take data by file or URL. Draw the ground at z = 0 and cut each bubble off there, so a person sees what will really be built. Size depends on step 1. | depends | `egg` shows in 3D at a given height. |
+| 6 | **Done, PR #25.** **Viewer bubbles.** On `web/bubble-viewer`: draw ellipsoids from the bubble JSON, take data by file or URL. Draw the ground at z = 0 and cut each bubble off there, so a person sees what will really be built. Size depends on step 1. | depends | `egg` shows in 3D at a given height. |
 | 7 | **Chat loop on the viewer.** `Claude.lean` (interpret, refine, 2 retries, transcript file). The prompt gives the vertical reference: z = 0 is the ground, the model is 1 tall above it, at least one bubble must reach it, and a bubble may go below it (a half sphere for a foot) but only the part above counts. A floating model is rejected and goes back to Claude. placed bubbles sent in block units at the chosen height, the Lean tools under `KaplaSemantics/Dev/`, the chat page with its serving script in `semantics/dev/`. The chat page shows the ground. Too-small bubbles can be removed before accepting a design; do not run `normalize` after that, or the model changes size and no longer matches the proposal. Fallback if the viewer cannot draw ellipsoids in time: a 3-view SVG in the browser. | 1 h | "an egg" → 3D at build size → "make it taller" → change → accept → fixture file. Testing starts here. |
 | 8 | **Engine with theorems 1–4.** `Grid`, `Score`, `Check`, `canonicalFrame` as the short block-side definitions, matching the contract; theorem statements in the same sitting; proofs; `Dev/Score`; a tower fixture. In Docker. | 2–3 h | Theorems 1–4 pass `lake check` and `lake comparator`; the 1/52 example is a `#guard`. |
 | 9 | **Interface for the planner.** `Engine.lean` implements the contract (`interpret`, `refine`, `score`), wired in `Main.lean`, mock swapped. | 20 min | `kapla build` runs end to end on a tower fixture. |
@@ -31,6 +31,16 @@ narration text, chat inside the project web UI, demo polish.
 `box` is cut off at z = 0, and floating or fully underground bubbles are invalid. In step 8, the
 convexity lemmas of APPROACH.md §6 also need the ground: a straight line between two points above
 it stays above it.
+
+**New order (ruled 1 Nov 2026).** After step 6: the scorer part of step 8 (`Grid`, `Score`, `Check`,
+`scoreReport`, the command in `semantics/dev/Score.lean`), then step 7 (chat), then the proofs of
+step 8. Johannes wants real scores on bubble models first.
+
+**Height, not Frame (ruled 1 Nov 2026).** `score` takes a model, a height and blocks. There is no
+sideways shift: the blocks are built to fit the model. `canonicalFrame` is dropped for good. Bubbles
+are the only target shape. The Core change is on `core/score-height`; the planner part is
+Johannes's, on the same branch. When it merges, `placeAt` in `Grid.lean`, the report in
+`Engine.lean` and the notes in `egg.json` each need a small edit.
 
 **Why this order.** The egg and the contract go before the chat because they are what the
 planner is waiting for; the chat only needs the model (3) and the viewer (6), not the engine,

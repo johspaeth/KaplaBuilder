@@ -131,6 +131,12 @@ sees the model, never the conversation that made it.
 
 ## 3. Fitting: the scale problem
 
+**Replaced, 1 Nov 2026.** `score` takes a height, not a `Frame`. There is no sideways shift: the
+blocks are built to fit the model, and every length of the model is multiplied by the height. If the
+blocks are off to one side, the score shows it. `canonicalFrame` and `Frame.lean` are dropped. Read
+"frame" below and in §4 to §7 as "height". This holds on `feature-semantics` now; `Frame` leaves Core
+when `core/score-height` merges.
+
 The plan is a pile of real blocks with real sizes. The bubble model is a figurine of height
 exactly 1 with no unit attached. Before asking how well the blocks cover the bunny, we have to
 decide how big the bunny is and where on the table it stands. That is all §3 does.
@@ -325,6 +331,25 @@ DESIGN.md §5 and the shared interface change accordingly (§8).
 
 ## 6. What gets verified
 
+The statements, as they compile against the definitions today. These are for team review before
+they go in `specs/KaplaSpecs/Semantics.lean`:
+
+```lean
+theorem targetCells_correct (m : BubbleModel) (height : Q) (g : GridPt) :
+    g ∈ targetCells m height ↔ ∃ b ∈ m.bubbles, (placeAt height b).contains g.centre = true
+theorem blockCells_correct (plan : List Pose) (g : GridPt) :
+    g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre = true
+theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+    checkWithin m height plan = true ↔ WithinTarget m height plan
+theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+    checkCovers m height plan = true ↔ CoversTarget m height plan
+theorem score_in_unit_interval (m : BubbleModel) (height : Q) (plan : List Pose) :
+    0 ≤ score m height plan ∧ score m height plan ≤ 1
+```
+
+The fill is computed on a bubble's own cells (`coveredOfBubble` filters `bubbleCells`), so covered
+cells are inside the bubble by definition and theorem 5 does not need `fill_subset_target`.
+
 Five main theorems. Each is stated once in `specs/KaplaSpecs/Semantics.lean` (unproven
 there, human-reviewed) and proved under the same name in `semantics/KaplaSemantics/Proofs/`;
 `comparator/semantics.json` ties them together. For each: what it says in words, why it
@@ -411,7 +436,6 @@ is forbidden. Big inputs go in `#guard`, which is a build-time test, not a proof
 | File | Contents |
 |---|---|
 | `Bubble.lean` | `normalize` (the types, `contains`, `wellFormed`, `Frame` and `place` are in `KaplaCore.Bubble`) |
-| `Frame.lean` | `canonicalFrame` |
 | `Json.lean` | `encode` / `decode` for models, frames and reports; exact `Rat` codec |
 | `Grid.lean` | `GridPt`, `centre`, `targetCells`, `blockCells` (blocks are `Pose` from `KaplaCore`) |
 | `Score.lean` | `covered` (with the per-bubble fill), `extra`, `missing`, `score`, `solid`, `perBubble`; block-side definitions that are also the implementation |
@@ -419,7 +443,7 @@ is forbidden. Big inputs go in `#guard`, which is a build-time test, not a proof
 | `Engine.lean` | the `SemanticEngine` implementation (`interpret`, `refine`, `score`); **the only file that uses the engine and report types** (`SemanticEngine`, `TargetSpec`, `ScoreReport`). Any file may use `Q3`, `Bubble`, `BubbleModel`, `Frame` and `Pose`. Also hosts `componentName`, which `app/Main.lean` prints |
 | `Claude.lean` | Messages API client over `curl`, prompt templates, retries |
 | `Preview.lean` | 3-view SVG of a model, optionally with a plan |
-| `Dev/*.lean` | the four CLI tools of §2, one `main` each |
+| `semantics/dev/*.lean` | the CLI tools of §2, one `main` each, outside the library so they do not clash with `kapla` in `lake check`. `dev/Score.lean` runs `runScore`: model file, blocks file, height |
 | `Proofs/*.lean` | one file per spec file, theorem names identical to the specs |
 
 Plus `semantics/fixtures/{targets,plans,score_expected}/` (JSON), and `semantics/dev/`
