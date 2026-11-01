@@ -9,7 +9,7 @@
 >   that add up from level to level are not covered (§2.2).
 > - The target is a bubble model from a chat, not a Shape DSL; there is no image input (§5).
 > - The planner is Claude, checked by the verified physics engine (§6).
-> - The scorer is exact and tested, not proven yet (§5).
+> - The score is covered / (target + extra), with proven checks and a proven 0–1 range (§5).
 
 Goal: take a description or picture plus a block count N, and produce a **verified** Kapla
 blueprint that **a real person can actually build**. Such a blueprint uses at most N blocks.
@@ -23,7 +23,7 @@ Lean 4.
 ## 1. Core idea: untrusted generator, verified checker
 
 > **Built as planned, except:** the checker's theorem is `coreCheck_ok_sound`, not `Valid`;
-> the scorer is exact and tested but not proven yet; there is no image input.
+> the scorer's theorems are in `semantics/` (see its README); there is no image input.
 
 ```
  description / image ──► [Frontend: Claude] ──► TargetShape                 (untrusted)
@@ -264,7 +264,7 @@ use. Claude's shape output already distinguishes roofs from walls.
 ## 5. Target and similarity metric
 
 > **Built differently.** The target is a bubble model (ellipsoids) from a chat, not a Shape
-> DSL. The score is covered / (target + extra), not IoU, and has no proof yet. No image input.
+> DSL. The score is covered / (target + extra), not IoU. No image input.
 > As built: [semantics/README.md](../semantics/README.md), [semantics/APPROACH.md](../semantics/APPROACH.md).
 
 - **Shape DSL** (JSON, produced by Claude or written by hand). It offers box, cylinder,
