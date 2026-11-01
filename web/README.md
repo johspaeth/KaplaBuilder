@@ -24,7 +24,7 @@ step cards work without it.
 ```json
 {
   "title": "House",                      // optional
-  "subtitle": "60 blocks, adult",        // optional
+  "subtitle": "60 blocks",               // optional
   "notes": ["stands after every step"],  // optional, shown under the title
   "plan": {                              // or put "steps" at the top level
     "steps": [

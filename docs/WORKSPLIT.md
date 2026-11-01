@@ -19,7 +19,7 @@ ever blocked waiting for another team's engine.
 
 ```mermaid
 flowchart LR
-  user(["User<br/>prompt / image · N blocks · profile"])
+  user(["User<br/>prompt / image · N blocks"])
 
   subgraph D["D · Web & Integration"]
     orch["Orchestrator<br/>(kapla build / serve)"]
@@ -211,7 +211,7 @@ classDiagram
 
 Contents of `KaplaCore`:
 - **Data**: `Q` (= `Rat`), `Q3`, `Rot` (Pythagorean rotation, exact), `Upright`, `Pose`,
-  `Grip`, `Approach`, `Step`, `BuildPlan`, `HumanModel` + profiles, `Shape` (DSL AST),
+  `Grip`, `Approach`, `Step`, `BuildPlan`, `HumanModel`, `Shape` (DSL AST),
   `TargetSpec`, `Diagnostic`, `PhysicsReport`, `ScoreReport`, `Bound`, `Verdict`,
   `Request`, `PlanRequest`, `Candidate`, `RenderInput`.
 - **JSON codecs** for all of the above, with round-trip tests. JSON is the format of the
@@ -262,7 +262,7 @@ sequenceDiagram
   participant Ph as Physics Engine (A)
   participant R as Renderer (D)
 
-  U->>O: prompt / image, N, profile
+  U->>O: prompt / image, N
   O->>S: interpret(request)
   S-->>O: TargetSpec
   O->>S: bound(target, N)
