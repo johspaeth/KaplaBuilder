@@ -93,8 +93,11 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `coreCheck_ok_sound`: when `coreCheck opts` says a core plan is `ok`, every step places 1 to
   `hands` blocks, and either every block has a physics pose and the blocks, one after the
   other, are a safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5), or some
-  block is turned by a 15° step and the blocks are a safe turned plan (B6). With the planner's
-  `planPure_sound` (its candidates are `ok`), every candidate is a safe plan.
+  block is turned by a 15° step and the blocks are a safe turned plan (B6). For the planner's
+  `ai` strategy, `judge_checked_passed` says a passing design has `physics.ok = true`. That
+  report comes from `ph.check` on the design's plan, but the theorem does not say so, so it
+  does not yet chain with `coreCheck_ok_sound`. Stating `c.physics = ph.check req.human
+  req.blocks c.plan` would close the link. `ai-unchecked` designs are not checked.
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.
 
@@ -154,6 +157,17 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 
 ## Not done yet
 
+- **Corner and edge touches skip the gap check.** `Meets` counts planks that touch only at an
+  edge or a corner. `KeepsGaps` (spec) and `ClearPair` (engine) skip all pairs that meet, but
+  R5 only explains face-to-face touches. Example: `⟨.flatX, 0, 0, 0⟩` and
+  `⟨.flatX, 15, 3, 0⟩` touch along one vertical edge. Moving them by (+1/2, +1/2) and
+  (-1/2, -1/2) makes them share inside space, but the plan is accepted. The fix changes
+  `specs/` (skip only pairs with a face contact or one on another), so it needs a spec review.
+- **Two forms of F4.** `Stable` puts pushes at patch corners only; `TStable` allows any point
+  of the patch. No theorem says the two agree on builds with only quarter turns.
+- **Only soundness is proven.** An engine that never says "yes" would pass every theorem.
+  Only the `#guard`s in `Examples.lean` show that the engine accepts good builds. A theorem
+  such as `checkPlan {} ε (2 * n) (squareTower n) = true` would close this.
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
 - Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses
   the global LPs only for builds of at most 40 planks. Measured with the interpreter on a

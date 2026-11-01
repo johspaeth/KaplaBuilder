@@ -188,6 +188,21 @@ a touching pair as exact is closer to reality than giving each its own 3.9 mm,
 and it removes the case where a 3.9 mm error would make two planks overlap.
 Side contacts still carry no force (C4); R5 is only about where planks end up.
 
+- **R6. Gaps stay open.** If two planks do not touch in the plan, no combination of
+  placement errors allowed by R1 may make them share inside space. Planks that touch in
+  the plan are left out, because of R5. In Lean: `KeepsGaps`. The engine asks for a gap of
+  at least `2ε` (`Clear`).
+- **R7. No tight slots.** A plank must not go into a slot exactly its own width, between
+  two planks placed before it. Each wall can land `ε` towards the other, so the slot can
+  end up too narrow. In Lean: `InTightSlot`.
+
+R6 and R7 are checked when the clearance option is on (the default; `PlanOptions`).
+They are H6 in docs/DESIGN.md.
+
+*Known gap in R6:* in Lean, "touch" (`Meets`) also counts planks that touch only at an
+edge or a corner. R5 only explains face-to-face touches, so such pairs should be checked.
+The fix is still to be reviewed.
+
 ## 9. The build plan
 
 The app turns a design into a list of steps. A person follows the steps.
@@ -219,7 +234,8 @@ gap above it (a plank already placed sits right on top of the spot), there is
 no room for the drop in K2. The builder would have to slide it in, rubbing
 both planks. The app should suggest a different order for that step.
 - **K4. Every step stands.** After every step, the build so far must be
-  well-formed (P1–P3) and **solid** (R3), not only the finished build.
+  well-formed (P1–P3) and **solid** (R3), not only the finished build. With the clearance
+  option on (the default), R6 and R7 must also hold after every step.
 - **K5. Plank count.** A plan uses at most 200 planks (one Kapla box).
 
 *Why K4:* a design can stand when finished but fall halfway. A plank that is
@@ -293,16 +309,18 @@ so two planks can end up `2ε` = 1 unit (7.8 mm) off from each other.
 | E9 | Bridge: two standing planks (3 × 1 footprint) at `(0, 1, 0)` and `(12, 1, 0)`, one flat plank along `x` at `(0, 0, 15)` | Stable | Risky | The top plank's centre is at `y = 1.5`, only 0.5 from the edge of the 1-unit-thick supports. A 1-unit error can put it past the edge. |
 | E10 | Same bridge, but the standing planks at `y = 0` | Falls | Falls | Supports cover `y` from 0 to 1. The top plank's centre is at `y = 1.5`. |
 | E11 | Square tower (E8) with one plank of a middle level left out | Falls | Falls | The planks above rest on one end only. |
-| E12 | Counterweight: plank A flat along `x` at `(0, 0, 0)`; B flat along `x` at `(9, 0, 1)`; C flat along `y` at `(9, -6, 2)` | Stable | — | Finished, B and C together have their centre at `x = 13.5`, over A. But B alone has its centre at 16.5, past A's edge at 15, so B falls before C can be placed. No order works: **not buildable** (K4). |
+| E12 | Counterweight: plank A flat along `x` at `(0, 0, 0)`; B flat along `x` at `(9, 0, 1)`; C flat along `y` at `(9, -6, 2)` | Stable | Solid (finished build) | Finished, B and C together have their centre at `x = 13.5`, over A. But B alone has its centre at 16.5, past A's edge at 15, so B falls before C can be placed. No order works: **not buildable** (K4). |
 
 ## 13. Open questions
 
-1. **Checking method for R3.** We need a method that is cautious but not so
-   cautious that it calls simple builds (E1, E6, E8) risky. This is the main
-   design task for the engine.
-2. **Final drop gap.** What gap `h` do we use for the final drop in K3
-   (1 unit ≈ 8 mm?).
+None at the moment.
+
 Decided:
+
+- Checking method for R3: a certificate with a fixed load per contact, at a point that
+  moves with the placement errors (`SolidCertificate` in `physics/KaplaPhysics/Robust.lean`).
+  It calls E1, E6 and E8 solid.
+- Final drop gap for K3: `h` = 1 unit, about 8 mm (`dropGap`).
 
 - 3D from the start, no 2D version.
 - Side-by-side planks: the builder pushes them together (R5).
