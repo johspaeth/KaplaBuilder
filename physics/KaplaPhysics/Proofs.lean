@@ -562,20 +562,22 @@ well-formed and stable at the planned positions after every block (B6). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ((∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
-        (buildOf plan.blocks = none ∧
+      (((coreCheck opts h maxBlocks plan).assurance = .robust ∧
+          ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
+        ((coreCheck opts h maxBlocks plan).assurance = .nominal ∧ opts.allowNominal = true ∧
+          buildOf plan.blocks = none ∧
           ∃ tb, turnedBuildOf plan.blocks = some tb ∧ TSafePlan maxBlocks tb)) := by
-  unfold coreCheck at hok
-  split at hok
-  · rename_i hnone
-    split at hok
-    · rename_i tb htb
-      simp only [Bool.and_eq_true] at hok
-      exact ⟨stepDiagnostics_nil h plan hok.1,
-        Or.inr ⟨hnone, tb, htb, checkTurnedPlan_sound _ _ hok.2⟩⟩
-    · simp at hok
-  · rename_i b hb
-    simp only [Bool.and_eq_true] at hok
-    exact ⟨stepDiagnostics_nil h plan hok.1, Or.inl ⟨b, hb, checkPlan_sound _ _ _ _ hok.2⟩⟩
+  unfold coreCheck at hok ⊢
+  cases hb : buildOf plan.blocks with
+  | none =>
+    cases htb : turnedBuildOf plan.blocks with
+    | none => simp [hb, htb] at hok
+    | some tb =>
+      simp only [hb, htb, Bool.and_eq_true] at hok ⊢
+      exact ⟨stepDiagnostics_nil h plan hok.1.2,
+        Or.inr ⟨trivial, hok.1.1, trivial, tb, rfl, checkTurnedPlan_sound _ _ hok.2⟩⟩
+  | some b =>
+    simp only [hb, Bool.and_eq_true] at hok ⊢
+    exact ⟨stepDiagnostics_nil h plan hok.1, Or.inl ⟨trivial, b, rfl, checkPlan_sound _ _ _ _ hok.2⟩⟩
 
 end KaplaPhysics

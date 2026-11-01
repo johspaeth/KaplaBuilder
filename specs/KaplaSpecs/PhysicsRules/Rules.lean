@@ -230,6 +230,10 @@ structure PlanOptions where
   plank goes into a slot exactly its own width (`InTightSlot`). On by default. Planks
   that touch by design are allowed either way. -/
   clearance : Bool := true
+  /-- Accept a plan with turned blocks (B6), which is checked at the planned positions only
+  (a `nominal` result). On by default. Switch it off when only a check with placement
+  errors will do: then every accepted plan has the full check. -/
+  allowNominal : Bool := true
   deriving Repr, DecidableEq, Inhabited
 
 /-- K1, K4, K5: the plan places one plank per step, uses at most `maxPlanks` planks, and

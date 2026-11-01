@@ -368,39 +368,52 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 #guard buildOf coreE12.blocks == some e12
 #guard buildOf coreTower.blocks == some (squareTower 2)
 
-#guard coreCheck {} .default 200 coreE2 == { ok := true }
-#guard coreCheck {} .default 200 coreTower == { ok := true }
+#guard coreCheck {} .default 200 coreE2 == { assurance := .robust, ok := true }
+#guard coreCheck {} .default 200 coreTower == { assurance := .robust, ok := true }
 -- E7 stands on paper but is risky: block 2 (step 2) is where it goes wrong.
-#guard coreCheck {} .default 200 coreE7 == { ok := false, diagnostics := [.unstable 2 2] }
+#guard coreCheck {} .default 200 coreE7 == { assurance := .robust, ok := false, diagnostics := [.unstable 2 2] }
 -- E12: B falls before C can hold it down.
-#guard coreCheck {} .default 200 coreE12 == { ok := false, diagnostics := [.unstable 1 1] }
+#guard coreCheck {} .default 200 coreE12 == { assurance := .robust, ok := false, diagnostics := [.unstable 1 1] }
 -- Blocks of one step are checked one after the other, so two hands do not save E12.
-#guard coreCheck {} twoHands 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
+#guard coreCheck {} twoHands 200 coreE12TwoHands == { assurance := .robust, ok := false, diagnostics := [.unstable 1 1] }
 -- A block turned by the 3-4-5 angle has no physics pose.
 #guard coreCheck {} .default 200 (.ofBlocks [⟨.flat, .ofTriple 3 4 5, ⟨0, 0, 1 / 2⟩⟩]) ==
   { ok := false, diagnostics := [.unstable 0 0] }
 #guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 1 0 0]) ==
-  { ok := false, diagnostics := [.overlap 0 1, .unstable 1 1, .unreachable 1] }
+  { assurance := .robust, ok := false, diagnostics := [.overlap 0 1, .unstable 1 1, .unreachable 1] }
 -- Two blocks side by side, touching: `ok`, with the clearance check on or off.
-#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) == { ok := true }
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) == { assurance := .robust, ok := true }
 #guard coreCheck { clearance := true } .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 3 0]) ==
-  { ok := true }
+  { assurance := .robust, ok := true }
 -- A gap of 1/4: a near miss. Only the clearance check rejects it.
 #guard coreCheck { clearance := true } .default 200
     (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) ==
-  { ok := false, diagnostics := [.clearance 0 1] }
+  { assurance := .robust, ok := false, diagnostics := [.clearance 0 1] }
 #guard coreCheck { clearance := false } .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) ==
-  { ok := true }
+  { assurance := .robust, ok := true }
 #guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 6 0, flatAt 0 3 0]) ==
-  { ok := false, diagnostics := [.tightSlot 2] }
-#guard coreCheck {} .default 3 coreTower == { ok := false, diagnostics := [.tooManyBlocks 4 3] }
+  { assurance := .robust, ok := false, diagnostics := [.tightSlot 2] }
+#guard coreCheck {} .default 3 coreTower == { assurance := .robust, ok := false, diagnostics := [.tooManyBlocks 4 3] }
 #guard coreCheck {} .default 200 ⟨[{ blocks := [] }]⟩ ==
-  { ok := false, diagnostics := [.emptyStep 0] }
+  { assurance := .robust, ok := false, diagnostics := [.emptyStep 0] }
 -- The default builder places one block per step, so a two-block step is refused.
 #guard coreCheck {} .default 200 coreE12TwoHands ==
-  { ok := false, diagnostics := [.tooManyHands 1, .unstable 1 1] }
+  { assurance := .robust, ok := false, diagnostics := [.tooManyHands 1, .unstable 1 1] }
 -- Hard to reach is a warning only (K3): the plan is still `ok`.
-#guard coreCheck {} .default 200 coreBoxedIn == { ok := true, diagnostics := [.unreachable 9] }
+#guard coreCheck {} .default 200 coreBoxedIn == { assurance := .robust, ok := true, diagnostics := [.unreachable 9] }
+
+-- A turned block (B6): the plan is checked at the planned positions only, and the report
+-- says so (found in review: `ok` alone did not tell the two checks apart).
+def isolatedTurn : KaplaCore.Pose := ⟨.flat, .step15 3, ⟨100, 100, 1 / 2⟩⟩
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, isolatedTurn]) ==
+  { ok := true, assurance := .nominal }
+-- E3 (risky) is refused by the full check, and accepted only as `nominal` with a turned block.
+#guard !(coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt (15 / 2) 0 1])).ok
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt (15 / 2) 0 1, isolatedTurn]) ==
+  { ok := true, assurance := .nominal }
+-- With `allowNominal` off, a plan with a turned block is not `ok`.
+#guard !(coreCheck { allowNominal := false } .default 200
+  (.ofBlocks [flatAt 0 0 0, isolatedTurn])).ok
 
 -- Where the mock is too kind: it ignores placement error and lets two blocks of a step hold
 -- each other up.

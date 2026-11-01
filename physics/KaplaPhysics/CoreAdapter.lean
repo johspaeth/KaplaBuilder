@@ -113,7 +113,7 @@ def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : Bu
               match firstUnsafeTurned tb with
               | some k => [.unstable (stepOf k) k]
               | none => []
-          { ok := stepDiags.isEmpty && safe,
+          { ok := opts.allowNominal && stepDiags.isEmpty && safe,
             diagnostics := countDiags ++ stepDiags ++ tOverlapPairs tb ++ unsafeDiags }
       | none =>
           let bad := (plan.blocks.findIdx? fun p => (turnedOf p).isNone).getD 0
@@ -127,7 +127,7 @@ def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : Bu
           | none => []
       let reachDiags : List Diagnostic :=
         ((hardToReach dropGap b).map stepOf).eraseDups.map .unreachable
-      { ok := stepDiags.isEmpty && safe,
+      { ok := stepDiags.isEmpty && safe, assurance := .robust,
         diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++
           (if opts.clearance then
             clearancePairs h.epsRel b ++ ((tightSlots b).map stepOf).map .tightSlot
