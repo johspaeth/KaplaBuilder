@@ -69,7 +69,8 @@ structure HumanModel where
   /-- How far any block may drift from the plan in total. Not used by the verified physics
   engine: under R1 no block drifts more than `epsRel`. Kept for the mock and for later. -/
   eAbs   : Q
-  /-- The most blocks placed in one step. -/
+  /-- The most blocks placed in one step. Default 1: one block at a time (K1). Raise it to
+  allow steps that use both hands. -/
   hands  : Nat
   /-- The smallest gap between two blocks that do not touch by design. -/
   clear  : Q
@@ -79,8 +80,8 @@ structure HumanModel where
 
 /-- The builder we assume. `epsRel = 1/2` is the 3.9 mm of the physics rules (R1). -/
 def HumanModel.default : HumanModel :=
-  { epsRel := 1 / 2, eAbs := 50 / 39, hands := 2, clear := 25 / 39, muSafe := 3 / 10 }
+  { epsRel := 1 / 2, eAbs := 50 / 39, hands := 1, clear := 25 / 39, muSafe := 3 / 10 }
 
-#guard HumanModel.default.hands == 2
+#guard HumanModel.default.hands == 1
 
 end KaplaCore

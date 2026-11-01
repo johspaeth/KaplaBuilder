@@ -45,7 +45,7 @@ an explicit rule in the verified spec:
 | H4 | **The press of placing** | the hand presses the new block down and the overhang below tips | not modelled: builders set blocks down without pressing (§2.3) |
 | H5 | **Unreachable placement** | a block that must go into a closed pocket, or under an overhang | hand access check: the block plus fingers can be lowered or slid into place (§2.4) |
 | H6 | **Tight fits** | a gap that is exactly one block wide | no near-misses: gaps are either 0 (blocks touch by design) or at least the clearance c |
-| H7 | **Needs more hands than a person has** | A-frame rafters that only stand as a pair | a step places at most `hands` blocks at once (default 2) |
+| H7 | **Needs more hands than a person has** | A-frame rafters that only stand as a pair | a step places at most `hands` blocks at once (default 1) |
 | H8 | **Uneven parallel supports**: a block resting on two separate stacks rocks if their real heights differ | a bridge over pillars built from different block mixes | equal-composition rule for parallel support paths (§2.5) |
 | H9 | **Leaning blocks slide** | roof rafters that slip on smooth wood | friction with a safety margin (μ_safe < μ_real), plus margin on the friction cone (§3) |
 
@@ -64,7 +64,7 @@ structure HumanModel where
 
 | εrel | eabs | hands | μsafe |
 |---|---|---|---|
-| 1/2 | 50/39 | 2 | 0.3 |
+| 1/2 | 50/39 | 1 | 0.3 |
 
 The defaults are educated guesses. Milestone M10 **calibrates them on real builds**: build
 test structures, measure the actual placement errors, and see what collapses.
@@ -279,7 +279,7 @@ use. Claude's shape output already distinguishes roofs from walls.
 | `Kapla.Score` | ✅ verified | IoU, silhouette, acceptance checks, verdict |
 | `Kapla.LP` | untrusted | Float solve → rationalize → exact check, with an exact rational simplex as fallback. Warm-started across steps. Also produces margins and shift budgets. |
 | `Kapla.Planner` | untrusted | scale search; motifs (log-cabin tower, round-tower ring, spiral, wall, slab, arch, tree, **roofs §4**); layer planner; budget knapsack; repair loop driven by diagnostics; exhaustive search for N ≤ 4 |
-| `Kapla.Sequencer` | untrusted | build order, grouping into steps (1–2 blocks), grip and approach choice, grouping steps into phases |
+| `Kapla.Sequencer` | untrusted | build order, grouping into steps (1 to `hands` blocks, default 1), grip and approach choice, grouping steps into phases |
 | `Kapla.Frontend` | untrusted | Claude Messages API through `curl` (`ANTHROPIC_API_KEY`): text or image → Shape DSL, with validation and at most 2 retries; prose narration of the verified report |
 | `Kapla.Render` | untrusted | **Lean-generated webpage**: a three.js 3D view (pinned CDN version) with a step slider; step cards with top-down SVG, offsets, angles, **grip and approach hints**, and a "two hands" badge; feasibility, difficulty and verified badges; a print-ready booklet; `kapla serve` |
 

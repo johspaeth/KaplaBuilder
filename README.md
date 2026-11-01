@@ -13,7 +13,7 @@ Details: [docs/DESIGN.md](docs/DESIGN.md). Who does what: [docs/WORKSPLIT.md](do
 - It stays standing **even if your hands are a bit imprecise** (default: 1/2 of a block
   thickness per block, 50/39 total drift).
 - You can **put every block in place by hand**: no closed pockets, no gaps that are exactly
-  one block wide, and no step that needs more than two hands.
+  one block wide, and one block per step (the `hands` setting, default 1).
 - **Every block is part of the target, and every part of the target is built.**
 - Its **likeness score** to the target is computed correctly. There is no minimum score: a
   person approves the design.

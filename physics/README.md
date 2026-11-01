@@ -108,7 +108,7 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 `physicsMock`; `app/Main.lean` (owner D) has to pass it to the planner.
 `coreCheck_ok_sound` says what its `ok` means.
 
-- **Steps.** Core places 1–2 blocks per step (`hands`); K1 places one plank per step. The
+- **Steps.** Core places 1 to `hands` blocks per step (default 1); K1 places one plank per step. The
   adapter checks the build after every block, in list order. This is cautious: a step
   whose blocks stand only together is refused.
 - **Rotations.** Core's `Rot` allows any exact turn; physics has only the six axis-aligned

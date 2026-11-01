@@ -301,6 +301,8 @@ def coreE2 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 5 0 1]
 def coreE7 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt (15 / 4) 0 1, flatAt (45 / 4) 0 2]
 /-- E12 as a core plan. -/
 def coreE12 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)]
+/-- A builder who may place two blocks in one step, one in each hand. -/
+def twoHands : HumanModel := { HumanModel.default with hands := 2 }
 /-- E12 with B and C put on in the same step, one in each hand. -/
 def coreE12TwoHands : BuildPlan :=
   ⟨[{ blocks := [flatAt 0 0 0] }, { blocks := [flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)] }]⟩
@@ -327,7 +329,7 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 -- E12: B falls before C can hold it down.
 #guard coreCheck {} .default 200 coreE12 == { ok := false, diagnostics := [.unstable 1 1] }
 -- Blocks of one step are checked one after the other, so two hands do not save E12.
-#guard coreCheck {} .default 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
+#guard coreCheck {} twoHands 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
 -- A block turned by the 3-4-5 angle has no physics pose.
 #guard coreCheck {} .default 200 (.ofBlocks [⟨.flat, .ofTriple 3 4 5, ⟨0, 0, 1 / 2⟩⟩]) ==
   { ok := false, diagnostics := [.unstable 0 0] }
@@ -345,7 +347,8 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 #guard coreCheck {} .default 3 coreTower == { ok := false, diagnostics := [.tooManyBlocks 4 3] }
 #guard coreCheck {} .default 200 ⟨[{ blocks := [] }]⟩ ==
   { ok := false, diagnostics := [.emptyStep 0] }
-#guard coreCheck {} { HumanModel.default with hands := 1 } 200 coreE12TwoHands ==
+-- The default builder places one block per step, so a two-block step is refused.
+#guard coreCheck {} .default 200 coreE12TwoHands ==
   { ok := false, diagnostics := [.tooManyHands 1, .unstable 1 1] }
 -- Hard to reach is a warning only (K3): the plan is still `ok`.
 #guard coreCheck {} .default 200 coreBoxedIn == { ok := true, diagnostics := [.unreachable 9] }
@@ -353,7 +356,7 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 -- Where the mock is too kind: it ignores placement error and lets two blocks of a step hold
 -- each other up.
 #guard (physicsMock.check .default 200 coreE7).ok
-#guard (physicsMock.check .default 200 coreE12TwoHands).ok
+#guard (physicsMock.check twoHands 200 coreE12TwoHands).ok
 
 end Core
 

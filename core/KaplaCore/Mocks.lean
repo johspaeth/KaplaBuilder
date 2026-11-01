@@ -139,7 +139,7 @@ private def t : Q := blockThickness
 -- the same (two-hand) step ...
 private def overhang : Pose := flatAt 8 0 t
 private def counterweight : Pose := flatAt 4 0 (2*t)
-#guard (physicsMock.check .default 10
+#guard (physicsMock.check { HumanModel.default with hands := 2 } 10
   ⟨[{ blocks := [flatAt 0 0 0] }, { blocks := [overhang, counterweight] }]⟩).ok
 -- ... but placed one at a time, the overhang tips at step 1, before the counterweight is
 -- on: the mock checks every step, not only the finished structure
