@@ -104,6 +104,42 @@ def readBuildPlan (txt : String) : Except String BuildPlan := do
              phase := (st.getObjValAs? String "phase").toOption.getD "" : KaplaCore.Step }
   return ⟨steps⟩
 
+/-- A block turned by `deg` degrees, as blueprint JSON. -/
+def degBlockJson (deg : Int) : Json :=
+  Json.mkObj [("up", "flat"), ("rot", Json.mkObj [("deg", deg)]),
+    ("center", Json.arr #[0, 0, "1/2"])]
+
+/-- The physics engine and the viewer read a `{"deg": d}` turn as the same turn: the viewer
+draws the exact turn that is checked. Tested for all 24 steps of 15°, and for negative
+angles. -/
+def turnsAgree (deg : Int) : Bool :=
+  match readPose (degBlockJson deg), KaplaWeb.readBlock (degBlockJson deg) with
+  | .ok p, .ok b => KaplaWeb.ratToFloat p.rot.cos == b.c && KaplaWeb.ratToFloat p.rot.sin == b.s
+  | _, _ => false
+
+#guard (List.range 24).all fun k => turnsAgree (15 * k)
+#guard [-15, -45, -90, 360, 405].all turnsAgree
+
+/-- The point `(x, y)` is strictly inside the rectangle the viewer draws for `b`. -/
+def drawnInside (b : KaplaWeb.ViewBlock) (x y : Float) : Bool :=
+  let u := b.c * (x - b.x) + b.s * (y - b.y)
+  let v := -b.s * (x - b.x) + b.c * (y - b.y)
+  u.abs < KaplaWeb.blockL / 2 && v.abs < KaplaWeb.blockW / 2
+
+/-- Found in review: a flat block and one at 45°, close but not touching in the checked
+geometry. With literal 45° the viewer drew them overlapping at `(7.49, -4.24)`. -/
+def nearContact : String :=
+  "{\"steps\":[{\"blocks\":[{\"up\":\"flat\",\"center\":[0,-4,\"1/2\"]}]}," ++
+  "{\"blocks\":[{\"up\":\"flat\",\"rot\":{\"deg\":45},\"center\":[\"180/13\",0,\"1/2\"]}]}]}"
+
+#guard match KaplaWeb.parsePlan nearContact with
+  | .ok p => match p.steps with
+    | [s0, s1] => match s0.blocks, s1.blocks with
+      | [a], [b] => !(drawnInside a 7.49 (-4.24) && drawnInside b 7.49 (-4.24))
+      | _, _ => false
+    | _ => false
+  | .error _ => false
+
 /-! ## Running the physics engine -/
 
 /-- Default block budget: one Kapla box (K5). -/
