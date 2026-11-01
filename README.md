@@ -94,8 +94,11 @@ CI fails if:
    (`scripts/check_forbidden.sh`). This also counts words in comments.
 4. **`lake check` fails.** The whole project is replayed through the Lean kernel, and only
    the standard axioms (`propext`, `Quot.sound`, `Classical.choice`) are allowed.
-5. **`lake comparator` fails** for a file in `comparator/`. This checks that the proofs
-   prove exactly the statements in `specs/`.
+
+**Comparator is disabled for now.** `lake comparator` (which checks that the proofs prove
+exactly the statements in `specs/`) is not part of **CI OK**, so it does not block merges.
+It runs only at the very end: start it by hand in GitHub (Actions → CI → Run workflow).
+Before the final result, it must be green for every file in `comparator/`.
 
 ## How to work
 
