@@ -193,7 +193,9 @@ The app turns a design into a list of steps. A person follows the steps.
   slide it across the planks below, so friction does not push those planks
   (F3).
 - **K3. Reachable (a warning, not a rule).** The plank must be able to reach
-  its spot without touching any plank already placed. The app checks one
+  its spot without passing through any plank already placed. It may touch them
+  on the way: slide along a face, or brush an edge or a corner (for example,
+  slide under a roof whose underside is exactly at the plank's top). The app checks one
   simple kind of path: the plank stays flat in its final pose, moves in a
   straight line from far away to a point a small gap `h` above its spot, then
   drops `h`. The straight line may go in any direction. If such a path
@@ -250,9 +252,9 @@ These are the main theorems. Each one points to the rules it depends on.
    in section 8.)
 4. **The plan is safe.** If the engine accepts a plan, then after every step
    the build is well-formed and solid (K4).
-5. **"Reachable" is right.** If the app says a step is reachable, then the
-   straight path in K3 touches no plank already placed, at any point along
-   the way.
+5. **"Reachable" is right.** If the app says a step is reachable, then on the
+   straight path in K3 the plank shares no inside space with any plank already
+   placed, at any point along the way. Touching them is allowed (K3).
 6. **Matches the simple rule.** For a single column of planks, the engine
    agrees with the centre-of-mass rule in section 7.
 7. **Contacts are right.** The contact patches the engine finds are exactly

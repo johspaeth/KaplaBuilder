@@ -62,7 +62,8 @@ what a theorem means, you must change `specs/`, which needs a spec review.
   each step is well-formed at the planned positions and solid.
 - `reachDir_sound`, `hardToReach_nil_sound`: a step the checker does not flag can be put
   in place along a straight path from far away plus a drop of `h > 0`, never sharing inside
-  space with a placed plank (property 5, K3). A gap `h ≤ 0` flags every step. Flagged
+  space with a placed plank (property 5, K3). Touching a placed plank on the way (sliding
+  along a face, brushing an edge) is allowed, as K3 now says. A gap `h ≤ 0` flags every step. Flagged
   steps are warnings only.
 - `column_stable_iff`: for a single column, `Stable` holds exactly when at every level the
   combined centre of mass of everything from that level up is over the patch below it
@@ -95,7 +96,9 @@ are in the spec surface. Nothing depends on them being right: a wrong proposal o
 
 **Cautious, never optimistic (R3).** "Risky" means "not shown to be solid". A solid build
 can get "risky" when no certificate of the simple kind exists (fixed loads per contact).
-A "solid" verdict is always right.
+A "solid" verdict is always right. For the "risky" examples E3, E7 and E9 we also prove
+that they are not solid, each with an explicit error of at most 2 mm that makes it fall
+(`e3_not_solid`, `e7_not_solid`, `e9_not_solid`).
 
 Placement errors are taken over the whole R1 box (every plank within ε along `x` and `y`).
 R5 only removes some of these errors, so "solid" here implies solid under R5.
