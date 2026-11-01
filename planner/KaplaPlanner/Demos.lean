@@ -132,13 +132,13 @@ def dogModel : BubbleModel :=
 def duckModel : BubbleModel :=
   { name := "duck"
     bubbles :=
-      [ { label := "body", tags := ["tower"], center := ⟨0, 0, 25 / 100⟩
+      [ { label := "body", tags := ["tower"], center := ⟨0, 0, 2 / 10⟩
           semi := ⟨3 / 10, 25 / 100, 2 / 10⟩ }
-      , { label := "head", tags := ["tower"], center := ⟨25 / 100, 0, 4 / 10⟩
+      , { label := "head", tags := ["tower"], center := ⟨25 / 100, 0, 35 / 100⟩
           semi := ⟨12 / 100, 12 / 100, 12 / 100⟩ }
-      , { label := "bill", tags := [], center := ⟨4 / 10, 0, 4 / 10⟩
+      , { label := "bill", tags := [], center := ⟨4 / 10, 0, 35 / 100⟩
           semi := ⟨8 / 100, 5 / 100, 5 / 100⟩ }
-      , { label := "tail", tags := [], center := ⟨-25 / 100, 0, 3 / 10⟩
+      , { label := "tail", tags := [], center := ⟨-25 / 100, 0, 25 / 100⟩
           semi := ⟨8 / 100, 1 / 10, 1 / 10⟩ } ] }
 
 /-- A three-layer cake: three stacked cylinders of decreasing size. -/
