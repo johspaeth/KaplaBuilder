@@ -6,7 +6,8 @@ The planner (`planner`, `planner/DESIGN.md` §11) runs for at most a time limit 
 
 1. **Probes.** Two tiny plans tell whether the physics engine lets upright blocks stand on
    flat blocks, and carry blocks (`probeRules`).
-2. **First sweep.** v1's builds at a coarse spread of heights (below). The best heights get a
+2. **First sweep.** v1's builds at a coarse spread of heights (below), for at most
+   `sweepShare` of the time; builds not done by then are left out. The best heights get a
    tree search each (branch-and-bound, `Tree.lean`), starting from the best v1 setting of that
    height.
 3. **Rounds.** The tree searches run in parallel, a few steps each per round. Leaves that beat
@@ -276,8 +277,12 @@ def planPure (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) : L
 structure PlannerConfig where
   /-- Return within this many milliseconds. -/
   timeLimitMs : Nat := 30000
-  /-- Of that, keep this much for scoring and choosing at the end. -/
+  /-- Of that, keep this much for scoring and choosing at the end, but never more than a fifth
+  of the limit (so a short limit still leaves time to search). -/
   reserveMs : Nat := 2000
+  /-- The first sweep gets at most this share (in percent) of the search time; builds not done
+  by then are left out. -/
+  sweepShare : Nat := 25
   /-- At most this many tries in all (a safety limit; the time limit comes first). -/
   maxTries : Nat := 10000000
   /-- The share of the time (in percent) before the heuristic phase starts. -/
@@ -369,6 +374,9 @@ structure SearchLog where
   pruned : Nat := 0
   timedOut : Nat := 0
   up : UprightRules := {}
+  /-- Each time the best plan that passed physics got better: the time since the start (ms),
+  its fast score, and whether it reaches every bubble. -/
+  trace : Array (Nat × Q × Bool) := #[]
   deriving Repr, Inhabited
 
 /-- Run the tree searches for a bubble model, under the time limit. Returns the searches (with
@@ -376,15 +384,28 @@ the plans that passed physics) and a log. -/
 def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m : BubbleModel) :
     IO (List Tree × SearchLog) := do
   let start ← IO.monoMsNow
-  let stopAt := start + cfg.timeLimitMs - min cfg.timeLimitMs cfg.reserveMs
+  let reserve := min cfg.reserveMs (cfg.timeLimitMs / 5)
+  let stopAt := start + cfg.timeLimitMs - reserve
   let n := req.blocks
   if n == 0 then return ([], {})
   let up := probeRules ph req.human
   let mut log : SearchLog := { checks := probeChecks, up }
-  -- the first sweep: v1 builds at a coarse spread of heights
+  -- the first sweep: v1 builds at a coarse spread of heights, in parallel. Builds not done
+  -- by `sweepEnd` are left out (they keep running in the background until done).
   let h0 := firstHeight m n
-  let trials := tryAll m n ((heightsAt h0 [50, 75, 100, 125, 150, 200]).flatMap fun h =>
-    (forBudget n coarseSettings).map fun s => (h, s))
+  let jobs := (heightsAt h0 [50, 75, 100, 125, 150, 200]).flatMap fun h =>
+    (forBudget n coarseSettings).map fun s => (h, s)
+  let sweepTasks := jobs.map fun (h, s) => Task.spawn fun _ => tryBuild m h s n
+  let sweepEnd := start + (stopAt - start) * cfg.sweepShare / 100
+  repeat
+    if (← IO.monoMsNow) ≥ sweepEnd then break
+    if ← sweepTasks.allM (fun t => (IO.hasFinished t : IO Bool)) then break
+    IO.sleep 5
+  let mut trials : List Trial := []
+  for task in sweepTasks do
+    if ← IO.hasFinished task then
+      let tr := task.get
+      if !tr.blocks.isEmpty then trials := trials ++ [tr]
   let mut trees : Array Tree :=
     ((treeHeights trials cfg.heights).map fun (h, s) => startTree m n up trials h s).toArray
   let mut alive : Array Bool := trees.map fun _ => true
@@ -411,6 +432,17 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
         longest := max longest (now - min now p.since)
         still := still.push p
     pending := still
+    -- the best plan so far, for the trace
+    let best := trees.foldl (fun (acc : Option Leaf) tr => match acc, tr.incumbent with
+      | some a, some b => if b.better a then some b else some a
+      | none, b => b
+      | a, none => a) none
+    match best, log.trace.back? with
+    | some b, some (_, f, c) =>
+      if b.better { blocks := #[], fast := f, covers := c } then
+        log := { log with trace := log.trace.push (now - start, b.fast, b.covers) }
+    | some b, none => log := { log with trace := log.trace.push (now - start, b.fast, b.covers) }
+    | none, _ => pure ()
     -- new checks, taking turns between the searches
     let mut progress := true
     while progress && pending.size < cfg.parallelChecks && log.checks < req.maxChecks &&

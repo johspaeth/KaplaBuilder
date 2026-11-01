@@ -35,9 +35,11 @@ The model:
   are allowed; the engine finds those only with its global solver, which it runs for builds of
   at most 40 blocks (`globalLimit` in `physics/KaplaPhysics/Engine.lean`).
 
-The forces this computes balance every block, so a stack that passes has a set of contact
-forces that holds it up. Blocks are checked in build order, so this holds after every step.
-The margins leave room for the hand's error; the physics engine decides if that is enough. -/
+The forces this computes balance every block, up to a rounding of less than 1/200 of a cell
+(the loads are worked out on a fine grid, so the numbers stay short; see `gridRoom`). So a
+stack that passes has, nearly, a set of contact forces that holds it up. Blocks are checked in
+build order, so this holds after every step. The margins leave room for the hand's error; the
+physics engine decides if that is enough. -/
 
 namespace KaplaPlanner
 
@@ -159,9 +161,37 @@ def loadsOutside (st : Stack) (u : GBlock) (cs : List Contact) (minSpan : Int) :
 /-- A span longer than any build, for strict mode. -/
 def anySpan : Int := 1000000
 
+/-- The grid for load points in the local rule: 1/1024 of a cell. -/
+def posGrid : Q := 1 / 1024
+
+/-- The grid for forces in the local rule (a block weighs 1). -/
+def forceGrid : Q := 1 / 4096
+
+/-- Extra room in every test of the local rule, for the rounding. It is 0, on purpose.
+
+One rounding moves a load point by at most half a `posGrid` step plus what rounding one force
+moves it (at most `forceGrid` times a contact span of 15, over a load of at least 1): together
+under 1/200 of a cell, either way. So the rule may accept a block up to that much closer to
+its limit than the exact rule would. That is small next to the rule's own margins (1 along a
+block, 3/5 across), which are well above the physics engine's 0.51; and the rule is not
+trusted: physics checks every plan. Extra room of 1/128 was tried: it refused placements
+exactly at the limit, which are common on the integer grid, and the egg (N = 40) scored
+0.728 instead of 0.735. -/
+def gridRoom : Q := 0
+
+/-- `q` rounded to the nearest multiple of `g`. -/
+def roundTo (g q : Q) : Q := ((q / g + 1 / 2).floor : Q) * g
+
+#guard roundTo (1 / 4) (3 / 10) == 1 / 4 && roundTo (1 / 4) (2 / 5) == 1 / 2 && roundTo 1 (-3 / 2) == -1
+
 /-- Does every block stand under the load model? Returns the first block that does not, in
 build order from the top. `margin` is the room left at the ends of the contact span. -/
 def firstFailing (bs : Array Placed) (margin : Q) : Option Nat := Id.run do
+  -- The loads are worked out on a fine grid, not exactly: with exact fractions, every lever
+  -- split makes the numbers longer, and in a tall stack they grow to thousands of digits
+  -- (a ball build of 84 blocks took 157 s; now under 2 s). Load points are rounded to `posGrid`, forces to
+  -- `forceGrid` (the total load stays exact). So a load point can be off by a tiny amount
+  -- (see `gridRoom`).
   let n := bs.size
   let mut w : Array Q := Array.replicate n 1
   let mut mx : Array Q := bs.map fun p => (p.blk.x : Q) + (p.blk.sx : Q) / 2
@@ -171,25 +201,26 @@ def firstFailing (bs : Array Placed) (margin : Q) : Option Nat := Id.run do
     let p := bs[i]!
     if p.blk.z == 0 then continue
     let wi := w[i]!
-    let (l, c) := alongCross p.blk (mx[i]! / wi) (my[i]! / wi)
+    let (l, c) := alongCross p.blk (roundTo posGrid (mx[i]! / wi)) (roundTo posGrid (my[i]! / wi))
     let cross0 : Q := ((startAlongCross p.blk).2 : Q)
     let cw : Q := (p.blk.crossWidth : Q)
-    let room := min edgeRoom (cw / 2)
+    -- a foot 1 wide carries only its own weight at its middle; keep the exact test there
+    let room := if cw ≥ 3 then edgeRoom + gridRoom else cw / 2
     if c < cross0 + room || cross0 + cw - room < c then return some i
     let cs := p.contacts.mergeSort fun a b => a.lo ≤ b.lo
     match cs.head?, cs.getLast? with
     | some first, some last =>
       let lo : Q := (first.lo : Q)
       let hi : Q := (cs.foldl (fun m ct => max m ct.hi) last.hi : Int)
-      if l < lo + margin || hi - margin < l then return some i
-      -- where the load goes: (block below, share of the load, position along this block).
+      if l < lo + margin + gridRoom || hi - margin - gridRoom < l then return some i
+      -- where the load goes: (block below, force, position along this block).
       -- Loads go down at least 1/2 inside each contact, so they never sit on the edge of the
       -- block below.
       let inLo (ct : Contact) : Q := (ct.lo : Q) + edgeRoom
       let inHi (ct : Contact) : Q := (ct.hi : Q) - edgeRoom
       let shares : List (Nat × Q × Q) :=
         match cs.find? fun ct => inLo ct ≤ l && l ≤ inHi ct with
-        | some ct => [(ct.below, 1, l)]
+        | some ct => [(ct.below, wi, l)]
         | none =>
           -- between two contacts: the one whose inside ends last before `l`, and the first
           -- whose inside starts after it
@@ -202,11 +233,12 @@ def firstFailing (bs : Array Placed) (margin : Q) : Option Nat := Id.run do
           | some a, some b =>
             let pa := inHi a
             let pb := inLo b
-            [(a.below, (pb - l) / (pb - pa), pa), (b.below, (l - pa) / (pb - pa), pb)]
+            -- the force to `a`, on the grid; the rest to `b`, so the total stays `wi`
+            let fa := roundTo forceGrid (wi * (pb - l) / (pb - pa))
+            [(a.below, fa, pa), (b.below, wi - fa, pb)]
           | _, _ => []
       if shares.isEmpty then return some i
-      for (j, share, pos) in shares do
-        let f := share * wi
+      for (j, f, pos) in shares do
         let (px, py) := if p.blk.orient.alongX then (pos, c) else (c, pos)
         w := w.modify j (· + f)
         mx := mx.modify j (· + f * px)

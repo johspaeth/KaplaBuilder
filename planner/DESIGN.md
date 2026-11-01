@@ -713,6 +713,23 @@ limit, but the first slow check cannot be foreseen. Fixes outside the planner: t
 CLI ends the program once it has the answer (`IO.Process.exit`, owner D), or physics gets a
 check with a time limit (owner A, §11.9).
 
+**N = 100.** The first test at N = 100 (30 s) gave egg 0.737 and bunny 0.622, but no plan for
+the ball: one build of the first sweep (height 42) took 157 s, and the sweep waited for it.
+The profile showed the local rule's exact fractions: every lever split made them longer, up to
+thousands of digits. Fixes:
+
+| Fix | Effect |
+|---|---|
+| the local rule works out loads on a fine grid (positions 1/1024, forces 1/4096, total load exact; `Support.lean`) | that build: 157 s → under 2 s |
+| the first sweep gets at most `sweepShare` (25 %) of the search time; builds not done by then are left out | no single height can block the search |
+| the reserve for scoring is at most a fifth of the limit | a 2 s limit now gives plans (it gave none) |
+
+With these, N = 100, 30 s: egg 0.737 (63 blocks), bunny 0.622 (59), ball 0.743 (43). N = 40 is
+unchanged (egg 0.735, bunny 0.546, ball 0.752). The ball scores less at N = 100 than at N = 40:
+above 40 blocks the planner builds in strict mode (no loads on overhangs; §10), which rules out
+some of the N = 40 plans. Short limits return slightly late: 2.1–2.5 s for a 2 s limit, 5.2 s
+for 5 s, because scoring at the end can take longer than the reserve.
+
 No search used an upright block (on the ground they were never worth it), and no physics check
 failed, so the no-good and jump-back path has run only in tests. Not yet measured: N = 100,
 where failing checks are slow.
