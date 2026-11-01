@@ -5,11 +5,11 @@ import KaplaSemantics.Bubble
 
 Numbers stay exact. A number that is an exact decimal is written as a JSON number (`0.3`). Any
 other number is written as a string (`"1/3"`). The decoder accepts both. See
-`semantics/APPROACH.md` §8 item 9. -/
+`semantics/APPROACH.md` §8 item 5. -/
 
 namespace KaplaSemantics
 
-open Lean
+open Lean KaplaCore
 
 /-- Write an exact number as JSON. `e` is the count of decimal places. If `q` has a finite
 decimal form, it needs at most `log2` of its denominator places. -/
@@ -33,11 +33,11 @@ def ratFromJson : Json → Except String Rat
   | j => .error s!"not a number: {j.compress}"
 
 /-- Write three numbers as a JSON list. -/
-def v3ToJson (v : V3) : Json :=
+def q3ToJson (v : Q3) : Json :=
   Json.arr #[ratToJson v.x, ratToJson v.y, ratToJson v.z]
 
 /-- Read three numbers from a JSON list. -/
-def v3FromJson (j : Json) : Except String V3 := do
+def q3FromJson (j : Json) : Except String Q3 := do
   match (← j.getArr?).toList with
   | [x, y, z] => return ⟨← ratFromJson x, ← ratFromJson y, ← ratFromJson z⟩
   | _ => throw s!"expected three numbers: {j.compress}"
@@ -47,15 +47,15 @@ def bubbleToJson (b : Bubble) : Json :=
   Json.mkObj
     [ ("label", Json.str b.label)
     , ("tags", Json.arr (b.tags.map Json.str).toArray)
-    , ("center", v3ToJson b.center)
-    , ("semi", v3ToJson b.semi) ]
+    , ("center", q3ToJson b.center)
+    , ("semi", q3ToJson b.semi) ]
 
 /-- Read one bubble from JSON. -/
 def bubbleFromJson (j : Json) : Except String Bubble := do
   let label ← (← j.getObjVal? "label").getStr?
   let tags ← (← (← j.getObjVal? "tags").getArr?).toList.mapM Json.getStr?
-  let center ← v3FromJson (← j.getObjVal? "center")
-  let semi ← v3FromJson (← j.getObjVal? "semi")
+  let center ← q3FromJson (← j.getObjVal? "center")
+  let semi ← q3FromJson (← j.getObjVal? "semi")
   return { label, tags, center, semi }
 
 /-- Write a model as JSON text. -/
@@ -72,7 +72,7 @@ def decode (text : String) : Except String BubbleModel := do
   let bubbles ← (← (← j.getObjVal? "bubbles").getArr?).toList.mapM bubbleFromJson
   let m : BubbleModel := { name, bubbles }
   if m.wellFormed then return m
-  else throw "bad model: every bubble needs a label and half-widths above 0, at most 32 bubbles"
+  else throw "bad model: every bubble needs a label, half-widths above 0 and some part above the ground (z = 0); at least one bubble must reach the ground; at most 32 bubbles"
 
 /-- Does `text` decode to exactly this model? -/
 def decodesTo (text : String) (m : BubbleModel) : Bool :=
@@ -89,10 +89,9 @@ def decodeFails (text : String) : Bool :=
 /-- The egg fixture, read from the real file when this module is built. -/
 def eggFixtureText : String := include_str "../fixtures/targets/egg.json"
 
--- The fixture decodes to the egg, is already normalised, and survives a round trip.
-#guard decodesTo eggFixtureText eggExample
-#guard eggExample.normalize == eggExample
-#guard decodesTo (encode eggExample) eggExample
+-- The fixture is the same egg as the one in Core, and survives a round trip.
+#guard decodesTo eggFixtureText BubbleModel.egg
+#guard decodesTo (encode BubbleModel.egg) BubbleModel.egg
 
 /-- A model with a number that has no finite decimal form. -/
 def thirdExample : BubbleModel :=
