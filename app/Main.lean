@@ -645,24 +645,32 @@ def postChat (key : Option String) (body : String) : IO Reply := do
 
 /-! ### The proposal -/
 
-/-- A free and fast planner for testing the page: a pile of flat blocks at the middle. It makes no
-calls to Claude. -/
-def standInTower : KaplaPlanner.Strategy :=
-  ⟨"stand-in tower (test only)", fun req ph sem =>
-    let n := min req.blocks 30
-    let pose (k : Nat) : KaplaCore.Pose := ⟨.flat, .id, ⟨0, 0, (k : Q) + 1 / 2⟩⟩
-    let plan : BuildPlan := ⟨(List.range n).map fun k => { blocks := [pose k] }⟩
-    pure [{ plan, physics := ph.check req.human req.blocks plan
-            score := sem.score req.target n plan.blocks, difficulty := default }]⟩
+/-- The planners the website offers, `ai` first: the page selects the first one. `empty` proposes
+nothing, so only the command line offers it. -/
+def sitePlanners : List KaplaPlanner.Strategy :=
+  let offered := KaplaPlanner.strategies.filter (·.name != "empty")
+  offered.filter (·.name == "ai") ++ offered.filter (·.name != "ai")
 
-/-- The planners the website offers. -/
-def sitePlanners : List KaplaPlanner.Strategy := standInTower :: KaplaPlanner.strategies
+#guard (sitePlanners.map (·.name)).head? == some "ai"
+#guard !(sitePlanners.map (·.name)).contains "empty"
 
-/-- `GET /planners`: every planner, and the ones that ask Claude (they take an `effort`). -/
+/-- The name the page shows for a planner. The planner's own name stays in requests and saved plans. -/
+def plannerLabel : String → String
+  | "ai" => "LLM, physics checked"
+  | "ai-unchecked" => "LLM, physics not checked"
+  | "layered-branch-and-bound" => "Layer-by-layer search (no LLM)"
+  | name => name
+
+#guard plannerLabel "ai" == "LLM, physics checked"
+#guard plannerLabel "other" == "other"
+
+/-- `GET /planners`: every planner, the label the page shows for each, and the ones that ask Claude
+(they take an `effort`). -/
 def getPlanners : Reply :=
   let names := sitePlanners.map (·.name)
   { json := (Json.mkObj
       [ ("planners", Json.arr (names.map Json.str).toArray)
+      , ("labels", Json.mkObj (names.map fun n => (n, Json.str (plannerLabel n))))
       , ("claude", Json.arr ((names.filter KaplaPlanner.usesClaude).map Json.str).toArray) ]).compress }
 
 /-- How long the page waits for a planner, in seconds. -/
