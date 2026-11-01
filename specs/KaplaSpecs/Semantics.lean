@@ -1,17 +1,3 @@
-# Draft text for specs/ and comparator/ (for team review)
-
-The proofs of these statements are in `semantics/KaplaSemantics/Proofs/Semantics.lean`.
-Copy each block to the file named above it, review it, then run `lake comparator`.
-This file is only a draft: delete it when the two files are in place.
-
-To review first: `blockCells_correct`, `checkWithin_correct` and `checkCovers_correct` have a
-condition, ruled on 1 Nov 2026. Every block's turn must be a real rotation (cos² + sin² = 1). Without
-it `blockCells_correct` is false. The JSON reader refuses any other turn, so the condition holds for
-every plan the engine reads.
-
-## `specs/KaplaSpecs/Semantics.lean`
-
-```lean
 import KaplaSemantics.Check
 
 /-! # Spec for KaplaSemantics (human-owned)
@@ -61,22 +47,3 @@ theorem perBubble_in_unit_interval (built : List GridPt) (b : Bubble) :
   sorry
 
 end KaplaSemantics
-```
-
-## `comparator/semantics.json`
-
-```json
-{
-  "challenge_module": "KaplaSpecs.Semantics",
-  "solution_module": "KaplaSemantics.Proofs.Semantics",
-  "theorem_names": [
-    "KaplaSemantics.targetCells_correct",
-    "KaplaSemantics.blockCells_correct",
-    "KaplaSemantics.checkWithin_correct",
-    "KaplaSemantics.checkCovers_correct",
-    "KaplaSemantics.score_in_unit_interval",
-    "KaplaSemantics.perBubble_in_unit_interval"
-  ],
-  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
-}
-```

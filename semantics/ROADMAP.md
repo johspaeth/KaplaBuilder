@@ -6,7 +6,7 @@
 Agreed 1 Nov 2026. Design: `semantics/APPROACH.md`. Rules for sessions: `semantics/CLAUDE.md`.
 Everything here is done in one sitting of a few hours; times are boxes, not estimates.
 
-**Next: the spec text goes into `specs/` and `comparator/`, and Johannes runs Comparator (`semantics/SPEC_DRAFT.md`).**
+**Done: the statements are in `specs/KaplaSpecs/Semantics.lean`, checked by `comparator/semantics.json`.**
 
 **Process rule for every step:** the decisions a step involves are listed and ruled on by the
 person before anything is written. Contract and viewer changes in particular are never
