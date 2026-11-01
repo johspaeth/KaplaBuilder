@@ -322,6 +322,19 @@ example : checkTPushes [flat45]
 example : checkTPushes [flat45] [⟨0, .ground, 165 / 26, 111 / 26, 1⟩] = false := by
   decide +kernel
 
+/-- F4 in two forms agree: an axis-aligned build is stable with pushes at the corners of its
+contact patches (`Stable`, B4) exactly when it is stable with pushes anywhere in its patches,
+read as turned planks at 0° or 90° (`TStable`, B6). So the two checks mean the same for
+builds that both can read. -/
+theorem stable_iff_tStable (b : Build) : Stable b ↔ TStable (b.map Plank.toT) := by
+  sorry
+
+-- E1 stands both ways.
+example : Stable e1 ∧ TStable (e1.map Plank.toT) :=
+  ⟨e1_stable, (stable_iff_tStable e1).1 e1_stable⟩
+-- Ruled out: the turned reading of E4 standing. E4 falls.
+example : ¬ TStable (e4.map Plank.toT) := fun h => e4_not_stable ((stable_iff_tStable e4).2 h)
+
 /-- B6: when the engine accepts a turned plan, it uses at most `maxPlanks` planks, and after
 every step the build so far is well-formed and stable at the planned positions. Placement
 errors are not checked for turned plans. -/

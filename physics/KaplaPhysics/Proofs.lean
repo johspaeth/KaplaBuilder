@@ -580,4 +580,206 @@ theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxB
     simp only [hb, Bool.and_eq_true] at hok ⊢
     exact ⟨stepDiagnostics_nil h plan hok.1, Or.inl ⟨trivial, b, rfl, checkPlan_sound _ _ _ _ hok.2⟩⟩
 
+/-! ## Two forms of F4 agree (B4 and B6) -/
+
+theorem toT_z (p : Plank) : (p.toT).z = p.z := rfl
+theorem toT_top (p : Plank) : (p.toT).top = p.top := by
+  obtain ⟨pose, x, y, z⟩ := p
+  cases pose <;> simp [Plank.toT, TPlank.top, Plank.top, Pose.upRot, Pose.size, KaplaCore.Upright.dims,
+    KaplaCore.blockLength, KaplaCore.blockWidth, KaplaCore.blockThickness]
+
+theorem absQ_neg (a : Rat) : absQ (-a) = absQ a := by unfold absQ; grind
+
+theorem reach_toT (p : Plank) (nx ny : Rat) :
+    (p.toT).reach nx ny = p.pose.size.dx / 2 * absQ nx + p.pose.size.dy / 2 * absQ ny := by
+  obtain ⟨pose, x, y, z⟩ := p
+  cases pose <;> simp [Plank.toT, TPlank.reach, TPlank.halfLength, TPlank.halfWidth, Pose.upRot,
+    Pose.size, KaplaCore.Upright.dims, KaplaCore.Rot.id, KaplaCore.Rot.quarter,
+    KaplaCore.blockLength, KaplaCore.blockWidth, KaplaCore.blockThickness, absQ] <;> grind
+
+theorem covers_toT (p : Plank) (x y : Rat) :
+    (p.toT).Covers x y ↔ p.footprint.Contains x y := by
+  obtain ⟨pose, px, py, pz⟩ := p
+  cases pose <;> simp [Plank.toT, TPlank.Covers, TPlank.along, TPlank.across, TPlank.halfLength,
+    TPlank.halfWidth, Pose.upRot, Pose.size, KaplaCore.Upright.dims, KaplaCore.Rot.id, KaplaCore.Rot.quarter, Plank.footprint,
+    Rect.Contains, Plank.centerX, Plank.centerY, Plank.x1, Plank.y1,
+    KaplaCore.blockLength, KaplaCore.blockWidth, KaplaCore.blockThickness] <;> grind
+
+
+theorem rot_toT (p : Plank) : (p.toT).rot = .id ∨ (p.toT).rot = .quarter := by
+  obtain ⟨pose, x, y, z⟩ := p
+  cases pose <;> simp [Plank.toT, Pose.upRot]
+
+theorem absQ_one : absQ 1 = 1 := by decide
+theorem absQ_neg_one : absQ (-1) = 1 := by decide
+theorem absQ_zero : absQ 0 = 0 := by decide
+
+theorem so_x (p q : Plank) (nx : Rat) (hn : nx = 1 ∨ nx = -1) :
+    ShadowsOverlap p.toT q.toT nx 0 ↔ (p.x < q.x1 ∧ q.x < p.x1) := by
+  have hp := (pose_size_pos p.pose).1
+  have hq := (pose_size_pos q.pose).1
+  unfold ShadowsOverlap
+  rw [reach_toT, reach_toT]
+  rcases hn with rfl | rfl <;>
+    simp only [absQ_one, absQ_neg_one, absQ_zero, Plank.toT, Plank.centerX, Plank.centerY,
+      Plank.x1] <;> unfold absQ <;> grind
+
+theorem so_y (p q : Plank) :
+    ShadowsOverlap p.toT q.toT 0 1 ↔ (p.y < q.y1 ∧ q.y < p.y1) := by
+  have hp := (pose_size_pos p.pose).2
+  have hq := (pose_size_pos q.pose).2
+  unfold ShadowsOverlap
+  rw [reach_toT, reach_toT]
+  simp only [absQ_one, absQ_zero, Plank.toT, Plank.centerX, Plank.centerY, Plank.y1]
+  unfold absQ; grind
+
+theorem facesOverlap_toT (p q : Plank) :
+    FacesOverlap p.toT q.toT ↔ (p.footprint.inter q.footprint).HasArea := by
+  have hp := pose_size_pos p.pose
+  have hq := pose_size_pos q.pose
+  have hx : (p.x < q.x1 ∧ q.x < p.x1) ↔ max p.x q.x < min p.x1 q.x1 := by
+    simp only [Plank.x1, Rat.max_def, Rat.min_def]; split <;> split <;> grind
+  have hy : (p.y < q.y1 ∧ q.y < p.y1) ↔ max p.y q.y < min p.y1 q.y1 := by
+    simp only [Plank.y1, Rat.max_def, Rat.min_def]; split <;> split <;> grind
+  simp only [Rect.HasArea, Rect.inter, Plank.footprint, ← hx, ← hy]
+  unfold FacesOverlap
+  rcases rot_toT p with hp | hp <;> rcases rot_toT q with hq | hq <;>
+    rw [hp, hq] <;> simp only [KaplaCore.Rot.id, KaplaCore.Rot.quarter, Rat.neg_zero] <;>
+    simp only [so_x p q 1 (Or.inl rfl), so_x p q (-1) (Or.inr rfl), so_y] <;> grind
+
+
+theorem toT_length (b : Build) : (b.map Plank.toT).length = b.length := by simp
+
+theorem toT_get (b : Build) (i : Nat) (h : i < b.length) :
+    TBuild.get (b.map Plank.toT) i = (b.get i).toT := by
+  simp [TBuild.get, Build.get, List.getD_eq_getElem?_getD, h]
+
+/-- Plank `i` rests on `s` in the turned build exactly when it has a contact patch with `s`
+in the plank build. -/
+theorem tRestsOn_toT (b : Build) (i : Nat) (hi : i < b.length) (s : Support)
+    (hs : s.InBuild b.length) :
+    TRestsOn (b.map Plank.toT) i s ↔ (restPatch b i s).isSome := by
+  cases s with
+  | ground =>
+    simp only [TRestsOn, toT_get b i hi, toT_z, restPatch]
+    split <;> simp_all
+  | plank j =>
+    simp only [Support.InBuild] at hs
+    simp only [TRestsOn, toT_get b i hi, toT_get b j hs, toT_z, toT_top, facesOverlap_toT,
+      restPatch]
+    split <;> simp_all
+
+/-- The corners of the overlap of two footprints lie in both footprints. -/
+theorem corner_mem_inter (a c : Rect) (x y : Rat) (hr : (a.inter c).HasArea)
+    (hm : (x, y) ∈ (a.inter c).corners) : a.Contains x y ∧ c.Contains x y := by
+  simp only [Rect.HasArea, Rect.inter] at hr
+  simp only [Rect.corners, Rect.inter, List.mem_cons, List.mem_nil_iff, or_false,
+    Prod.mk.injEq] at hm
+  simp only [Rect.Contains]
+  rcases hm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
+    simp only [Rat.max_def, Rat.min_def] at hr ⊢ <;> split at hr <;> split at hr <;>
+    split <;> split <;> grind
+
+/-- The corners of a plank's footprint lie in it. -/
+theorem corner_mem_footprint (p : Plank) (x y : Rat) (hm : (x, y) ∈ p.footprint.corners) :
+    p.footprint.Contains x y := by
+  have := pose_size_pos p.pose
+  simp only [Rect.corners, Plank.footprint, List.mem_cons, List.mem_nil_iff, or_false,
+    Prod.mk.injEq] at hm
+  rcases hm with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
+    simp only [Rect.Contains, Plank.footprint, Plank.x1, Plank.y1] <;> grind
+
+/-- A corner push allowed in the plank build is allowed in the turned build. -/
+theorem tPushAllowed_of_allowed (b : Build) (p : Push) (h : p.Allowed b) :
+    TPushAllowed (b.map Plank.toT) p := by
+  obtain ⟨hf, hu, hl, hc⟩ := h
+  have hrest : (restPatch b p.upper p.lower).isSome := by
+    revert hc; cases restPatch b p.upper p.lower <;> simp
+  refine ⟨hf, by simpa using hu, by simpa using hl,
+    (tRestsOn_toT b _ hu _ hl).2 hrest, ?_⟩
+  obtain ⟨r, hr⟩ := Option.isSome_iff_exists.mp hrest
+  simp only [hr] at hc
+  rw [toT_get b _ hu, covers_toT]
+  cases hlow : p.lower with
+  | ground =>
+    rw [hlow] at hr
+    obtain ⟨-, rfl⟩ := (restPatch_ground_iff b _ r).1 hr
+    exact ⟨corner_mem_footprint _ _ _ hc, trivial⟩
+  | plank j =>
+    rw [hlow] at hr hl
+    simp only [Support.InBuild] at hl
+    obtain ⟨-, rfl, ha⟩ := (restPatch_plank_iff b _ j r).1 hr
+    obtain ⟨h1, h2⟩ := corner_mem_inter _ _ _ _ ha hc
+    exact ⟨h1, by simp only []; rw [toT_get b j hl, covers_toT]; exact h2⟩
+
+/-- A push allowed in the turned build sits inside a contact patch with area of the plank
+build. -/
+theorem patch_of_tPushAllowed (b : Build) (p : Push) (h : TPushAllowed (b.map Plank.toT) p) :
+    ∃ r, restPatch b p.upper p.lower = some r ∧ r.x0 < r.x1 ∧ r.y0 < r.y1 ∧
+      r.x0 ≤ p.x ∧ p.x ≤ r.x1 ∧ r.y0 ≤ p.y ∧ p.y ≤ r.y1 := by
+  obtain ⟨-, hu, hl, hrest, hcu, hcl⟩ := h
+  rw [toT_length] at hu hl
+  obtain ⟨r, hr⟩ := Option.isSome_iff_exists.mp ((tRestsOn_toT b _ hu _ hl).1 hrest)
+  rw [toT_get b _ hu, covers_toT] at hcu
+  refine ⟨r, hr, ?_⟩
+  cases hlow : p.lower with
+  | ground =>
+    rw [hlow] at hr
+    obtain ⟨-, rfl⟩ := (restPatch_ground_iff b _ r).1 hr
+    have := pose_size_pos (b.get p.upper).pose
+    simp only [Rect.Contains, Plank.footprint, Plank.x1, Plank.y1] at hcu ⊢
+    grind
+  | plank j =>
+    rw [hlow] at hr hl hcl
+    simp only [Support.InBuild] at hl
+    simp only [] at hcl
+    rw [toT_get b j hl, covers_toT] at hcl
+    obtain ⟨-, rfl, ha⟩ := (restPatch_plank_iff b _ j r).1 hr
+    simp only [Rect.HasArea, Rect.inter] at ha
+    simp only [Rect.Contains, Rect.inter, Plank.footprint] at hcu hcl ⊢
+    refine ⟨ha.1, ha.2, ?_⟩
+    simp only [Rat.max_def, Rat.min_def]
+    split <;> split <;> split <;> split <;> grind
+
+/-- F4, two ways: an axis-aligned build is stable with pushes at the corners of its
+contact patches (`Stable`) exactly when it is stable with pushes anywhere in its patches,
+read as a build of turned planks (`TStable`). -/
+theorem stable_iff_tStable (b : Build) : Stable b ↔ TStable (b.map Plank.toT) := by
+  constructor
+  · rintro ⟨ps, hall, hbal⟩
+    refine ⟨ps, fun p hp => tPushAllowed_of_allowed b p (hall p hp), fun i hi => ?_⟩
+    rw [toT_length] at hi
+    obtain ⟨h1, h2, h3⟩ := hbal i hi
+    exact ⟨h1, by rw [toT_get b i hi]; exact h2, by rw [toT_get b i hi]; exact h3⟩
+  · rintro ⟨ps, hall, hbal⟩
+    let patch := fun (p : Push) => (restPatch b p.upper p.lower).getD default
+    refine ⟨ps.flatMap fun p => spreadOver (patch p) p, ?_, fun i hi => ?_⟩
+    · intro q hq
+      obtain ⟨p, hp, hq⟩ := List.mem_flatMap.mp hq
+      have hpa := hall p hp
+      obtain ⟨r, hr, hx, hy, hx0, hx1, hy0, hy1⟩ := patch_of_tPushAllowed b p hpa
+      have hpr : patch p = r := by simp [patch, hr]
+      rw [hpr] at hq
+      obtain ⟨hf, hu, hl, -⟩ := hpa
+      rw [toT_length] at hu hl
+      exact spread_allowed b r p hf hu hl hr hx hy hx0 hx1 hy0 hy1 q hq
+    · have hi' : i < (b.map Plank.toT).length := by rw [toT_length]; exact hi
+      obtain ⟨h1, h2, h3⟩ := hbal i hi'
+      rw [toT_get b i hi] at h2 h3
+      have key : ∀ p ∈ ps, ∃ r, patch p = r ∧ r.x0 < r.x1 ∧ r.y0 < r.y1 := by
+        intro p hp
+        obtain ⟨r, hr, hx, hy, -⟩ := patch_of_tPushAllowed b p (hall p hp)
+        exact ⟨r, by simp [patch, hr], hx, hy⟩
+      refine ⟨?_, ?_, ?_⟩
+      · rw [sum_flatMap, ← h1]
+        apply sum_map_congr; intro p _; exact spread_force _ p i
+      · rw [sum_flatMap, ← h2]
+        apply sum_map_congr; intro p hp
+        obtain ⟨r, hr, hx, -⟩ := key p hp
+        rw [hr]; exact spread_turnX r p i _ hx
+      · rw [sum_flatMap, ← h3]
+        apply sum_map_congr; intro p hp
+        obtain ⟨r, hr, -, hy⟩ := key p hp
+        rw [hr]; exact spread_turnY r p i _ hy
+
 end KaplaPhysics
