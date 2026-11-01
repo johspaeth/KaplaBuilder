@@ -95,6 +95,19 @@ def better (a b : Candidate) : Bool :=
 /-- A candidate we may return: physics said ok, and it uses at most `n` blocks. -/
 def acceptable (n : Nat) (c : Candidate) : Bool := c.physics.ok && c.plan.blockCount ≤ n
 
+/-- The frame for a proposal: the target as tall as the whole proposal, centred under its blocks
+in x and y. It comes from the whole proposal, not from a shorter repaired plan, so a repaired
+plan is compared with the full-size target. -/
+def frameFor (t : TargetSpec) (blocks : List Pose) : Frame :=
+  let tb := targetBox t
+  match Box.joinAll (blocks.map Pose.box) with
+  | none => Frame.ofHeight 1
+  | some pb =>
+    let h := tb.size.z
+    let s : Q := if h ≤ 0 || pb.hi.z ≤ 0 then 1 else pb.hi.z / h
+    ⟨s, (pb.lo.x + pb.hi.x) / 2 - s * ((tb.lo.x + tb.hi.x) / 2),
+        (pb.lo.y + pb.hi.y) / 2 - s * ((tb.lo.y + tb.hi.y) / 2)⟩
+
 /-- Check, repair and score each proposal. -/
 def evaluate (req : PlanRequest) (phys : PhysicsEngine) (sem : SemanticEngine) :
     List Proposal → Nat → List Candidate
@@ -106,7 +119,7 @@ def evaluate (req : PlanRequest) (phys : PhysicsEngine) (sem : SemanticEngine) :
     | (some (steps, r), left) =>
       let plan := toBuildPlan steps
       let c : Candidate :=
-        { plan, physics := r, score := sem.score req.target plan.blocks,
+        { plan, physics := r, score := sem.score req.target (frameFor req.target (toBuildPlan p.steps).blocks) plan.blocks,
           difficulty := difficultyOf plan }
       c :: evaluate req phys sem ps (fuel - (min fuel 8 - left))
 

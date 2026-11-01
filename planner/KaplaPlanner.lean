@@ -8,6 +8,7 @@ import KaplaPlanner.Sequencer
 import KaplaPlanner.PreCheck
 import KaplaPlanner.Search
 import KaplaPlanner.Planner
+import KaplaPlanner.Ellipsoid
 import KaplaPlanner.Inside
 import KaplaPlanner.InsideProof
 import KaplaPlanner.Bubble

@@ -27,8 +27,8 @@ structure PhysicsEngine where
 
 structure SemanticEngine where
   interpret : Request → IO TargetSpec                      -- the planner does not call this
-  score     : TargetSpec → List Pose → ScoreReport
-  bound     : TargetSpec → Nat → Bound
+  refine    : TargetSpec → String → IO TargetSpec            -- the planner does not call this
+  score     : TargetSpec → Frame → List Pose → ScoreReport
 
 structure Planner where
   plan : PlanRequest → PhysicsEngine → SemanticEngine → IO (List Candidate)
@@ -91,7 +91,7 @@ a block unit, so the quarter points a person aims at (§3.4) are whole numbers. 
 ```
 TargetSpec (bubbles), N, HumanModel
    │
-   ├─ 1. Bubbles        the target is a union of turned ellipsoids ("bubbles") (§3.1)
+   ├─ 1. Bubbles        the target is a union of ellipsoids ("bubbles") (§3.1)
    ├─ 2. Scale search   try several scales s and grid offsets; keep the best (§3.2)
    │     for each (s, offset):
    │      ├─ 3. Allowed cells   grid cells that lie strictly inside the scaled bubbles (§3.3)
@@ -113,20 +113,23 @@ step by step without falling.**
 
 ### 3.1 The target: bubbles
 
-The semantic engine describes the target as a union of **bubbles**. A bubble is a turned,
-stretched sphere (an ellipsoid), given exactly in rational numbers:
+The semantic engine describes the target as a union of **bubbles** (`KaplaCore.Bubble`). A
+bubble is a stretched ball (an ellipsoid) with its axes along x, y and z, given exactly in
+rational numbers:
 
 ```lean
 structure Bubble where
-  part   : String       -- which part of the target it belongs to ("head", "tower 2", …)
+  label  : String       -- a name for people ("head", "tower 2", …)
+  tags   : List String  -- hints for the planner ("tower", …)
   center : Q3
-  axes   : Q3 × Q3 × Q3 -- u₁, u₂, u₃
--- point x is inside  ⇔  (u₁·(x−c))² + (u₂·(x−c))² + (u₃·(x−c))² ≤ 1
+  semi   : Q3           -- the half-widths along x, y and z, each above 0
+-- point p is inside  ⇔  ((p−c).x/semi.x)² + ((p−c).y/semi.y)² + ((p−c).z/semi.z)² ≤ 1
 ```
 
-Each `uᵢ` is an axis direction divided by that axis's radius. Any turn and any stretch can
-be written this way with rational numbers; no special angles are needed. A plain sphere of
-radius r has `u₁ = (1/r, 0, 0)`, `u₂ = (0, 1/r, 0)`, `u₃ = (0, 0, 1/r)`.
+A bubble with a half-width of 0 or less contains nothing. A `Frame` (scale and a sideways
+shift) says how big to build the model and where. Turned bubbles are not in the core format.
+The planner's inside proof works for turned ellipsoids too (`Ellipsoid.lean`), so adding
+them later only needs a new `bubble_contains_iff`.
 
 The bubbles can overlap. The target is everything inside at least one bubble.
 
@@ -372,11 +375,11 @@ The planner develops against these. They are *not* trusted and are deliberately 
   every block, its centre of mass must lie over the bounding box of the blocks it rests on
   (or the ground). Also checks block count ≤ N and steps ≤ hands. It returns the matching
   `Diagnostic`s. Without the per-step check the planner would learn bad orders on mocks.
-- **SemanticMock.score**: volume IoU between the blocks and the target part boxes, best of
-  three scales (target as high, as wide or as deep as the blocks).
-- **SemanticMock.bound**: `min(1, N · block volume / target volume)`.
-- **To change** for the bubble design: the mock target becomes bubbles, and the mock score
-  becomes surface-based (share of surface cells covered by blocks) to match §3.4.
+- **SemanticMock.score**: IoU on a coarse voxel grid (cell = one block thickness) between
+  the blocks and the union of the target part boxes. Per-part scores come from the same
+  grid.
+- **To change** for the bubble design: the mock score should become surface-based (share of
+  surface cells covered by blocks) to match §3.4.
 
 ---
 
@@ -399,8 +402,8 @@ follow WORKSPLIT §3.
 | `TargetSpec` | `shape`, `silhouette?`, `parts : List PartTag` |
 | `Diagnostic` | the eight cases in WORKSPLIT §3. Step and block indices are `Nat` (block index = position in the flattened plan) |
 | `PhysicsReport` | `ok`, `diagnostics`, `slackPerBlock?` |
-| `ScoreReport` | `score`, `iou`, `silhouetteIoU?`, `perPart : List (String × Q)` |
-| `Bound`, `Verdict` | `maxScore`, `verdict` |
+| `ScoreReport` | `score`, `iou`, `silhouetteIoU?`, `perPart : List (String × Q)`, `missing`, `extra`, `frame`, `blockCount`, `outside`, `uncovered`, `tooSmall` |
+| `Verdict` | `good`, `coarse`, `abstract`, `symbolic` |
 | `PlanRequest` | `target`, `blocks : Nat`, `human`, `maxCandidates`, `maxChecks` |
 | `Candidate` | `plan`, `physics`, `score`, `difficulty` |
 | `Difficulty` | `easy`, `medium`, `expert` |
@@ -426,8 +429,8 @@ only the bubbles, never the shape DSL.
 
 ## 10. Open questions for the team
 
-1. B: the target as **bubbles** (turned ellipsoids, §3.1), each tagged with its part. Agreed
-   format?
+1. ~~B: the target as bubbles. Agreed format?~~ Settled: `KaplaCore.Bubble` (axes along x, y
+   and z, §3.1).
 2. B: a **surface-based** likeness score (the outside shape counts, not the inside volume).
    How exactly is it measured (surface coverage, silhouettes from several views, …)? The
    planner's internal goal (§3.4) should match it.

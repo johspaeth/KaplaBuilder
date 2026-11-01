@@ -22,7 +22,7 @@ def cellBox (i j k : Int) : Box :=
 
 /-- The cube's 8 corners all lie inside the same bubble, for some bubble in the list. -/
 def cellInside (bs : List Bubble) (i j k : Int) : Bool :=
-  bs.any fun b => (cellBox i j k).corners.all fun p => decide (b.contains p)
+  bs.any fun b => (cellBox i j k).corners.all fun p => b.contains p
 
 /-- The integers `a, a+d, …, a+(n-1)·d`. -/
 def intRange (a : Int) (n : Nat) (d : Nat := 1) : List Int :=
@@ -41,8 +41,14 @@ def insideBubbles (bs : List Bubble) (design : List GridBlock) : Bool :=
 -- a flat block is cut into 15 × 3 × 1 = 45 cubes
 #guard (GridBlock.mk .flatX 0 0 0).cells.length == 45
 
+/-- A ball with centre `c` and radius `r`, as a bubble without tags. -/
+def ball (label : String) (c : Q3) (r : Q) : Bubble := ⟨label, [], c, ⟨r, r, r⟩⟩
+
+/-- An ellipsoid with centre `c` and half-widths `rx`, `ry`, `rz`, as a bubble without tags. -/
+def ellipsoid (label : String) (c : Q3) (rx ry rz : Q) : Bubble := ⟨label, [], c, ⟨rx, ry, rz⟩⟩
+
 /-- Example: a ball of radius 13, centred 13 above the ground (in block units). -/
-def exampleBall : Bubble := Bubble.ball "ball" ⟨0, 0, 13⟩ 13
+def exampleBall : Bubble := ball "ball" ⟨0, 0, 13⟩ 13
 
 -- a flat block through the middle of the ball fits (it is 15 long)
 #guard insideBubbles [exampleBall] [⟨.flatX, -30, -6, 48⟩]

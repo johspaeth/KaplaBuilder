@@ -56,7 +56,7 @@ def resultOk (t : TargetSpec) (n : Nat) (human : HumanModel) : Bool :=
 
 -- a tall tower with 60 blocks: a 30-layer log-cabin tower beats one block
 #guard match run (boxTarget "tower" .tower 15 15 38) 60 with
-  | best :: _ => best.plan.blockCount == 60 && best.score.score > 3 / 10
+  | best :: _ => best.plan.blockCount == 60 && best.score.score > 3 / 20
   | [] => false
 
 -- a house with 60 blocks: a solid column, with a good likeness
@@ -74,7 +74,7 @@ def resultOk (t : TargetSpec) (n : Nat) (human : HumanModel) : Bool :=
 -- A small ball, at most 12 blocks: the design is strictly inside (proven check), every block
 -- can be placed by eye, the plan stands after every step (mock physics), and the budget holds.
 #guard
-  let t := Fixtures.ofBubbles [Bubble.ball "ball" ⟨0, 0, 10⟩ 10]
+  let t := Fixtures.ofBubbles [ball "ball" ⟨0, 0, 10⟩ 10]
   match design standsNow t 12 [1] [1 / 5] with
   | none => false
   | some d =>

@@ -19,10 +19,11 @@ structure PhysicsEngine where
 structure SemanticEngine where
   /-- Prompt or picture → target. Calls Claude, so it is in `IO`. -/
   interpret : Request → IO TargetSpec
-  /-- How much the blocks look like the target. -/
-  score     : TargetSpec → List Pose → ScoreReport
-  /-- The best score that this many blocks could reach. -/
-  bound     : TargetSpec → Nat → Bound
+  /-- Change a target after a person's remark, such as "make the ears bigger". Calls Claude. -/
+  refine    : TargetSpec → String → IO TargetSpec
+  /-- Compare blocks with the target, at the size and position the frame gives. The blocks can
+  be a finished or a partial plan. The caller chooses the frame; the engine never picks one. -/
+  score     : TargetSpec → Frame → List Pose → ScoreReport
 
 /-- What the planner is asked to do. -/
 structure PlanRequest where

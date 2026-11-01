@@ -9,51 +9,43 @@ namespace KaplaPlanner.Fixtures
 open KaplaCore
 
 /-- A target from its bubbles (the shape field is only a placeholder here). -/
-def ofBubbles (bs : List Bubble) : TargetSpec :=
-  { shape := .box ⟨⟨0, 0, 0⟩, ⟨0, 0, 0⟩⟩, bubbles := bs }
+def ofBubbles (bs : List Bubble) : TargetSpec := TargetSpec.ofBubbles ⟨"fixture", bs⟩
 
 /-- A ball resting on the ground. The simplest case: a ring, then a lid. -/
-def sphere : TargetSpec := ofBubbles [Bubble.ball "ball" ⟨0, 0, 13⟩ 13]
+def sphere : TargetSpec := ofBubbles [ball "ball" ⟨0, 0, 13⟩ 13]
 
 /-- Three stacked balls: the outline narrows and widens again (overhangs, inner support). -/
 def snowman : TargetSpec := ofBubbles
-  [Bubble.ball "bottom" ⟨0, 0, 10⟩ 10, Bubble.ball "middle" ⟨0, 0, 25⟩ 7,
-   Bubble.ball "head" ⟨0, 0, 73 / 2⟩ (9 / 2)]
+  [ball "bottom" ⟨0, 0, 10⟩ 10, ball "middle" ⟨0, 0, 25⟩ 7,
+   ball "head" ⟨0, 0, 73 / 2⟩ (9 / 2)]
 
 /-- A tall thin ellipsoid: needs blocks on edge or upright. -/
-def spire : TargetSpec := ofBubbles [Bubble.ellipsoid "spire" ⟨0, 0, 25⟩ 4 4 25]
-
-/-- An ellipsoid leaning by a 3-4-5 angle (about 37° from upright, turned about x). -/
-def leaning : TargetSpec := ofBubbles
-  [⟨"leaning", ⟨0, 12, 16⟩,
-    ⟨1 / 5, 0, 0⟩,                       -- across, radius 5
-    ⟨0, (3 / 5) / 19, (4 / 5) / 19⟩,     -- along the lean, radius 19
-    ⟨0, (-4 / 5) / 5, (3 / 5) / 5⟩⟩]     -- across, radius 5
+def spire : TargetSpec := ofBubbles [ellipsoid "spire" ⟨0, 0, 25⟩ 4 4 25]
 
 /-- A duck: body, a head that sticks out, and a thin beak that vanishes at small scales. -/
 def duck : TargetSpec := ofBubbles
-  [Bubble.ellipsoid "body" ⟨0, 0, 8⟩ 13 8 8, Bubble.ball "head" ⟨10, 0, 19⟩ 5,
-   Bubble.ellipsoid "beak" ⟨17, 0, 19⟩ 3 (3 / 2) 1]
+  [ellipsoid "body" ⟨0, 0, 8⟩ 13 8 8, ball "head" ⟨10, 0, 19⟩ 5,
+   ellipsoid "beak" ⟨17, 0, 19⟩ 3 (3 / 2) 1]
 
 /-- Two towers and a bridge: separate parts, and a span between them. -/
 def gate : TargetSpec := ofBubbles
-  [Bubble.ellipsoid "left tower" ⟨-15, 0, 19⟩ 5 5 19,
-   Bubble.ellipsoid "right tower" ⟨15, 0, 19⟩ 5 5 19,
-   Bubble.ellipsoid "bridge" ⟨0, 0, 35⟩ 22 (9 / 2) 4]
+  [ellipsoid "left tower" ⟨-15, 0, 19⟩ 5 5 19,
+   ellipsoid "right tower" ⟨15, 0, 19⟩ 5 5 19,
+   ellipsoid "bridge" ⟨0, 0, 35⟩ 22 (9 / 2) 4]
 
 /-- All test targets with their names. -/
 def all : List (String × TargetSpec) :=
-  [("sphere", sphere), ("snowman", snowman), ("spire", spire), ("leaning", leaning),
+  [("sphere", sphere), ("snowman", snowman), ("spire", spire),
    ("duck", duck), ("gate", gate)]
 
 -- every bubble of every target is bounded
-#guard all.all fun (_, t) => t.bubbles.all fun b => (bubbleBounds b).isSome
+#guard all.all fun (_, t) => (targetBubbles t).all fun b => (bubbleBounds b).isSome
 
-/-- An upper limit for the volume of a bubble: `4/3 · 22/7 / |det|` (22/7 is more than π). -/
-def volumeAbove (b : Bubble) : Q := 4 / 3 * (22 / 7) / (det3 b.u1 b.u2 b.u3).abs
+/-- An upper limit for the volume of a bubble: `4/3 · 22/7 · a · b · c` (22/7 is more than π). -/
+def volumeAbove (b : Bubble) : Q := 4 / 3 * (22 / 7) * b.semi.x * b.semi.y * b.semi.z
 
-/-- A lower limit for the volume of a bubble: `4/3 · 3 / |det|` (3 is less than π). -/
-def volumeBelow (b : Bubble) : Q := 4 / 3 * 3 / (det3 b.u1 b.u2 b.u3).abs
+/-- A lower limit for the volume of a bubble: `4/3 · 3 · a · b · c` (3 is less than π). -/
+def volumeBelow (b : Bubble) : Q := 4 / 3 * 3 * b.semi.x * b.semi.y * b.semi.z
 
 /-- Volume of one grid cell. -/
 def cellVolume : Q := blockThickness ^ 3
@@ -64,7 +56,7 @@ def cellVolume : Q := blockThickness ^ 3
 - they hold at least a third of the largest bubble (the grid loses only a thin rim);
 - surface cells exist and are allowed cells. -/
 def allowedOk (t : TargetSpec) (s : Q) : Bool :=
-  let bs := t.bubbles.map (placeBubble s ⟨0, 0, 0⟩)
+  let bs := (targetBubbles t).map (placeBubble s ⟨0, 0, 0⟩)
   let allowed := allowedCells bs
   let n : Q := (allowed.size : Q)
   let surface := surfaceCells allowed
@@ -77,18 +69,10 @@ def allowedOk (t : TargetSpec) (s : Q) : Bool :=
 
 /-- Number of allowed cells of the bubble named `part`, at scale `s`. -/
 def cellsOfPart (t : TargetSpec) (part : String) (s : Q) : Nat :=
-  (allowedCells ((t.bubbles.filter (·.part == part)).map (placeBubble s ⟨0, 0, 0⟩))).size
+  (allowedCells (((targetBubbles t).filter (·.label == part)).map (placeBubble s ⟨0, 0, 0⟩))).size
 
 -- The beak (2 high) has almost no room at scale 1, but plenty at scale 3: the planner
 -- must choose the scale with the thin parts in mind.
 #guard cellsOfPart duck "beak" 1 < 10 && cellsOfPart duck "beak" 3 > 100
-
--- A leaning bubble: cells high up are shifted along y (the lean), cells low down are not.
-#guard
-  let allowed := (allowedCells leaning.bubbles).toList
-  let ysAt (k : Int) := (allowed.filter (·.2.2 == k)).map (·.2.1)
-  match ysAt 8 |>.max?, ysAt 120 |>.min? with
-  | some lowTop, some highBottom => highBottom > lowTop
-  | _, _ => false
 
 end KaplaPlanner.Fixtures

@@ -90,7 +90,7 @@ example : ¬ ([⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 0, 0⟩] : List GridBlock).P
 
 /-! ## 3. The design never sticks out of the target
 
-The target is a union of bubbles (stretched, turned spheres; `KaplaCore.Bubble`). A design
+The target is a union of bubbles (stretched balls; `KaplaCore.Bubble`). A design
 is a list of blocks on the grid; `blk.box` is the space block `blk` fills.
 `insideBubbles bubbles design` is the planner's check. The promise: if the check accepts,
 **every point** of every block is inside some bubble. The check itself only looks at the
@@ -100,11 +100,11 @@ corners of grid cells, so this is the part that needs a proof. -/
 bubble: the design never sticks out of the target. -/
 theorem insideBubbles_sound (bs : List Bubble) (design : List GridBlock)
     (h : insideBubbles bs design = true) :
-    ∀ blk ∈ design, ∀ p : Q3, blk.box.contains p → ∃ b ∈ bs, b.contains p := by
+    ∀ blk ∈ design, ∀ p : Q3, blk.box.contains p → ∃ b ∈ bs, b.contains p = true := by
   sorry
 
 /-- A ball of radius 13, 13 above the ground, and a flat block through its middle. -/
-def ballTarget : List Bubble := [Bubble.ball "ball" ⟨0, 0, 13⟩ 13]
+def ballTarget : List Bubble := [⟨"ball", [], ⟨0, 0, 13⟩, ⟨13, 13, 13⟩⟩]
 def blockInBall : GridBlock := ⟨.flatX, -30, -6, 48⟩
 
 -- The condition can be met: the check accepts this block.
@@ -122,7 +122,7 @@ example : ¬ (∀ p : Q3, (GridBlock.mk .flatX 28 (-8) 48).box.contains p →
     grind)
   simp only [ballTarget, List.mem_singleton] at hb
   subst hb
-  simp only [Bubble.contains, Bubble.value, Bubble.ball, Q3.dot, Q3.sub] at hp
+  simp only [Bubble.contains, Bool.and_eq_true, decide_eq_true_eq] at hp
   grind
 
 end KaplaPlanner

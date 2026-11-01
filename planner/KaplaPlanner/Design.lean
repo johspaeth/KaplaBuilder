@@ -36,7 +36,7 @@ abbrev MaskCache := Std.HashMap (Int × Int × Int) Nat
 /-- The bubbles that contain the grid point `p` (in units), as bits. -/
 def pointMask (bs : Array Bubble) (p : Int × Int × Int) : Nat :=
   let q : Q3 := ⟨(p.1 : Q) * unit, (p.2.1 : Q) * unit, (p.2.2 : Q) * unit⟩
-  (List.range bs.size).foldl (fun m i => if decide (bs[i]!.contains q) then m ||| (1 <<< i) else m) 0
+  (List.range bs.size).foldl (fun m i => if bs[i]!.contains q then m ||| (1 <<< i) else m) 0
 
 /-- `pointMask`, remembered. -/
 def maskAt (bs : Array Bubble) (p : Int × Int × Int) : StateM MaskCache Nat := do
@@ -303,7 +303,7 @@ def designPlaced (stands : List GridBlock → Bool) (bs : List Bubble) (n : Nat)
 /-- Scale the target by `s` and sink it so that the ground cuts it at `sink` (a share of its
 height, from the bottom). -/
 def placeTarget (t : TargetSpec) (s sink : Q) : List Bubble :=
-  let scaled := t.bubbles.map (placeBubble s ⟨0, 0, 0⟩)
+  let scaled := (targetBubbles t).map (placeBubble s ⟨0, 0, 0⟩)
   let bounds := scaled.filterMap bubbleBounds
   let zlo := (bounds.map (·.lo.z)).foldl min ((bounds.head?.map (·.lo.z)).getD 0)
   let zhi := (bounds.map (·.hi.z)).foldl max ((bounds.head?.map (·.hi.z)).getD 0)

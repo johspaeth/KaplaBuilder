@@ -20,9 +20,9 @@ Entry point: `KaplaPlanner.planner : KaplaCore.Planner` (pure core: `planPure`).
 | `PreCheck.lean` | block count, no overlap, supports first, before calling physics |
 | `Search.lean` | proposals, physics check + repair (keep the stable prefix), score, rank |
 | `Tests.lean` | end-to-end on `physicsMock` / `semanticMock` |
-| `Inside.lean`, `InsideProof.lean` | `insideBubbles`: the design is strictly inside the target's bubbles (proven) |
+| `Ellipsoid.lean`, `Inside.lean`, `InsideProof.lean` | `insideBubbles`: the design is strictly inside the target's bubbles (proven) |
 | `Bubble.lean` | scale/move bubbles, safe bounding box, allowed and surface cells |
-| `Fixtures.lean` | bubble test targets: sphere, snowman, spire, leaning, duck, gate |
+| `Fixtures.lean` | bubble test targets: sphere, snowman, spire, duck, gate |
 | `Eyeball.lean` | the eyeball rule: each block lines up (ends, centre, quarters) with a block it rests on |
 | `Stability.lean` | cheap grid stability estimate used inside the search |
 | `Design.lean` | P3 minimal filler: layer by layer, greedy surface coverage, scale and ground height search |

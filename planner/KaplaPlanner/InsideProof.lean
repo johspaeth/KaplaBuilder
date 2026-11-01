@@ -1,4 +1,5 @@
 import KaplaPlanner.Inside
+import KaplaPlanner.Ellipsoid
 
 /-! # Lemmas for the proof that `insideBubbles` is correct
 
@@ -36,40 +37,40 @@ theorem seg_nonneg (a x c : Rat) (hax : a ≤ x) (hxc : x ≤ c) :
   Rat.mul_nonneg (Rat.mul_nonneg (by grind) (by grind)) (by grind)
 
 /-- Along x: if both ends of a segment are inside the bubble, so is every point between. -/
-theorem line_x (b : Bubble) (y z a x c : Rat) (hax : a ≤ x) (hxc : x ≤ c)
+theorem line_x (b : Ellipsoid) (y z a x c : Rat) (hax : a ≤ x) (hxc : x ≤ c)
     (ha : b.contains ⟨a, y, z⟩) (hc : b.contains ⟨c, y, z⟩) : b.contains ⟨x, y, z⟩ := by
-  unfold Bubble.contains at *
+  unfold Ellipsoid.contains at *
   apply le_one_of_interp a x c _ _ _ hax hxc ha hc (fun e => by subst e; rw [show x = a by grind])
   have key : (c - x) * b.value ⟨a, y, z⟩ + (x - a) * b.value ⟨c, y, z⟩ - (c - a) * b.value ⟨x, y, z⟩
       = (b.u1.x ^ 2 + b.u2.x ^ 2 + b.u3.x ^ 2) * ((c - a) * (x - a) * (c - x)) := by
-    simp only [Bubble.value, Q3.dot, Q3.sub]; grind
+    simp only [Ellipsoid.value, Q3.dot, Q3.sub]; grind
   have := Rat.mul_nonneg (sum_sq_nonneg b.u1.x b.u2.x b.u3.x) (seg_nonneg a x c hax hxc)
   grind
 
 /-- Along y: same as `line_x`. -/
-theorem line_y (b : Bubble) (x z a y c : Rat) (hay : a ≤ y) (hyc : y ≤ c)
+theorem line_y (b : Ellipsoid) (x z a y c : Rat) (hay : a ≤ y) (hyc : y ≤ c)
     (ha : b.contains ⟨x, a, z⟩) (hc : b.contains ⟨x, c, z⟩) : b.contains ⟨x, y, z⟩ := by
-  unfold Bubble.contains at *
+  unfold Ellipsoid.contains at *
   apply le_one_of_interp a y c _ _ _ hay hyc ha hc (fun e => by subst e; rw [show y = a by grind])
   have key : (c - y) * b.value ⟨x, a, z⟩ + (y - a) * b.value ⟨x, c, z⟩ - (c - a) * b.value ⟨x, y, z⟩
       = (b.u1.y ^ 2 + b.u2.y ^ 2 + b.u3.y ^ 2) * ((c - a) * (y - a) * (c - y)) := by
-    simp only [Bubble.value, Q3.dot, Q3.sub]; grind
+    simp only [Ellipsoid.value, Q3.dot, Q3.sub]; grind
   have := Rat.mul_nonneg (sum_sq_nonneg b.u1.y b.u2.y b.u3.y) (seg_nonneg a y c hay hyc)
   grind
 
 /-- Along z: same as `line_x`. -/
-theorem line_z (b : Bubble) (x y a z c : Rat) (haz : a ≤ z) (hzc : z ≤ c)
+theorem line_z (b : Ellipsoid) (x y a z c : Rat) (haz : a ≤ z) (hzc : z ≤ c)
     (ha : b.contains ⟨x, y, a⟩) (hc : b.contains ⟨x, y, c⟩) : b.contains ⟨x, y, z⟩ := by
-  unfold Bubble.contains at *
+  unfold Ellipsoid.contains at *
   apply le_one_of_interp a z c _ _ _ haz hzc ha hc (fun e => by subst e; rw [show z = a by grind])
   have key : (c - z) * b.value ⟨x, y, a⟩ + (z - a) * b.value ⟨x, y, c⟩ - (c - a) * b.value ⟨x, y, z⟩
       = (b.u1.z ^ 2 + b.u2.z ^ 2 + b.u3.z ^ 2) * ((c - a) * (z - a) * (c - z)) := by
-    simp only [Bubble.value, Q3.dot, Q3.sub]; grind
+    simp only [Ellipsoid.value, Q3.dot, Q3.sub]; grind
   have := Rat.mul_nonneg (sum_sq_nonneg b.u1.z b.u2.z b.u3.z) (seg_nonneg a z c haz hzc)
   grind
 
-/-- If the 8 corners of a box are inside a bubble, every point of the box is. -/
-theorem contains_of_corners (b : Bubble) (bx : Box) (hc : ∀ q ∈ bx.corners, b.contains q)
+/-- If the 8 corners of a box are inside an ellipsoid, every point of the box is. -/
+theorem contains_of_corners (b : Ellipsoid) (bx : Box) (hc : ∀ q ∈ bx.corners, b.contains q)
     (p : Q3) (hp : bx.contains p) : b.contains p := by
   obtain ⟨hx1, hx2, hy1, hy2, hz1, hz2⟩ := hp
   have corner : ∀ x y z, (x = bx.lo.x ∨ x = bx.hi.x) → (y = bx.lo.y ∨ y = bx.hi.y) →
@@ -90,6 +91,17 @@ theorem contains_of_corners (b : Bubble) (bx : Box) (hc : ∀ q ∈ bx.corners, 
   -- along z: the point itself
   have := line_z b p.x p.y _ _ _ hz1 hz2 (ey _ (.inl rfl)) (ey _ (.inr rfl))
   exact this
+
+/-- If the 8 corners of a box are inside a bubble, every point of the box is. (A bubble
+with a half-width of 0 or less contains no corner, so this case cannot happen.) -/
+theorem bubble_contains_of_corners (b : Bubble) (bx : Box)
+    (hc : ∀ q ∈ bx.corners, b.contains q = true) (p : Q3) (hp : bx.contains p) :
+    b.contains p = true := by
+  have hlo : (⟨bx.lo.x, bx.lo.y, bx.lo.z⟩ : Q3) ∈ bx.corners := by simp [Box.corners]
+  have hpos := ((bubble_contains_iff b _).mp (hc _ hlo)).1
+  rw [bubble_contains_iff]
+  exact ⟨hpos, contains_of_corners (bubbleEllipsoid b) bx
+    (fun q hq => ((bubble_contains_iff b q).mp (hc q hq)).2) p hp⟩
 
 /-- A run of `n ≥ 1` pieces of length `h`, starting at `a`, covers every point between its
 ends: each such point is in one of the pieces `[a + m·h, a + (m+1)·h]`, `m < n`. -/
