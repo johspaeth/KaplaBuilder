@@ -4,6 +4,8 @@ import KaplaCore.Basic
 
 A target can be a list of bubbles. A bubble is an ellipsoid (a stretched ball) with its axes
 parallel to x, y and z. A model is scale-free. A `Frame` says how big to build it and where.
+The ground is at z = 0. A bubble may go below the ground, as a half sphere makes a foot, but only
+the part above the ground counts.
 Both the planner and the semantic engine use the definitions here, so they share one meaning
 of "inside". -/
 
@@ -30,27 +32,34 @@ structure BubbleModel where
 /-- The most bubbles a model may have. -/
 def maxBubbles : Nat := 32
 
-/-- Is point `p` inside the bubble? Points on the surface count as inside. A bubble with a
+/-- Is point `p` inside the bubble? Points on the surface count as inside. Points below the
+ground (z < 0) are never inside. A bubble with a
 half-width of 0 or less contains nothing. (Without this rule it would contain every point,
 because in Lean dividing by 0 gives 0.) -/
 def Bubble.contains (b : Bubble) (p : Q3) : Bool :=
   let dx := (p.x - b.center.x) / b.semi.x
   let dy := (p.y - b.center.y) / b.semi.y
   let dz := (p.z - b.center.z) / b.semi.z
-  decide (0 < b.semi.x) && decide (0 < b.semi.y) && decide (0 < b.semi.z) &&
+  decide (0 ≤ p.z) && decide (0 < b.semi.x) && decide (0 < b.semi.y) && decide (0 < b.semi.z) &&
     decide (dx * dx + dy * dy + dz * dz ≤ 1)
 
-/-- A bubble is valid when it has a label and all three half-widths are above 0. -/
+/-- A bubble is valid when it has a label, all three half-widths are above 0, and some of it is
+above the ground. -/
 def Bubble.wellFormed (b : Bubble) : Bool :=
-  !b.label.isEmpty && decide (0 < b.semi.x) && decide (0 < b.semi.y) && decide (0 < b.semi.z)
+  !b.label.isEmpty && decide (0 < b.semi.x) && decide (0 < b.semi.y) && decide (0 < b.semi.z) &&
+    decide (0 < b.center.z + b.semi.z)
 
-/-- A model is valid when it has at most `maxBubbles` bubbles and each one is valid. -/
+/-- A model is valid when it has at most `maxBubbles` bubbles, each one is valid, and at least
+one bubble reaches the ground. A model that floats could only be built with flying blocks. -/
 def BubbleModel.wellFormed (m : BubbleModel) : Bool :=
-  decide (m.bubbles.length ≤ maxBubbles) && m.bubbles.all Bubble.wellFormed
+  decide (m.bubbles.length ≤ maxBubbles) && m.bubbles.all Bubble.wellFormed &&
+    m.bubbles.any fun b => decide (b.center.z - b.semi.z ≤ 0)
 
-/-- The smallest box with sides parallel to the axes that contains the bubble. -/
+/-- The smallest box with sides parallel to the axes that contains the part of the bubble above
+the ground. -/
 def Bubble.box (b : Bubble) : Box :=
-  ⟨b.center.sub b.semi, b.center.add b.semi⟩
+  let lo := b.center.sub b.semi
+  ⟨{ lo with z := max 0 lo.z }, b.center.add b.semi⟩
 
 /-- How big to build a model and where: multiply every length by `scale` (above 0), then slide
 it sideways by `shiftX` and `shiftY`. It cannot move up or down, because the model and the
@@ -91,6 +100,24 @@ private def eggBubble : Bubble := BubbleModel.egg.bubbles.head!
 #guard (eggBubble.place ⟨2, 5, 7⟩).center == ⟨5, 7, 1⟩
 -- At scale 0 the bubble contains nothing, not even its own middle.
 #guard !(eggBubble.place (Frame.ofHeight 0)).contains ⟨0, 0, 0⟩
+/-- Example: a half sphere with its middle on the ground, such as a foot. -/
+private def foot : Bubble :=
+  { label := "foot", tags := [], center := ⟨0, 0, 0⟩, semi := ⟨2, 2, 2⟩ }
+
+-- Only the part of the foot above the ground counts.
+#guard foot.contains ⟨0, 0, 1⟩ && foot.contains ⟨0, 0, 0⟩ && !foot.contains ⟨0, 0, -1⟩
+#guard foot.box == ⟨⟨-2, -2, 0⟩, ⟨2, 2, 2⟩⟩
+#guard (BubbleModel.mk "foot" [foot]).wellFormed
+-- Scaling keeps the ground where it is.
+#guard (foot.place ⟨3, 1, 1⟩).center.z == 0
+-- A bubble entirely underground is rejected, also when it only touches the ground from below.
+#guard !(BubbleModel.mk "bad" [{ foot with center := ⟨0, 0, -3⟩ }]).wellFormed
+#guard !(BubbleModel.mk "bad" [{ foot with center := ⟨0, 0, -2⟩ }]).wellFormed
+-- A model that floats is rejected, and so is a model with no bubbles.
+#guard !(BubbleModel.mk "bad" [{ foot with center := ⟨0, 0, 3⟩ }]).wellFormed
+#guard !(BubbleModel.mk "none" []).wellFormed
+-- One part may float if another reaches the ground. Physics decides if that can stand.
+#guard (BubbleModel.mk "two" [foot, { foot with center := ⟨0, 0, 9⟩ }]).wellFormed
 -- Bad models are rejected: a half-width of 0, and an empty label.
 #guard !(BubbleModel.mk "bad" [{ eggBubble with semi := ⟨0, 1, 1⟩ }]).wellFormed
 #guard !(BubbleModel.mk "bad" [{ eggBubble with label := "" }]).wellFormed
