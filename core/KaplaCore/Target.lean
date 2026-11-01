@@ -1,4 +1,4 @@
-import KaplaCore.Basic
+import KaplaCore.Bubble
 
 /-! # What to build: the target
 
@@ -22,6 +22,8 @@ inductive Shape where
   | union (a b : Shape)
   /-- Everything in `a` that is not in `b`. -/
   | diff (a b : Shape)
+  /-- A list of bubbles. This is the shape the semantic engine produces. -/
+  | bubbles (m : BubbleModel)
   deriving Repr, BEq, Inhabited
 
 /-- A box that contains the shape. -/
@@ -30,6 +32,7 @@ def Shape.bbox : Shape → Box
   | .cylinder c r h | .cone c r h => ⟨⟨c.x - r, c.y - r, c.z⟩, ⟨c.x + r, c.y + r, c.z + h⟩⟩
   | .union a b => a.bbox.join b.bbox
   | .diff a _ => a.bbox
+  | .bubbles m => (Box.joinAll (m.bubbles.map Bubble.box)).getD ⟨⟨0, 0, 0⟩, ⟨0, 0, 0⟩⟩
 
 /-- What a part of the target is. The planner chooses how to build it from this. -/
 inductive PartKind where
@@ -41,6 +44,21 @@ inductive PartKind where
   | trunk
   | other
   deriving Repr, BEq, DecidableEq, Inhabited
+
+/-- The kind for a bubble: from its first tag that names a kind, else `other`. -/
+def PartKind.ofTags (tags : List String) : PartKind :=
+  let known : String → Option PartKind
+    | "tower" => some .tower
+    | "wall" => some .wall
+    | "roof:gable" => some .roofGable
+    | "roof:cone" => some .roofCone
+    | "roof:hip" => some .roofHip
+    | "trunk" => some .trunk
+    | _ => none
+  (tags.findSome? known).getD .other
+
+#guard PartKind.ofTags ["slab", "wall", "tower"] == .wall
+#guard PartKind.ofTags ["slab"] == .other
 
 /-- One named part of the target, with a box that contains it. -/
 structure PartTag where
@@ -74,6 +92,18 @@ def TargetSpec.example : TargetSpec :=
 
 #guard TargetSpec.example.partsOrWhole.length == 1
 #guard (Shape.cylinder ⟨0, 0, 0⟩ 10 50).bbox == ⟨⟨-10, -10, 0⟩, ⟨10, 10, 50⟩⟩
+
+/-- The target for a bubble model, with one part for each bubble. The part's box is at the
+model's own size, before any `Frame`. -/
+def TargetSpec.ofBubbles (m : BubbleModel) : TargetSpec :=
+  { shape := .bubbles m
+    parts := m.bubbles.map fun b => ⟨b.label, PartKind.ofTags b.tags, b.box⟩ }
+
+/-- Example: the egg as a target. -/
+def TargetSpec.egg : TargetSpec := .ofBubbles .egg
+
+#guard TargetSpec.egg.parts == [⟨"egg", .tower, ⟨⟨-3 / 10, -3 / 10, 0⟩, ⟨3 / 10, 3 / 10, 1⟩⟩⟩]
+#guard TargetSpec.egg.shape.bbox == ⟨⟨-3 / 10, -3 / 10, 0⟩, ⟨3 / 10, 3 / 10, 1⟩⟩
 
 /-- What the user asks for. -/
 structure Request where
