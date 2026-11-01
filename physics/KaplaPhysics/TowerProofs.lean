@@ -1,4 +1,4 @@
-import KaplaPhysics.Tower
+import KaplaSpecs.PhysicsRules.Tower
 import KaplaPhysics.ColumnProofs
 
 /-! # Square towers are safe to build, at any height (property 9)

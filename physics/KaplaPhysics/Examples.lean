@@ -1,38 +1,14 @@
 import KaplaPhysics.Proofs
+import KaplaSpecs.PhysicsRules.Examples
 
 /-! # Worked examples (section 12 of `spec/physics-rules.md`)
 
 Each `#guard` fails the build if the engine disagrees with the table in the spec: the
-"Exact (S2)" column, the "Real (R4)" column (with ε = 2 mm), and buildability (K4). -/
+"Exact (S2)" column, the "Real (R4)" column (with ε = 2 mm), and buildability (K4).
+The builds themselves (`e1` ... `e12`, `slotPlaced`, `underRoof`) are in
+`specs/KaplaSpecs/PhysicsRules/Examples.lean`, shared with the spec. -/
 
 namespace KaplaPhysics.Examples
-
-/-- E1. One flat plank on the ground. -/
-def e1 : Build := [⟨.flatX, 0, 0, 0⟩]
-/-- E2. Flat plank on flat plank, top shifted 5 along its length. -/
-def e2 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 5, 0, 1⟩]
-/-- E3. Same, shifted exactly 7.5: the top centre is exactly over the edge (S4). -/
-def e3 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15 / 2, 0, 1⟩]
-/-- E4. Same, shifted 8: the top centre is past the edge. -/
-def e4 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 8, 0, 1⟩]
-/-- E5. A plank resting only on an edge line of another. -/
-def e5 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 0, 1⟩]
-/-- E6. One plank standing on the ground. -/
-def e6 : Build := [⟨.standFacingY, 0, 0, 0⟩]
-/-- E7. Staircase: middle shifted 3.75, top shifted 7.5 from the middle. -/
-def e7 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15 / 4, 0, 1⟩, ⟨.flatX, 45 / 4, 0, 2⟩]
-
-/-- E8 is `squareTower n` (in `Tower.lean`). -/
-example : squareTower 1 = [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 12, 0⟩] := by decide +kernel
-
-/-- E9. Bridge on two standing planks at `y = 1`. -/
-def e9 : Build := [⟨.standFacingY, 0, 1, 0⟩, ⟨.standFacingY, 12, 1, 0⟩, ⟨.flatX, 0, 0, 15⟩]
-/-- E10. Same bridge with the standing planks at `y = 0`. -/
-def e10 : Build := [⟨.standFacingY, 0, 0, 0⟩, ⟨.standFacingY, 12, 0, 0⟩, ⟨.flatX, 0, 0, 15⟩]
-/-- E11. Square tower of 5 levels with the second plank of level 2 left out. -/
-def e11 : Build := (squareTower 5).eraseIdx 5
-/-- E12. Counterweight: B only stands once C is on it. -/
-def e12 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 9, 0, 1⟩, ⟨.flatY, 9, -6, 2⟩]
 
 #guard [e1, e2, e3, e4, e6, e7, e9, e10, e11, e12].all fun b => decide (WellFormed b)
 #guard !decide (WellFormed e5)
@@ -87,16 +63,8 @@ def e12 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 9, 0, 1⟩, ⟨.flatY, 9, 
 #guard hardToReach dropGap e9 == []
 #guard reachDir? [] ⟨.flatX, 0, 0, 0⟩ dropGap == some .fromAbove
 
-/-- A slot with no gap above: a plank already sits right where the new plank must be
-lifted to before its drop. No straight path works (the spec's "real problem" case). -/
-def slotPlaced : Build := [⟨.flatX, 0, 0, 1⟩]
-/-- The plank that should go into the slot under `slotPlaced`. -/
-def slotPlank : Plank := ⟨.flatX, 0, 0, 0⟩
-
 #guard reachDir? slotPlaced slotPlank dropGap == none
 
-/-- A plank under a roof on two walls can still slide in from the open side. -/
-def underRoof : Build := [⟨.edgeY, 0, 0, 0⟩, ⟨.edgeY, 14, 0, 0⟩, ⟨.flatX, 0, 0, 3⟩]
 #guard reachDir? underRoof ⟨.flatY, 6, 0, 0⟩ dropGap == some .fromPlusY
 
 /-! ## The main theorems apply to real inputs (their hypotheses can be met) -/
@@ -173,16 +141,6 @@ example : stabilityAnswer e4 ≠ .stable := by decide +kernel
 example : ¬ SafePlan placementError 200 e12 := fun h =>
   stabilityAnswer_falls_sound (e12.take 2) (by decide +kernel)
     (solid_stable _ _ (by decide +kernel) (h.2 2 (by decide) (by decide)).2)
-
-/-- The three planks of E12: A on the ground, B sticking out over A's end, C across B as a
-counterweight. -/
-def e12A : Plank := ⟨.flatX, 0, 0, 0⟩
-/-- E12's plank B. -/
-def e12B : Plank := ⟨.flatX, 9, 0, 1⟩
-/-- E12's plank C. -/
-def e12C : Plank := ⟨.flatY, 9, -6, 2⟩
-
-#guard e12 == [e12A, e12B, e12C]
 
 /-- E12 cannot be built in any order (K4). Orders that start with B or C, or that put C
 right after A, leave a plank in the air after step 1 or 2 (P3). The order A, B, C falls

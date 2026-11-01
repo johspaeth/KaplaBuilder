@@ -1,7 +1,7 @@
 import KaplaPhysics.RobustSolver
 import KaplaPhysics.Reach
-import KaplaPhysics.Column
-import KaplaPhysics.Tower
+import KaplaSpecs.PhysicsRules.Column
+import KaplaSpecs.PhysicsRules.Tower
 
 /-! # The physics engine: untrusted solver, checked answers
 

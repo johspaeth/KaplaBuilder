@@ -1,4 +1,4 @@
-import KaplaPhysics.Column
+import KaplaSpecs.PhysicsRules.Column
 import KaplaPhysics.RobustProofs
 
 /-! # Proof that `Stable` agrees with the column rule (property 6)

@@ -1,4 +1,4 @@
-import KaplaPhysics.Geometry
+import KaplaSpecs.PhysicsRules.Geometry
 
 /-! # The physics rules (P1–P3, C1–C4, F1–F4, S1–S4 of `spec/physics-rules.md`)
 

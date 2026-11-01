@@ -1,15 +1,11 @@
 import KaplaPhysics.Basic
-import KaplaPhysics.Geometry
-import KaplaPhysics.Rules
 import KaplaPhysics.Solver
 import KaplaPhysics.Sums
 import KaplaPhysics.Robust
 import KaplaPhysics.RobustSolver
 import KaplaPhysics.RobustProofs
 import KaplaPhysics.Reach
-import KaplaPhysics.Column
 import KaplaPhysics.ColumnProofs
-import KaplaPhysics.Tower
 import KaplaPhysics.TowerProofs
 import KaplaPhysics.Engine
 import KaplaPhysics.Proofs

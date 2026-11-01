@@ -1,4 +1,4 @@
-import KaplaPhysics.Rules
+import KaplaSpecs.PhysicsRules.Rules
 
 /-! # Solid builds: the certificate and its checker (R1–R3)
 

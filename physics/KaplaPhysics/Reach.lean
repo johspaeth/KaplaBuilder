@@ -1,4 +1,4 @@
-import KaplaPhysics.Rules
+import KaplaSpecs.PhysicsRules.Rules
 
 /-! # Can each plank be put in place? (K3)
 

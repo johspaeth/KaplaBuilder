@@ -1,4 +1,4 @@
-import KaplaPhysics.Rules
+import KaplaSpecs.PhysicsRules.Rules
 
 /-! # The square tower (example E8, property 9) -/
 

@@ -94,13 +94,17 @@ flowchart TB
 | Library | May import | Must **not** import |
 |---|---|---|
 | `KaplaCore` | Lean core, Batteries | anything else in this repo |
-| `KaplaPhysics` (A) | `KaplaCore` | Semantics, Planner, Web |
+| `KaplaPhysics` (A) | `KaplaCore`, the physics rules `KaplaSpecs.PhysicsRules.*` | Semantics, Planner, Web, the rest of `KaplaSpecs` |
 | `KaplaSemantics` (B) | `KaplaCore` | Physics, Planner, Web |
 | `KaplaPlanner` (C) | `KaplaCore` | Physics, Semantics, Web |
 | `KaplaWeb` (D) | `KaplaCore` | Physics, Semantics, Planner |
 | `kapla` exe (D) | everything | — |
 
 D enforces this with a CI script that greps the imports.
+
+The physics rules (what "stable", "solid" and "safe plan" mean) are human-owned, so
+they live in `specs/KaplaSpecs/PhysicsRules/`. Physics imports them; the rules import only
+`KaplaCore` and each other, never the engine or its proofs.
 
 ---
 

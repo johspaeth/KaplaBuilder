@@ -1,4 +1,4 @@
-import KaplaPhysics.Rules
+import KaplaSpecs.PhysicsRules.Rules
 
 /-! # Untrusted force solver
 

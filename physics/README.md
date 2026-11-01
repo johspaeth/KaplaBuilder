@@ -4,7 +4,7 @@ Owner: A. Scope: see [docs/WORKSPLIT.md](../docs/WORKSPLIT.md).
 
 - Build: `lake build KaplaPhysics`
 - Files: `KaplaPhysics.lean` (root, imports the rest) and `KaplaPhysics/*.lean`.
-- May import: `KaplaCore` only.
+- May import: `KaplaCore`, and the physics rules in `specs/KaplaSpecs/PhysicsRules/`.
 - Rules and CI: see the [README](../README.md).
 
 ## What is here
@@ -12,19 +12,28 @@ Owner: A. Scope: see [docs/WORKSPLIT.md](../docs/WORKSPLIT.md).
 Rules come from [spec/physics-rules.md](../spec/physics-rules.md). Rule IDs (P1, C3, S2, ...)
 appear in the docstrings.
 
-| File | What it does | Trusted? |
+The rules in Lean are human-owned, so they are not in this folder. They are in
+[specs/KaplaSpecs/PhysicsRules/](../specs/KaplaSpecs/PhysicsRules/), next to the theorem
+statements in [specs/KaplaSpecs/Physics.lean](../specs/KaplaSpecs/Physics.lean). To change
+what a theorem means, you must change `specs/`, which needs a spec review.
+
+| File in `specs/KaplaSpecs/PhysicsRules/` | What it says | Trusted? |
 |---|---|---|
 | `Geometry.lean` | planks, the six poses, rectangles (W1–W3, B1–B5) | yes: read it |
 | `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors and `SolidWithin` (R1–R3), `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
+| `Tower.lean` | the square tower of example E8 | yes: read it |
+| `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
+| `Examples.lean` | builds E1–E12; proofs from the rules alone that E1 stands, that E4 falls, that E3 is not solid, and a few more | checked by Lean |
+
+| File in this folder | What it does | Trusted? |
+|---|---|---|
 | `Solver.lean` | exact-fraction simplex; proposes pushes or a fall motion | no: every proposal is checked |
 | `Robust.lean` | `SolidCertificate`: loads whose points move with the errors | checked by the proofs |
 | `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
-| `Tower.lean` | the square tower of example E8 | yes: read it |
-| `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `Reach.lean` | K3 checker: tries five straight paths (from above, from each side) plus the drop | checked by the proofs |
 | `Engine.lean` | `stabilityAnswer`, `verdict` (solid / risky / falls), `checkPlan` | checked by the proofs |
 | `Sums.lean`, `RobustProofs.lean`, `ColumnProofs.lean`, `TowerProofs.lean`, `Proofs.lean` | the proofs (main statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
-| `Examples.lean` | worked examples E1–E12 as `#guard`s; concrete instances of the theorems; bad answers the rules reject | tests |
+| `Examples.lean` | the engine on E1–E12 as `#guard`s; more instances of the theorems; bad answers the rules reject | tests |
 
 ## Main theorems
 

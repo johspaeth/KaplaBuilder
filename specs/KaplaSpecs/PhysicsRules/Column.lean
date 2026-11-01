@@ -1,10 +1,10 @@
-import KaplaPhysics.Rules
+import KaplaSpecs.PhysicsRules.Rules
 
 /-! # The simple rule for a single column (section 7, property 6)
 
 In a single column of planks, the build is stable exactly when, at every level, the
 combined centre of mass of everything from that level up is over the contact patch below
-that level. `column_stable_iff` (in `Proofs.lean`) proves that `Stable` agrees with this
+that level. `column_stable_iff` (stated in `KaplaSpecs/Physics.lean`) proves that `Stable` agrees with this
 rule for every column. -/
 
 namespace KaplaPhysics
