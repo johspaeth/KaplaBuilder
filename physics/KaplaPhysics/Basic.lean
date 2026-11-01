@@ -1,6 +1,6 @@
 import KaplaCore
 
-/-! Placeholder. Replace with real code. May import only `KaplaCore` (and Lean core). -/
+/-! The component name, shown by `kapla`. The engine itself is in `Engine.lean`. -/
 
 namespace KaplaPhysics
 

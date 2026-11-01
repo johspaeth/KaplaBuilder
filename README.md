@@ -144,3 +144,10 @@ Get a review from the whole team before you merge them.
 
 - The Lean 4.35 kernel and the statements in `specs/` (and every definition they mention).
 - No extra axioms. No `opaque` contracts yet. Add them here when you add them.
+- **The Lean compiler.** The proofs are about the Lean definitions. When `kapla` runs, the
+  checkers (`checkPlan`, `coreCheck`, ...) run as compiled code, not in the kernel.
+- **The blueprint reader** in `app/Main.lean` (`readBuildPlan`, `ratOfJsonNumber`). It turns a
+  JSON file into the `BuildPlan` that the physics engine checks. It has no proof.
+- **The physics model** (`spec/physics-rules.md`), most of all: planks are rigid and all the
+  same (B1–B3); pushes at the corners of a patch can stand in for any spread-out push (F4);
+  side, edge and corner touches carry no force (C3, C4); errors stay within R1.
