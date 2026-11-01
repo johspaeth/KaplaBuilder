@@ -2,8 +2,9 @@ import KaplaCore.Basic
 
 /-! # Bubbles: the target as a list of simple shapes
 
-A target can be a list of bubbles. A bubble is an ellipsoid (a stretched ball) with its axes
-parallel to x, y and z. A model is scale-free. A `Frame` says how big to build it and where.
+A target is a list of bubbles. A bubble is an ellipsoid (a stretched ball) with its axes
+parallel to x, y and z. A model is scale-free. A height says how big to build it. It always
+stands around the place the model says: the blocks are built to fit the model.
 The ground is at z = 0. A bubble may go below the ground, as a half sphere makes a foot, but only
 the part above the ground counts.
 Both the planner and the semantic engine use the definitions here, so they share one meaning
@@ -61,24 +62,10 @@ def Bubble.box (b : Bubble) : Box :=
   let lo := b.center.sub b.semi
   ⟨{ lo with z := max 0 lo.z }, b.center.add b.semi⟩
 
-/-- How big to build a model and where: multiply every length by `scale` (above 0), then slide
-it sideways by `shiftX` and `shiftY`. It cannot move up or down, because the model and the
-blocks both stand on the ground. -/
-structure Frame where
-  scale  : Q
-  shiftX : Q
-  shiftY : Q
-  deriving Repr, BEq, DecidableEq, Inhabited
-
-/-- Build a model of height 1 to height `h`, with no sideways shift. -/
-def Frame.ofHeight (h : Q) : Frame := ⟨h, 0, 0⟩
-
-/-- The bubble at its real size and position, in block units. -/
-def Bubble.place (f : Frame) (b : Bubble) : Bubble :=
-  { b with
-    center := ⟨f.scale * b.center.x + f.shiftX, f.scale * b.center.y + f.shiftY,
-               f.scale * b.center.z⟩
-    semi   := b.semi.scale f.scale }
+/-- The bubble at its real size, in block units: every length is multiplied by `height`. A model
+whose top is at z = 1 is then exactly `height` tall. The ground stays at z = 0. -/
+def Bubble.place (height : Q) (b : Bubble) : Bubble :=
+  { b with center := b.center.scale height, semi := b.semi.scale height }
 
 /-- Example: the egg, one bubble of height 1 standing on the ground. -/
 def BubbleModel.egg : BubbleModel :=
@@ -94,12 +81,10 @@ private def eggBubble : Bubble := BubbleModel.egg.bubbles.head!
 #guard eggBubble.contains ⟨0, 0, 1⟩
 #guard !eggBubble.contains ⟨0, 0, 11 / 10⟩
 -- At height 30 the egg is 30 tall and stands on the ground.
-#guard eggBubble.place (Frame.ofHeight 30) ==
+#guard eggBubble.place 30 ==
   { eggBubble with center := ⟨0, 0, 15⟩, semi := ⟨9, 9, 15⟩ }
--- A sideways shift moves it. It does not lift it.
-#guard (eggBubble.place ⟨2, 5, 7⟩).center == ⟨5, 7, 1⟩
--- At scale 0 the bubble contains nothing, not even its own middle.
-#guard !(eggBubble.place (Frame.ofHeight 0)).contains ⟨0, 0, 0⟩
+-- At height 0 the bubble contains nothing, not even its own middle.
+#guard !(eggBubble.place 0).contains ⟨0, 0, 0⟩
 /-- Example: a half sphere with its middle on the ground, such as a foot. -/
 private def foot : Bubble :=
   { label := "foot", tags := [], center := ⟨0, 0, 0⟩, semi := ⟨2, 2, 2⟩ }
@@ -109,7 +94,7 @@ private def foot : Bubble :=
 #guard foot.box == ⟨⟨-2, -2, 0⟩, ⟨2, 2, 2⟩⟩
 #guard (BubbleModel.mk "foot" [foot]).wellFormed
 -- Scaling keeps the ground where it is.
-#guard (foot.place ⟨3, 1, 1⟩).center.z == 0
+#guard (foot.place 3).center.z == 0
 -- A bubble entirely underground is rejected, also when it only touches the ground from below.
 #guard !(BubbleModel.mk "bad" [{ foot with center := ⟨0, 0, -3⟩ }]).wellFormed
 #guard !(BubbleModel.mk "bad" [{ foot with center := ⟨0, 0, -2⟩ }]).wellFormed

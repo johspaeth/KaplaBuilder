@@ -64,7 +64,7 @@ def Verdict.ofScore (s : Q) : Verdict :=
 #guard Verdict.ofScore 0.8 == .good && Verdict.ofScore 0.1 == .symbolic
 
 /-- What the semantic engine says about a list of blocks, finished or partial, at one
-`Frame`. All scores are between 0 and 1. -/
+height. All scores are between 0 and 1. -/
 structure ScoreReport where
   /-- The similarity number. There is no minimum: a person decides if it is good enough. -/
   score         : Q
@@ -76,8 +76,8 @@ structure ScoreReport where
   missing       : Nat := 0
   /-- Grid cells covered by blocks that are not in the target. -/
   extra         : Nat := 0
-  /-- The frame this report was computed at, so anyone can compute it again. -/
-  frame         : Frame := Frame.ofHeight 1
+  /-- The height this report was computed at, so anyone can compute it again. -/
+  height        : Q := 1
   /-- How many blocks were scored. -/
   blockCount    : Nat := 0
   /-- Positions in the block list of blocks with none of their cells in any bubble. Any block
@@ -85,7 +85,7 @@ structure ScoreReport where
   outside       : List Nat := []
   /-- Labels of bubbles with cells but no block yet. This is normal for a partial plan. -/
   uncovered     : List String := []
-  /-- Labels of bubbles with no grid cell at this frame, so no block can ever count as being in
+  /-- Labels of bubbles with no grid cell at this height, so no block can ever count as being in
   them. They are ignored by `accepted`. A person can remove them before accepting the design. -/
   tooSmall      : List String := []
   deriving Repr, BEq, Inhabited
