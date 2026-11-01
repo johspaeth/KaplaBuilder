@@ -60,8 +60,10 @@ The person owns `app/` and `web/` for this work.
 - **One plan (replaces "several plans", 1 Nov 2026):** the planner's output is one plan, shown as soon
   as it is ready. The website asks for it with `maxCandidates := 1` and uses only the first. There is
   no list and no `POST /check`.
-- **Planner list (1 Nov 2026):** the website uses `KaplaPlanner.strategies`. Johannes writes the planners
-  `ai` and `ai-unchecked`. Until they merge, `app/Main.lean` adds `standInTower`, website only. Remove it then.
+- **Planner list (1 Nov 2026):** the website uses `KaplaPlanner.strategies`, which has Johannes's planners
+  `ai` and `ai-unchecked` (PR #41). `app/Main.lean` adds `standInTower`, website only, as a free and fast
+  test. It stays. `kapla serve` passes the key from `semantics/dev/.env` to the planners. The page waits
+  up to 15 minutes for a planner.
 - **Clearing:** a new model on screen (opened, from the chat, or a bubble removed) clears the proposal.
 - **Gaps:** the website uses the physics engine's default setting.
 - **Block limit:** a number box, starting at 40.
@@ -88,7 +90,7 @@ The person owns `app/` and `web/` for this work.
 1. Server, page requests and saved models, with bubbles only. Needs no key and no planner.
 2. Chat with Claude (`interpret`, `refine`). Tell the person to add the key first.
 3. Generate proposal button, blocks, slider, scores and badges, with a stand-in planner.
-4. Connect the real planners when Johannes merges them.
+4. Connect the real planners (PR #41).
 
 Done when: "an egg" shows in 3D, "make it taller" changes it, you save it, open it again, plan it,
 slide through the blocks, and see the badges and scores.

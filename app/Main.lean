@@ -15,8 +15,11 @@ import KaplaWeb
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
 
-* `kapla plan [--blocks N] [--strategy NAME]` runs a planner strategy (default `empty`)
-  on the egg target, with the verified physics engine and the real scorer, and shows its plan.
+* `kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]`
+  runs a planner strategy (default `empty`) on a bubble model (default: the egg), with the
+  verified physics engine and the verified scorer, and shows its plan. `--out` writes the
+  plan as a blueprint for `kapla view`. The strategies `ai` and `ai-unchecked` call
+  Claude and need `ANTHROPIC_API_KEY`.
 
 * `kapla serve [--port N]` starts the website on this computer only (default port 8000). Run it
   from the top folder of the repo: saved models are in `models/`. Requests: `web/README.md`.
@@ -172,18 +175,60 @@ def view (opts : KaplaPhysics.PlanOptions) (file : String) (out : String) : IO U
 
 /-! ## Running the planner -/
 
-/-- Run a planner strategy on the egg target and list its candidates. -/
-def plan (name : String) (blocks : Nat) : IO UInt32 := do
+/-- A plan as a blueprint file (`web/README.md`), with the target's bubbles at the plan's
+height. Numbers are exact fractions in strings. -/
+def blueprintJson (title : String) (target : KaplaCore.TargetSpec) (c : KaplaCore.Candidate) :
+    Json :=
+  let q (x : Q) : Json := Json.str (KaplaPlanner.showQ x)
+  let upName : Upright → String
+    | .flat => "flat"
+    | .onEdge => "edge"
+    | .standing => "upright"
+  let pose (p : KaplaCore.Pose) : Json := Json.mkObj
+    [ ("up", upName p.up)
+    , ("rot", Json.mkObj [("c", q p.rot.cos), ("s", q p.rot.sin)])
+    , ("center", Json.arr #[q p.center.x, q p.center.y, q p.center.z]) ]
+  let bubble (b : KaplaCore.Bubble) : Json :=
+    let b := b.place c.score.height
+    Json.mkObj
+      [ ("label", b.label)
+      , ("center", Json.arr #[q b.center.x, q b.center.y, q b.center.z])
+      , ("semi", Json.arr #[q b.semi.x, q b.semi.y, q b.semi.z]) ]
+  Json.mkObj
+    [ ("title", title)
+    , ("subtitle", s!"{c.plan.blockCount} blocks, height {KaplaPlanner.showQ c.score.height}")
+    , ("bubbles", Json.arr (target.model.bubbles.map bubble).toArray)
+    , ("plan", Json.mkObj [("steps", Json.arr (c.plan.steps.map fun st =>
+        Json.mkObj [("blocks", Json.arr (st.blocks.map pose).toArray)]).toArray)]) ]
+
+/-- Run a planner strategy on a target and list its candidates. -/
+def plan (name : String) (blocks : Nat) (targetFile out : Option String) : IO UInt32 := do
   match KaplaPlanner.strategyByName? name with
   | none =>
     IO.eprintln s!"unknown strategy \"{name}\"; known: {KaplaPlanner.strategies.map (·.name)}"
     return 64
   | some s =>
-    let req : KaplaCore.PlanRequest := { target := .egg, blocks, maxCandidates := 1 }
+    let target ← match targetFile with
+      | none => pure (some KaplaCore.TargetSpec.egg)
+      | some file => do
+        match KaplaSemantics.decode (← IO.FS.readFile file) with
+        | .ok m => pure (some (KaplaCore.TargetSpec.ofBubbles m))
+        | .error e => IO.eprintln s!"{file}: {e}"; pure none
+    let some target := target | return 1
+    let req : KaplaCore.PlanRequest := { target, blocks, maxCandidates := 1 }
     let cands ← s.toPlanner.plan req KaplaPhysics.physicsEngine KaplaSemantics.semanticEngine
     IO.println s!"strategy {s.name}: {cands.length} candidates"
     for c in cands do
-      IO.println s!"  {c.plan.blockCount} blocks, score {c.score.score}"
+      let physics := if c.physics.ok then "physics ok (verified)"
+        else if c.physics.diagnostics.isEmpty then "physics not checked"
+        else "physics not ok"
+      IO.println s!"  {c.plan.blockCount} blocks, height {KaplaPlanner.showQ c.score.height}, score {KaplaPlanner.showScore c.score.score}, {physics}"
+    match out, cands with
+    | some path, c :: _ =>
+      if let some dir := (System.FilePath.mk path).parent then IO.FS.createDirAll dir
+      IO.FS.writeFile path (blueprintJson s!"{target.model.name} ({s.name})" target c).pretty
+      IO.println s!"wrote {path}"
+    | _, _ => pure ()
     return 0
 
 /-! ## The website
@@ -333,15 +378,15 @@ def postChat (key : Option String) (body : String) : IO Reply := do
 
 /-! ### The proposal -/
 
-/-- A stand-in until the real planners are merged: a pile of flat blocks at the middle. It gives the
-page real blocks to show. Remove it from `sitePlanners` when the real planners arrive. -/
+/-- A free and fast planner for testing the page: a pile of flat blocks at the middle. It makes no
+calls to Claude. -/
 def standInTower : KaplaPlanner.Strategy :=
   ⟨"stand-in tower (test only)", fun req ph sem =>
     let n := min req.blocks 30
     let pose (k : Nat) : KaplaCore.Pose := ⟨.flat, .id, ⟨0, 0, (k : Q) + 1 / 2⟩⟩
     let plan : BuildPlan := ⟨(List.range n).map fun k => { blocks := [pose k] }⟩
-    [{ plan, physics := ph.check req.human req.blocks plan
-       score := sem.score req.target n plan.blocks, difficulty := default }]⟩
+    pure [{ plan, physics := ph.check req.human req.blocks plan
+            score := sem.score req.target n plan.blocks, difficulty := default }]⟩
 
 /-- The planners the website offers. -/
 def sitePlanners : List KaplaPlanner.Strategy := standInTower :: KaplaPlanner.strategies
@@ -351,7 +396,7 @@ def getPlanners : Reply :=
   { json := (Json.mkObj [("planners", Json.arr (sitePlanners.map (Json.str ·.name)).toArray)]).compress }
 
 /-- How long the page waits for a planner, in seconds. -/
-def plannerSeconds : Nat := 60
+def plannerSeconds : Nat := 900
 
 /-- A plan in the blueprint format of `web/README.md`, for drawing. -/
 def planToViewJson (plan : BuildPlan) : Json :=
@@ -410,7 +455,7 @@ def postPlan (body : String) : IO Reply := do
         wait n
     unless ← wait (plannerSeconds * 10) do
       IO.cancel task
-      return errorReply .gatewayTimeout s!"The planner did not finish in {plannerSeconds} seconds."
+      return errorReply .gatewayTimeout s!"The planner did not finish in {plannerSeconds / 60} minutes."
     match task.get with
     | .ok j => return { json := j.compress }
     | .error e => return errorReply .internalServerError s!"The planner stopped with an error: {e}"
@@ -483,6 +528,14 @@ def serve (port : Nat) : IO UInt32 := do
     IO.eprintln "No models/ folder here. Run this from the top folder of the repo."
     return 1
   let key ← KaplaSemantics.loadApiKey keyFile
+  -- The AI planners read the key from the environment, and Lean cannot change the environment of a
+  -- running program. So start this program again once, with the key set.
+  if let some k := key then
+    if (← IO.getEnv "ANTHROPIC_API_KEY") != some k then
+      let child ← IO.Process.spawn
+        { cmd := ← IO.appPath |>.map toString, args := #["serve", "--port", toString port]
+          env := #[("ANTHROPIC_API_KEY", some k)] }
+      return ← child.wait
   if key.isNone then
     IO.println "No API key in semantics/dev/.env, so the chat will not work. The rest of the site does."
   try
@@ -501,12 +554,9 @@ def serve (port : Nat) : IO UInt32 := do
 end Server
 
 def usage : String :=
-  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]
-" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]
-" ++
-  "       kapla plan [--blocks N] [--strategy NAME]
-" ++
+  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
+  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]\n" ++
+  "       kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]\n" ++
   "       kapla serve [--port N]"
 
 def main (args : List String) : IO UInt32 := do
@@ -520,14 +570,17 @@ def main (args : List String) : IO UInt32 := do
   | ["view", file] => view opts file "out"
   | ["view", file, "--out", out] => view opts file out
   | "plan" :: rest =>
-    let rec go (name : String) (blocks : Nat) : List String → IO UInt32
-      | [] => plan name blocks
-      | "--strategy" :: n :: r => go n blocks r
+    let rec go (name : String) (blocks : Nat) (target out : Option String) :
+        List String → IO UInt32
+      | [] => plan name blocks target out
+      | "--strategy" :: n :: r => go n blocks target out r
+      | "--target" :: f :: r => go name blocks (some f) out r
+      | "--out" :: f :: r => go name blocks target (some f) r
       | "--blocks" :: n :: r => match n.toNat? with
-        | some n => go name n r
+        | some n => go name n target out r
         | none => do IO.eprintln usage; return 64
       | _ => do IO.eprintln usage; return 64
-    go "empty" defaultMaxBlocks rest
+    go "empty" defaultMaxBlocks none none rest
   | ["serve"] => serve 8000
   | ["serve", "--port", n] =>
     match n.toNat? with

@@ -140,11 +140,11 @@ def siteJs : String := "
       b.type = 'button'; b.textContent = 'Remove'; b.onclick = () => removeBubble(label); li.append(b); });
     proposal.hidden = false; };
   generate.onclick = async () => { if (busy || !current) return; const model = current; setBusy(true);
-    proposal.hidden = true; planStatus.className = ''; planStatus.textContent = 'Working on a proposal. This can take a while...';
+    proposal.hidden = true; planStatus.className = ''; planStatus.textContent = 'Working on a proposal. An AI planner can take several minutes...';
     try { const r = await send('/plan', {method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({planner: plannerBox.value, blocks: +blocksBox.value, model})});
       if (!r.ok) { planStatus.className = 'bad'; planStatus.textContent = r.body.error || 'Something went wrong.'; if (proposalHeight !== undefined) proposal.hidden = false; return; }
-      if (!r.body.proposal) { clearProposal(); KaplaViewer.show(model); planStatus.textContent = 'This planner made no proposal.'; return; }
+      if (!r.body.proposal) { clearProposal(); KaplaViewer.show(model); planStatus.textContent = 'This planner made no proposal. The terminal running kapla serve shows why.'; return; }
       planStatus.textContent = ''; showProposal(model, r.body.proposal);
     } catch (_) { planStatus.className = 'bad'; planStatus.textContent = noServer; }
     finally { setBusy(false); } };
