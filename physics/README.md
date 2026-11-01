@@ -20,7 +20,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | File in `specs/KaplaSpecs/PhysicsRules/` | What it says | Trusted? |
 |---|---|---|
 | `Geometry.lean` | planks, the six poses, rectangles (W1–W3, B1–B5) | yes: read it |
-| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors, `SolidWithin` and `LegalWithin` (R1–R3), `PlanOptions` and `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
+| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors, `SolidWithin`, `Meets` and `KeepsGaps` (R1–R3, R5), `PlanOptions` and `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
 | `Tower.lean` | the square tower of example E8 | yes: read it |
 | `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `FromCore.lean` | `plankOf`, `buildOf`: a core block (centre, quarter turn) as a physics plank (lowest corner, one of six poses) | yes: read it |
@@ -52,14 +52,13 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `verdict_risky_sound`, `verdict_falls_sound`: "risky" ⇒ stable at the exact positions;
   "falls" ⇒ not stable.
 - `checkPlan_sound`: an accepted plan has at most N planks, and after every step it is
-  well-formed, **stays well-formed** wherever errors up to ε put the planks
-  (`LegalWithin`), and is **solid** (property 4, K4). The checker asks that any two planks
-  that share some height are at least 2ε apart along `x` or `y` (`Clear`). This rejects
-  planks placed side by side and touching: R5 is not modelled, so an error is allowed to
-  push one into the other. This check can be switched off with
-  `PlanOptions.clearance := false` (on by default), for the app to offer as a setting.
-  When it is off, `SafePlan` drops the `LegalWithin` part and the theorem says only that
-  each step is well-formed at the planned positions and solid.
+  well-formed at the planned positions and **solid** (property 4, K4). With the clearance
+  check on (`PlanOptions.clearance := true`; off by default) it also **keeps its gaps**
+  (`KeepsGaps`): two planks that do not touch in the plan are never pushed into each other
+  by errors up to ε. The checker asks for a gap of at least 2ε between such planks
+  (`Clear`). Planks that touch in the plan (`Meets`: side by side, end to end, one on
+  another) are left out, as R5 says: a plank pushed against its neighbour moves with it.
+  So walls of touching planks pass; only near misses (a gap above 0 and below 2ε) fail.
 - `reachDir_sound`, `hardToReach_nil_sound`: a step the checker does not flag can be put
   in place along a straight path from far away plus a drop of `h > 0`, never sharing inside
   space with a placed plank (property 5, K3). Touching a placed plank on the way (sliding
@@ -134,10 +133,9 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
   only up to one level (measured: ε = 30/39 already fails both), so the planner could build
   almost nothing. Core's `HumanModel` docs should be brought in line with R1 (a change to
   `core/`, for the team).
-- **Clearance.** `physicsEngine` checks with the default `PlanOptions` (clearance on): blocks
-  that share some height must be 2ε apart (`Clear`), and closer pairs get a `clearance`
-  diagnostic. `kapla check --no-clearance` uses `coreCheck { clearance := false }`, which
-  allows touching side-by-side blocks (both examples in `web/examples/` need this). Core's
+- **Clearance.** `physicsEngine` uses the default `PlanOptions` (clearance off).
+  `kapla check --clearance` uses `coreCheck { clearance := true }`: blocks that touch in
+  the plan are fine, and blocks with a gap below 2ε get a `clearance` diagnostic. Core's
   `clear` is not used.
 - **Reach.** K3 gives `unreachable` warnings, which do not change `ok`.
 - **Not used:** `eAbs`, `press`, `clear`, `muSafe`. The engine never reports `slides`,

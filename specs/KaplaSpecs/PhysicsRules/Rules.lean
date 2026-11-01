@@ -159,33 +159,48 @@ def Solid (b : Build) : Prop := SolidWithin placementError b
 
 /-! ## Build plans (K1, K4, K5) -/
 
-/-- R1 with P1–P3. The build stays well-formed for every combination of placement errors
-of at most `ε`: wherever the planks land, no two share inside space and each one rests on
-something.
+/-- Planks `a` and `b` meet: their boxes touch at a face, an edge or a corner, or share
+inside space. There is no gap between them along `x`, along `y` or along `z`. -/
+def Meets (a b : Plank) : Prop :=
+  (a.x ≤ b.x1 ∧ b.x ≤ a.x1) ∧ (a.y ≤ b.y1 ∧ b.y ≤ a.y1) ∧ (a.z ≤ b.top ∧ b.z ≤ a.top)
 
-Two planks placed side by side and touching do not meet this rule: an error could push
-one into the other. (R5 says the neighbour would move with it; this rule does not model
-that, so it errs on the safe side.) -/
-def LegalWithin (ε : Rat) (b : Build) : Prop :=
-  ∀ d, SmallShift ε b.length d → WellFormed (b.shift d)
+instance (a b : Plank) : Decidable (Meets a b) := by unfold Meets; infer_instance
 
-/-- Which checks a plan must pass. The user can switch them in the app. -/
+/-- Example: two flat planks side by side, touching along a face, meet. -/
+example : Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
+
+/-- Example: with a gap of 1/4 between them, they do not meet. -/
+example : ¬ Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 13 / 4, 0⟩ := by decide +kernel
+
+/-- R1 with P1 (H6 in docs/DESIGN.md: gaps are 0 or big enough). Planks with a gap between
+them in the plan keep a gap: for every combination of placement errors of at most `ε`, two
+planks that do not meet at the planned positions do not share inside space.
+
+Planks that meet in the plan (side by side and touching, or one on another) are left out
+on purpose: they touch by design, and R5 says a plank pushed against its neighbour moves
+with it. So walls of touching planks are fine. Only near misses fail: a gap above 0 but
+small enough that an error can close it. -/
+def KeepsGaps (ε : Rat) (b : Build) : Prop :=
+  ∀ d, SmallShift ε b.length d → ∀ i < b.length, ∀ j < b.length,
+    ¬ Meets (b.get i) (b.get j) → ¬ Overlap ((b.shift d).get i) ((b.shift d).get j)
+
+/-- Which checks a plan must pass. -/
 structure PlanOptions where
-  /-- Ask that placement errors can never push two planks into each other
-  (`LegalWithin`). On by default. Off allows planks placed side by side and touching, but
-  then overlaps are checked only at the planned positions. -/
-  clearance : Bool := true
+  /-- Also ask that no placement error can close a small gap (`KeepsGaps`). Off by
+  default. Planks that touch by design are allowed either way. -/
+  clearance : Bool := false
   deriving Repr, DecidableEq, Inhabited
 
 /-- K1, K4, K5: the plan places one plank per step, uses at most `maxPlanks` planks, and
 after every step the build so far is
 1. well-formed at the planned positions,
-2. if `opts.clearance` is on: still well-formed with placement errors up to `ε`, and
+2. if `opts.clearance` is on: planks with a gap keep it with placement errors up to `ε`,
+   and
 3. solid with placement errors up to `ε`. -/
 def SafePlan (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build) : Prop :=
   steps.length ≤ maxPlanks ∧
     ∀ k, 1 ≤ k → k ≤ steps.length →
-      WellFormed (steps.take k) ∧ (opts.clearance → LegalWithin ε (steps.take k)) ∧
+      WellFormed (steps.take k) ∧ (opts.clearance → KeepsGaps ε (steps.take k)) ∧
         SolidWithin ε (steps.take k)
 
 end KaplaPhysics
