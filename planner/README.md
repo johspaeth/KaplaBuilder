@@ -20,11 +20,15 @@ Entry point: `KaplaPlanner.planner : KaplaCore.Planner` (pure core: `planPure`).
 | `PreCheck.lean` | block count, no overlap, supports first, before calling physics |
 | `Search.lean` | proposals, physics check + repair (keep the stable prefix), score, rank |
 | `Tests.lean` | end-to-end on `physicsMock` / `semanticMock` |
+| `Inside.lean`, `InsideProof.lean` | `insideBubbles`: the design is strictly inside the target's bubbles (proven) |
+| `Bubble.lean` | scale/move bubbles, safe bounding box, allowed and surface cells |
+| `Fixtures.lean` | bubble test targets: sphere, snowman, spire, leaning, duck, gate |
 
 Proven (standard axioms only):
 - `planPure_sound` (main theorem, in `specs/` + `comparator/planner.json`): every returned candidate passed the physics check and uses at most N blocks.
 - `sequence_perm` (main theorem, in `specs/` + `comparator/planner.json`): the steps contain exactly the input blocks, none lost or doubled.
 - `sequence_step_size`: every step places exactly one block.
+- `insideBubbles_sound` (main theorem, in `specs/` + `comparator/planner.json`): if the check accepts, every point of every block is inside some bubble.
 - `towerLayers_length`, `columnLayers_length`: motif block counts are exact.
 
 Not yet (P2+): several regions per target, walls, budget split, smarter repair (reorder, two-hand

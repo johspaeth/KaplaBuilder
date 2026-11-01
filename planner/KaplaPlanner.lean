@@ -10,6 +10,8 @@ import KaplaPlanner.Search
 import KaplaPlanner.Planner
 import KaplaPlanner.Inside
 import KaplaPlanner.InsideProof
+import KaplaPlanner.Bubble
+import KaplaPlanner.Fixtures
 import KaplaPlanner.Proofs
 import KaplaPlanner.Tests
 
