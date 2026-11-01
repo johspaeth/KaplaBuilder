@@ -10,6 +10,7 @@ import KaplaPlanner.Search
 import KaplaPlanner.Planner
 import KaplaPlanner.Ellipsoid
 import KaplaPlanner.Inside
+import KaplaPlanner.FastInside
 import KaplaPlanner.InsideProof
 import KaplaPlanner.Bubble
 import KaplaPlanner.Fixtures

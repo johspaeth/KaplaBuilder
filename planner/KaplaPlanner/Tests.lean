@@ -82,4 +82,18 @@ def resultOk (t : TargetSpec) (n : Nat) (human : HumanModel) : Bool :=
     !d.blocks.isEmpty && d.blocks.length ≤ 12 && insideBubbles d.bubbles d.blocks &&
     eyeballable d.blocks && (physicsMock.check .default 12 plan).ok
 
+-- The fast block check of the designer (`blockOk`, whole numbers) agrees with the proven
+-- check (`insideBubbles`, exact fractions) on the snowman, for every pose, at odd offsets,
+-- with blocks inside and outside.
+#guard
+  let bs := placeTarget Fixtures.snowman (3 / 2) (1 / 10)
+  let fbs := prepareBubbles bs
+  let blocks := Orient.all.flatMap fun o =>
+    (List.range 13).flatMap fun (i : Nat) => (List.range 13).flatMap fun (k : Nat) =>
+      [(⟨o, 7 * (i : Int) - 60, -6, 5 * (k : Int)⟩ : GridBlock),
+       ⟨o, -30, 7 * (i : Int) - 45, 5 * (k : Int) + 2⟩]
+  let agree := blocks.all fun b => blockOk fbs b == insideBubbles bs [b]
+  let nIn := blocks.countP (blockOk fbs)
+  agree && 0 < nIn && nIn < blocks.length
+
 end KaplaPlanner.Tests

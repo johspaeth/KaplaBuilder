@@ -1,5 +1,6 @@
 import KaplaPlanner.Bubble
 import KaplaPlanner.Eyeball
+import KaplaPlanner.FastInside
 
 /-! # Design: fill the bubbles' surface with blocks (DESIGN.md §3.4)
 
@@ -28,38 +29,16 @@ open KaplaCore
 deriving instance Hashable for Orient
 deriving instance Hashable for GridBlock
 
-/-! ## Fast inside test with a cache -/
+/-! ## Fast inside test -/
 
-/-- For points of the unit grid: which bubbles contain the point (one bit per bubble). -/
-abbrev MaskCache := Std.HashMap (Int × Int × Int) Nat
-
-/-- The bubbles that contain the grid point `p` (in units), as bits. -/
-def pointMask (bs : Array Bubble) (p : Int × Int × Int) : Nat :=
-  let q : Q3 := ⟨(p.1 : Q) * unit, (p.2.1 : Q) * unit, (p.2.2 : Q) * unit⟩
-  (List.range bs.size).foldl (fun m i => if bs[i]!.contains q then m ||| (1 <<< i) else m) 0
-
-/-- `pointMask`, remembered. -/
-def maskAt (bs : Array Bubble) (p : Int × Int × Int) : StateM MaskCache Nat := do
-  match (← get).get? p with
-  | some m => pure m
-  | none =>
-    let m := pointMask bs p
-    modify (·.insert p m)
-    pure m
-
-/-- The cube at `(i, j, k)` has its 8 corners in one bubble (same as `cellInside`). -/
-def cubeOk (bs : Array Bubble) (c : Int × Int × Int) : StateM MaskCache Bool := do
-  let (i, j, k) := c
-  let mut m : Nat := (1 <<< bs.size) - 1
-  for dx in [0, 4] do
-    for dy in [0, 4] do
-      for dz in [0, 4] do
-        m := m &&& (← maskAt bs (i + dx, j + dy, k + dz))
-  pure (m != 0)
-
-/-- The whole block is strictly inside (same as `insideBubbles` for one block). -/
-def blockOk (bs : Array Bubble) (b : GridBlock) : StateM MaskCache Bool :=
-  b.cells.allM (cubeOk bs)
+/-- The whole block is strictly inside (same as `insideBubbles` for one block, see
+`FastInside.lean`). -/
+def blockOk (bs : Array IntBubble) (b : GridBlock) : Bool :=
+  -- the same cubes as `b.cells`, without building the list
+  let (nx, ny, nz) := b.orient.cubes
+  nx.all fun i _ => ny.all fun j _ => nz.all fun k _ =>
+    cubeInside bs (b.x + (cubeSide * i : Nat)) (b.y + (cubeSide * j : Nat))
+      (b.z + (cubeSide * k : Nat))
 
 /-! ## Covering surface cubes -/
 
@@ -120,19 +99,40 @@ def layerOrient (k : Nat) : Orient := if k % 2 == 0 then .flatX else .flatY
 /-- Where a block's row is (across the block), and where it is along the row. -/
 def rowPos (b : GridBlock) : Int × Int := if b.orient == .flatX then (b.y, b.x) else (b.x, b.y)
 
+/-- Where the rows of a pool of blocks are: the outermost two rows, and for each row the
+first and last position along it. -/
+structure RowStats where
+  /-- The lowest and the highest row. -/
+  outer : Option (Int × Int) := none
+  /-- For each row: the lowest and the highest position along it. -/
+  ends  : Std.HashMap Int (Int × Int) := {}
+
+/-- The row statistics of `pool`. -/
+def rowStats (pool : List GridBlock) : RowStats :=
+  pool.foldl (init := {}) fun st c =>
+    let (r, a) := rowPos c
+    { outer := some (match st.outer with
+        | some (lo, hi) => (min lo r, max hi r)
+        | none => (r, r))
+      ends := st.ends.insert r (match st.ends.get? r with
+        | some (lo, hi) => (min lo a, max hi a)
+        | none => (a, a)) }
+
 /-- Shell score of a block (DESIGN.md §3.4): new surface cubes covered, plus a bonus for
 the two ends of each row and for the two outermost rows. Together, over two crossing
-layers, these close the outline from every side. `pool` are all blocks that may go into
-this layer. -/
-def shellScore (surface : Std.HashSet Cell) (f : Fill) (pool : List GridBlock)
+layers, these close the outline from every side. `rows` are the row statistics of all
+blocks that may go into this layer (`rowStats`). -/
+def shellScore (surface : Std.HashSet Cell) (f : Fill) (rows : RowStats)
     (b : GridBlock) : Nat :=
   let g := gain surface f b
   if g == 0 then 0 else
   let (r, a) := rowPos b
-  let inRow := (pool.filter fun c => (rowPos c).1 == r).map (fun c => (rowPos c).2)
-  let rows := pool.map fun c => (rowPos c).1
-  let rowEnd := some a == inRow.min? || some a == inRow.max?
-  let outerRow := some r == rows.min? || some r == rows.max?
+  let rowEnd := match rows.ends.get? r with
+    | some (lo, hi) => a == lo || a == hi
+    | none => false
+  let outerRow := match rows.outer with
+    | some (lo, hi) => r == lo || r == hi
+    | none => false
   g + (if rowEnd then 30 else 0) + (if outerRow then 30 else 0)
 
 /-- The centre (x, y, in units) of the allowed cubes in layer `z`, if there are any. -/
@@ -148,6 +148,11 @@ def distTo (c : Q × Q) (b : GridBlock) : Q :=
   let dy : Q := ((2 * b.y + b.sy : Int) : Q) / 2 - c.2
   dx * dx + dy * dy
 
+/-- The blocks, nearest to `c` first (blocks at the same distance keep their order). Each
+distance is computed once. -/
+def sortByDist (c : Q × Q) (l : List GridBlock) : List GridBlock :=
+  ((l.map fun b => (distTo c b, b)).mergeSort fun a b => a.1 ≤ b.1).map (·.2)
+
 /-- Blocks on edge or upright: taller than one layer. Used where no flat block helps, for
 example in a thin neck or a small head. -/
 def tallOrients : List Orient := [.edgeX, .edgeY, .uprightX, .uprightY]
@@ -162,10 +167,10 @@ layer.
 spine block below (`spine`, if its top is at `z`). It carries the inner part of the build,
 for example the top of a ball or a head above a neck. Where no flat block fits, the spine
 goes on with a block upright or on edge. Returns the new top block of the spine. -/
-def fillLayer (bs : Array Bubble) (surface : Std.HashSet Cell) (stands : List GridBlock → Bool)
+def fillLayer (bs : Array IntBubble) (surface : Std.HashSet Cell) (stands : List GridBlock → Bool)
     (centre : Option (Q × Q)) (z : Int) (o : Orient) (below active : List GridBlock)
     (seed spine : Option GridBlock) (budget : Nat) (f0 : Fill) :
-    StateM MaskCache (Fill × Option GridBlock) := do
+    Fill × Option GridBlock := Id.run do
   let mut f := f0
   let mut layer : List GridBlock := active
   -- blocks that may go in this layer: lined up with a block below (or, on the ground, with a
@@ -175,11 +180,14 @@ def fillLayer (bs : Array Bubble) (surface : Std.HashSet Cell) (stands : List Gr
   if z == 0 then
     match seed with
     | some s =>
-      if (← blockOk bs s) then
+      if blockOk bs s then
         f := f.add s
         layer := [s]
         refs := [s]
     | none => pure ()
+  -- `placedByEye` only looks at blocks a new block can rest on: above the ground these are
+  -- the blocks in `below`; on the ground, the blocks placed so far (all in this layer)
+  let eyeRefs (f : Fill) : List GridBlock := if z == 0 then f.placed.toList else below
   -- the spine
   let mut top := spine
   match spine, centre with
@@ -188,9 +196,9 @@ def fillLayer (bs : Array Bubble) (surface : Std.HashSet Cell) (stands : List Gr
       let mut cands : List GridBlock := []
       for b in candidatesFrom (o :: tallOrients) s z do
         if b.restsOn s && centreSupported below b && !layer.any (·.overlaps b) &&
-            placedByEye f.placed.toList b && (← blockOk bs b) then
+            placedByEye (eyeRefs f) b && blockOk bs b then
           cands := b :: cands
-      let near (l : List GridBlock) := l.mergeSort fun a b => distTo c a ≤ distTo c b
+      let near (l : List GridBlock) := sortByDist c l
       let tallRank (b : GridBlock) : Nat := match b.orient with
         | .uprightX | .uprightY => 0 | _ => 1
       let ordered := near (cands.filter (·.orient == o)) ++
@@ -210,7 +218,7 @@ def fillLayer (bs : Array Bubble) (surface : Std.HashSet Cell) (stands : List Gr
       for b in candidatesFrom (o :: tallOrients) a z do
         if !seen.contains b then
           seen := seen.insert b
-          if centreSupported below b && placedByEye (f.placed.toList) b && (← blockOk bs b) then
+          if centreSupported below b && placedByEye (eyeRefs f) b && blockOk bs b then
             pool := b :: pool
     refs := []
     -- best block that does not overlap the layer
@@ -219,7 +227,8 @@ def fillLayer (bs : Array Bubble) (surface : Std.HashSet Cell) (stands : List Gr
     -- take the first one with which the structure still stands
     let flatPool := pool.filter (·.orient == o)
     let byScore (l : List (GridBlock × Nat)) := (l.filter (·.2 > 0)).mergeSort fun a b => a.2 ≥ b.2
-    let flat := byScore ((free.filter (·.orient == o)).map fun b => (b, shellScore surface f flatPool b))
+    let rows := rowStats flatPool
+    let flat := byScore ((free.filter (·.orient == o)).map fun b => (b, shellScore surface f rows b))
     -- tall blocks only in a layer where no flat block fits (they would block the layers above)
     let flatPlaced := layer.any fun b => b.orient == o && b.z == z
     let tall := if flatPlaced then [] else
@@ -250,28 +259,27 @@ def Design.coverage (d : Design) : Q := if d.total == 0 then 0 else (d.covered :
 
 /-- The first block on the ground (and the bottom of the spine): the flat block inside the
 bubbles that is nearest to the centre of the ground layer. -/
-def bestSeed (bs : Array Bubble) (allowed : Std.HashSet Cell) :
-    StateM MaskCache (Option GridBlock) := do
+def bestSeed (bs : Array IntBubble) (allowed : Std.HashSet Cell) : Option GridBlock :=
   let ground := allowed.toList.filter (·.2.2 == 0)
   match layerCentre ground 0 with
-  | none => return none
+  | none => none
   | some c =>
     let x0 := (c.1 - 30).floor
     let y0 := (c.2 - 6).floor
-    let tries := ((intRange (x0 - 30) 61).flatMap fun x => (intRange (y0 - 30) 61).map fun y =>
-      (⟨.flatX, x, y, 0⟩ : GridBlock)).mergeSort fun a b => distTo c a ≤ distTo c b
-    tries.findM? (blockOk bs)
+    let tries := sortByDist c ((intRange (x0 - 30) 61).flatMap fun x =>
+      (intRange (y0 - 30) 61).map fun y => (⟨.flatX, x, y, 0⟩ : GridBlock))
+    tries.find? (blockOk bs)
 
 /-- Design for bubbles that are already scaled and placed, with at most `n` blocks.
 `stands blocks` says whether the blocks, placed in this order, stand after every step. -/
 def designPlaced (stands : List GridBlock → Bool) (bs : List Bubble) (n : Nat) (s : Q) :
     Design := Id.run do
-  let arr := bs.toArray
+  let arr := prepareBubbles bs
   let allowed := allowedCells bs
   let surface : Std.HashSet Cell := (surfaceCells allowed).foldl (·.insert ·) {}
   let topZ := (allowed.toList.map (·.2.2)).max?.getD 0
-  let run : StateM MaskCache Fill := do
-    let seed ← bestSeed arr allowed
+  let f : Fill := Id.run do
+    let seed := bestSeed arr allowed
     let mut f : Fill := {}
     let mut spine : Option GridBlock := seed
     let allowedL := allowed.toList
@@ -289,13 +297,12 @@ def designPlaced (stands : List GridBlock → Bool) (bs : List Bubble) (n : Nat)
       let active := blocks.filter fun b => b.z < z && b.top > z
       let share : Q := spare + (n : Q) * ((surfaceL.countP (·.2.2 == z) : Nat) : Q) / (max surface.size 1 : Nat)
       let layerBudget := min (n - f.placed.size) (max 1 share.floor.toNat)
-      let (f', sp) ← fillLayer arr surface stands (layerCentre allowedL z) z (layerOrient k)
+      let (f', sp) := fillLayer arr surface stands (layerCentre allowedL z) z (layerOrient k)
         below active seed (if k == 0 then none else spine) layerBudget f
       spare := share - ((f'.placed.size - f.placed.size : Nat) : Q)
       f := f'
       if k > 0 then spine := sp
     return f
-  let (f, _) := run.run {}
   { bubbles := bs, blocks := f.placed.toList,
     covered := (surface.toList.filter f.covered.contains).length,
     total := surface.size, scale := s }
@@ -312,7 +319,10 @@ def placeTarget (t : TargetSpec) (s sink : Q) : List Bubble :=
 /-- Try a few scales and ground heights; keep the design with the best surface coverage. -/
 def design (stands : List GridBlock → Bool) (t : TargetSpec) (n : Nat)
     (scales : List Q := [1, 3 / 2, 2]) (sinks : List Q := [1 / 10, 1 / 5]) : Option Design :=
-  let all := scales.flatMap fun s => sinks.map fun k => designPlaced stands (placeTarget t s k) n s
+  -- the tries do not depend on each other: run them in parallel, then pick in the same order
+  let tasks := scales.flatMap fun s => sinks.map fun k =>
+    Task.spawn fun _ => designPlaced stands (placeTarget t s k) n s
+  let all := tasks.map Task.get
   all.foldl (fun acc d => match acc with
     | some b => if d.coverage > b.coverage then some d else acc
     | none => if d.blocks.isEmpty then none else some d) none

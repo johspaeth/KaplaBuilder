@@ -1,5 +1,6 @@
 import Std.Data.HashSet
 import KaplaPlanner.Inside
+import KaplaPlanner.FastInside
 
 /-! # Working with bubbles: scale, bounds, allowed cells
 
@@ -48,15 +49,15 @@ and that are above the ground. Bubbles with a half-width of 0 or less are ignore
 def allowedCells (bs : List Bubble) : Std.HashSet Cell := Id.run do
   let mut out : Std.HashSet Cell := {}
   for b in bs do
-    match bubbleBounds b with
-    | none => pure ()
-    | some bx =>
+    match bubbleBounds b, IntBubble.ofBubble b with
+    | some bx, some fb =>
       for i in cellSpan bx.lo.x bx.hi.x do
         for j in cellSpan bx.lo.y bx.hi.y do
           for k in cellSpan bx.lo.z bx.hi.z do
-            if k ≥ 0 && !out.contains (i, j, k) &&
-                (cellBox i j k).corners.all (fun p => b.contains p) then
+            -- `containsCube` is `(cellBox i j k).corners.all b.contains`, in whole numbers
+            if k ≥ 0 && !out.contains (i, j, k) && fb.containsCube i j k then
               out := out.insert (i, j, k)
+    | _, _ => pure ()
   return out
 
 /-- The 6 neighbours of a cell. -/
