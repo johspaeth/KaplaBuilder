@@ -382,9 +382,9 @@ def Design.summary (d : Design) (checked : Bool) : String :=
     s!"{c.plan.blockCount} blocks, height {showQ c.score.height}, score {showScore c.score.score}, {shape}, {phys}"
 
 /-- Ask Claude these questions at the same time. -/
-def askAll (prompts : List String) : IO (List (Except String String)) := do
+def askAll (effort : Claude.Effort) (prompts : List String) : IO (List (Except String String)) := do
   let tasks ← prompts.mapM fun p =>
-    IO.asTask (prio := .dedicated) (Claude.ask systemPrompt p answerSchema)
+    IO.asTask (prio := .dedicated) (Claude.ask effort systemPrompt p answerSchema)
   tasks.mapM fun t => do
     match ← IO.wait t with
     | .ok r => pure r
@@ -396,18 +396,18 @@ def logRound (round : Nat) (checked : Bool) (ds : List Design) : IO Unit :=
     IO.eprintln s!"round {round}, design {i + 1}: {d.summary checked}"
 
 /-- The search: round 1 with independent proposals; round 2 repairs them if none passed. -/
-def aiRun (checkPhysics : Bool) (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) :
+def aiRun (effort : Claude.Effort) (checkPhysics : Bool) (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) :
     IO (List Candidate) := do
   let phOpt := if checkPhysics then some ph else none
   let first := userPrompt req.target.model req.blocks
-  let replies ← askAll (List.replicate designsPerRound first)
+  let replies ← askAll effort (List.replicate designsPerRound first)
   let round1 := replies.map (judge req phOpt sem)
   logRound 1 checkPhysics round1
   if let some c := bestOf round1 then return [c]
   if replies.all (·.toOption.isNone) then
     IO.eprintln "no answer from Claude; stopping"
     return []
-  let round2 := (← askAll (round1.map (repairPrompt first req.blocks))).map (judge req phOpt sem)
+  let round2 := (← askAll effort (round1.map (repairPrompt first req.blocks))).map (judge req phOpt sem)
   logRound 2 checkPhysics round2
   match bestOf round2 with
   | some c => return [c]
@@ -416,9 +416,9 @@ def aiRun (checkPhysics : Bool) (req : PlanRequest) (ph : PhysicsEngine) (sem : 
     return []
 
 /-- Claude proposes; the semantic and physics engines judge. -/
-def ai : Strategy := ⟨"ai", aiRun true⟩
+def ai (effort : Claude.Effort := .high) : Strategy := ⟨"ai", aiRun effort true⟩
 
 /-- Claude proposes; only the semantic engine judges. Physics is not checked. -/
-def aiUnchecked : Strategy := ⟨"ai-unchecked", aiRun false⟩
+def aiUnchecked (effort : Claude.Effort := .high) : Strategy := ⟨"ai-unchecked", aiRun effort false⟩
 
 end KaplaPlanner
