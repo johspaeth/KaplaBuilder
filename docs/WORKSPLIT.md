@@ -363,7 +363,7 @@ between the teams.
 ### D: Web & Integration (`KaplaWeb` + `kapla`)
 - **Owns**: stewardship of `KaplaCore` and the fixtures; `Main.lean` (CLI: `build`,
   `check`, `serve`); the HTML builder in Lean; three.js 3D view with step slider; step-card
-  SVGs (mm offsets, angles, grip hints, two-hand badge); feasibility, difficulty and
+  SVGs (offsets, angles, grip hints, two-hand badge); feasibility, difficulty and
   verified badges; print booklet; local HTTP server and input form; CI (build, axiom
   audit, import rules, fixture contract tests).
 - **Delivers**: the webpage and the end-to-end pipeline.

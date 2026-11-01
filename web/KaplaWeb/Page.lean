@@ -107,18 +107,18 @@ const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).
 function card(k){
   const nb = B.filter(b => b.step === k), z = nb.length ? nb[0].bottom : 0;
   const same = B.filter(b => b.step < k && Math.abs(b.bottom - z) < 1e-6);
-  const below = B.filter(b => b.step < k && b.bottom < z - 1e-6 && b.bottom + b.size[2] > z - 1e-3 - 0.5 && Math.abs(b.bottom + b.size[2] - z) < 1e-3);
+  const below = B.filter(b => b.step < k && b.bottom < z - 1e-6 && b.bottom + b.size[2] > z - 1e-3 - 0.1 && Math.abs(b.bottom + b.size[2] - z) < 1e-3);
   const all = B.filter(b => b.step <= k);
   let xs=[],ys=[]; all.forEach(b=>b.fp.forEach(p=>{xs.push(p[0]);ys.push(p[1]);}));
-  const pad=10, x0=Math.min(...xs)-pad, x1=Math.max(...xs)+pad, y0=Math.min(...ys)-pad, y1=Math.max(...ys)+pad;
+  const pad=1.5, x0=Math.min(...xs)-pad, x1=Math.max(...xs)+pad, y0=Math.min(...ys)-pad, y1=Math.max(...ys)+pad;
   const poly=(b,cls)=>`<polygon class='${cls}' points='${b.fp.map(p=>`${p[0]},${-p[1]}`).join(' ')}'/>`;
-  const svg=`<svg viewBox='${x0} ${-y1} ${x1-x0} ${y1-y0}'><style>.f{fill:none;stroke:var(--line);stroke-width:1}
-   .b{fill:var(--wood);fill-opacity:.35;stroke:var(--wood2);stroke-width:1}.s{fill:var(--wood);stroke:var(--wood2);stroke-width:1.2}
-   .n{fill:var(--accent);stroke:var(--fg);stroke-width:1.5}</style>
+  const svg=`<svg viewBox='${x0} ${-y1} ${x1-x0} ${y1-y0}'><style>.f{fill:none;stroke:var(--line);stroke-width:.15}
+   .b{fill:var(--wood);fill-opacity:.35;stroke:var(--wood2);stroke-width:.15}.s{fill:var(--wood);stroke:var(--wood2);stroke-width:.18}
+   .n{fill:var(--accent);stroke:var(--fg);stroke-width:.2}</style>
    ${all.filter(b=>!below.includes(b)&&!same.includes(b)&&!nb.includes(b)).map(b=>poly(b,'f')).join('')}
    ${below.map(b=>poly(b,'b')).join('')}${same.map(b=>poly(b,'s')).join('')}${nb.map(b=>poly(b,'n')).join('')}
-   <circle cx='0' cy='0' r='2.5' fill='var(--muted)'/></svg>`;
-  const s=S[k], lines=nb.map(b=>`${b.up}, centre (${b.c[0].toFixed(1)}, ${b.c[1].toFixed(1)}) mm, height ${b.bottom.toFixed(1)} mm, turned ${(((b.yaw%180)+180)%180).toFixed(1)}°`).join('<br>');
+   <circle cx='0' cy='0' r='.35' fill='var(--muted)'/></svg>`;
+  const s=S[k], lines=nb.map(b=>`${b.up}, centre (${b.c[0].toFixed(1)}, ${b.c[1].toFixed(1)}), height ${b.bottom.toFixed(1)}, turned ${(((b.yaw%180)+180)%180).toFixed(1)}°`).join('<br>');
   return `<div class='card' id='step${k}'><h4>Step ${k+1} <span class='hint'>· ${s.phase}</span>${s.n>1?\" <span class='two'>✋✋ two hands</span>\":''}</h4>
    ${svg}<div>${lines}</div><div class='hint'>${s.grip}, ${s.approach}. Offsets are from the dot (origin).</div></div>`;
 }
@@ -128,11 +128,11 @@ const el = document.getElementById('view'), slider = document.getElementById('sl
 slider.max = S.length; slider.value = S.length;
 let render = () => {};
 if (window.THREE) {
-  const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(40, 1, 1, 20000);
+  const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(40, 1, 0.1, 2500);
   const ren = new THREE.WebGLRenderer({antialias:true, alpha:true}); el.appendChild(ren.domElement);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x887766, 0.9));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(300,-400,800); scene.add(sun);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(2000, 64), new THREE.MeshLambertMaterial({color:0x998877, transparent:true, opacity:.15}));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(40,-50,100); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(250, 64), new THREE.MeshLambertMaterial({color:0x998877, transparent:true, opacity:.15}));
   scene.add(ground);
   const wood = new THREE.MeshLambertMaterial({color:0xe2b47a}), hot = new THREE.MeshLambertMaterial({color:0xe07b2a});
   const edges = new THREE.LineBasicMaterial({color:0x6b4a2b, transparent:true, opacity:.5});
@@ -140,8 +140,8 @@ if (window.THREE) {
     const m = new THREE.Mesh(g, wood); m.position.set(b.c[0], b.c[1], b.c[2]); m.rotation.z = b.yaw*Math.PI/180;
     m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), edges)); scene.add(m); return m; });
   let xs=B.map(b=>b.c[0]), ys=B.map(b=>b.c[1]), zs=B.map(b=>b.c[2]+b.size[2]/2);
-  const cx=(Math.min(...xs)+Math.max(...xs))/2||0, cy=(Math.min(...ys)+Math.max(...ys))/2||0, top=Math.max(...zs,120);
-  const span=Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys), top, 150);
+  const cx=(Math.min(...xs)+Math.max(...xs))/2||0, cy=(Math.min(...ys)+Math.max(...ys))/2||0, top=Math.max(...zs,15);
+  const span=Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys), top, 20);
   cam.up.set(0,0,1);
   const ctl = THREE.OrbitControls ? new THREE.OrbitControls(cam, ren.domElement) : null;
   cam.position.set(cx+span*1.3, cy-span*1.6, top*0.6+span*0.9);

@@ -59,15 +59,15 @@ def BuildPlan.example : BuildPlan := ⟨[{ blocks := [Pose.example] }]⟩
 
 /-- What we assume about the person who builds. See docs/DESIGN.md §2.1. -/
 structure HumanModel where
-  /-- mm: how far a block may be off, measured against the block(s) it rests on. -/
+  /-- How far a block may be off, measured against the block(s) it rests on. -/
   epsRel : Q
-  /-- mm: how far any block may drift from the plan in total. -/
+  /-- How far any block may drift from the plan in total. -/
   eAbs   : Q
   /-- Downward press while placing a block, in block weights. -/
   press  : Q
   /-- The most blocks placed in one step. -/
   hands  : Nat
-  /-- mm: the smallest gap between two blocks that do not touch by design. -/
+  /-- The smallest gap between two blocks that do not touch by design. -/
   clear  : Q
   /-- The friction coefficient we assume (lower than real wood, for safety). -/
   muSafe : Q
@@ -75,15 +75,15 @@ structure HumanModel where
 
 /-- A child: less precise, one hand. -/
 def HumanModel.child : HumanModel :=
-  { epsRel := 5, eAbs := 15, press := 1, hands := 1, clear := 5, muSafe := 1 / 4 }
+  { epsRel := 25 / 39, eAbs := 25 / 13, press := 1, hands := 1, clear := 25 / 39, muSafe := 1 / 4 }
 
 /-- An adult (the default). -/
 def HumanModel.adult : HumanModel :=
-  { epsRel := 3, eAbs := 10, press := 1 / 2, hands := 2, clear := 5, muSafe := 3 / 10 }
+  { epsRel := 10 / 39, eAbs := 50 / 39, press := 1 / 2, hands := 2, clear := 25 / 39, muSafe := 3 / 10 }
 
 /-- An expert builder. -/
 def HumanModel.expert : HumanModel :=
-  { epsRel := 3 / 2, eAbs := 5, press := 3 / 10, hands := 2, clear := 3, muSafe := 7 / 20 }
+  { epsRel := 5 / 26, eAbs := 25 / 39, press := 3 / 10, hands := 2, clear := 5 / 13, muSafe := 7 / 20 }
 
 /-- Find a profile by name: "child", "adult" or "expert". -/
 def HumanModel.ofName? : String → Option HumanModel

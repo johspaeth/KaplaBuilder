@@ -51,8 +51,8 @@ passes the real engines. The planner code does not change.
 
 ## 2. Internal model: an integer grid
 
-Kapla blocks are exactly 1 : 3 : 15 (7.8 × 23.4 × 117 mm). So we plan on a grid of cubes
-with side **7.8 mm**, and a block fills a whole box of cells:
+Kapla blocks are exactly 15 × 3 × 1. So we plan on a grid of cubes
+with side **1**, and a block fills a whole box of cells:
 
 | Orientation | Size in cells (x × y × z) |
 |---|---|
@@ -72,13 +72,13 @@ Why a grid:
   to test.
 - Motifs (towers, walls) are naturally on this grid.
 - We convert to the rational `Pose` of `KaplaCore` **once**, at the output:
-  centre = (anchor + size / 2) × 7.8 mm.
+  centre = anchor + size / 2.
 
 Blocks that are not on the grid (round towers, which rotate about the vertical axis, and
 leaning roof rafters) come later as a second kind of block that carries a `Pose`
 directly. The grid stays the default.
 
-Axes: z points up, the ground is z = 0, units are mm. This must match `KaplaCore`.
+Axes: z points up, the ground is z = 0, one unit is one block thickness. This must match `KaplaCore`.
 
 ---
 
@@ -274,7 +274,7 @@ follow WORKSPLIT §3.
 | `Q` (= `Rat`), `Q3` | exists |
 | `Upright` | `flat`, `onEdge`, `standing` |
 | `Rot` | yaw as an exact rational (cos, sin) pair. Grid poses use 0° and 90° only |
-| `Pose` | `up`, `rot`, `center` (block centre, mm) |
+| `Pose` | `up`, `rot`, `center` (block centre) |
 | `Grip`, `Approach` | `longSides` / `shortEnds` / `topEnd`; `fromAbove` / `slide axis sign` |
 | `Step` | `blocks : List Pose`, `grip`, `approach`, `phase : String` |
 | `BuildPlan` | `steps : List Step`, `blockCount` |

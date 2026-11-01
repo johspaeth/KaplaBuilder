@@ -10,7 +10,7 @@ planner uses only the parts, so it never has to evaluate the shape itself. -/
 
 namespace KaplaCore
 
-/-- A 3D shape (mm). -/
+/-- A 3D shape. -/
 inductive Shape where
   /-- A box with sides parallel to the axes. -/
   | box (b : Box)
@@ -67,9 +67,9 @@ structure TargetSpec where
 def TargetSpec.partsOrWhole (t : TargetSpec) : List PartTag :=
   if t.parts.isEmpty then [⟨"whole", .other, t.shape.bbox⟩] else t.parts
 
-/-- Example: a tower 100 mm wide and 300 mm high. -/
+/-- Example: a tower 13 wide and 38 high. -/
 def TargetSpec.example : TargetSpec :=
-  let b : Box := ⟨⟨0, 0, 0⟩, ⟨100, 100, 300⟩⟩
+  let b : Box := ⟨⟨0, 0, 0⟩, ⟨13, 13, 38⟩⟩
   { shape := .box b, parts := [⟨"tower", .tower, b⟩] }
 
 #guard TargetSpec.example.partsOrWhole.length == 1
