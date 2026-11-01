@@ -340,7 +340,7 @@ they go in `specs/KaplaSpecs/Semantics.lean`:
 ```lean
 theorem targetCells_correct (m : BubbleModel) (height : Q) (g : GridPt) :
     g ∈ targetCells m height ↔ ∃ b ∈ m.bubbles, (placeAt height b).contains g.centre = true
-theorem blockCells_correct (plan : List Pose) (g : GridPt) :
+theorem blockCells_correct (plan : List Pose) (hrot : ∀ blk ∈ plan, blk.rot.valid = true) (g : GridPt) :
     g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre = true
 theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
     checkWithin m height plan = true ↔ WithinTarget m height plan
@@ -371,7 +371,8 @@ contains 136); `flat`, one block covering [0,15] × [0,3] × [0,1].
    Example: `#guard (targetCells ⟨2, 0, 0⟩ ball).length == 8`; `(-1, -1, 0)` is in the list.
    Rejects: the empty list; any list containing (5, 5, 5).
 2. **`blockCells_correct`**: `g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre`.
-   Same for blocks, against `Pose.contains` from `KaplaCore`.
+   Same for blocks, against `Pose.contains` from `KaplaCore`. It holds when every block has a real
+   turn (cos² + sin² = 1, ruled 1 Nov 2026). With made-up turn numbers it is false.
    Surface: `Pose.contains`, `GridPt.centre`.
    Example: `#guard (blockCells [flat]).length == 45`.
    Rejects: a list of 44 cells.
