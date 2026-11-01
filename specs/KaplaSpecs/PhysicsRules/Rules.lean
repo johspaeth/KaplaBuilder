@@ -126,8 +126,8 @@ namespace KaplaPhysics
 
 /-! ## Placement errors (R1–R3) -/
 
-/-- R1. The default placement error: 2 mm, which is 10/39 of a unit. -/
-def placementError : Rat := 10 / 39
+/-- R1. The default placement error: 1/2 unit, which is 3.9 mm. -/
+def placementError : Rat := 1 / 2
 
 /-- R1, R2. The build after plank `i` lands `(d i).1` off along `x` and `(d i).2` off
 along `y`. Heights do not change. -/
@@ -154,7 +154,7 @@ combinations, so a build that is solid here is also solid under R5. -/
 def SolidWithin (ε : Rat) (b : Build) : Prop :=
   0 ≤ ε ∧ ∀ d, SmallShift ε b.length d → Stable (b.shift d)
 
-/-- R3 with the default error of 2 mm. -/
+/-- R3 with the default error of 3.9 mm. -/
 def Solid (b : Build) : Prop := SolidWithin placementError b
 
 /-! ## Build plans (K1, K4, K5) -/

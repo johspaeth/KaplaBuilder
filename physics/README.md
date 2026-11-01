@@ -96,7 +96,7 @@ are in the spec surface. Nothing depends on them being right: a wrong proposal o
 **Cautious, never optimistic (R3).** "Risky" means "not shown to be solid". A solid build
 can get "risky" when no certificate of the simple kind exists (fixed loads per contact).
 A "solid" verdict is always right. For the "risky" examples E3, E7 and E9 we also prove
-that they are not solid, each with an explicit error of at most 2 mm that makes it fall
+that they are not solid, each with an explicit error of at most 3.9 mm that makes it fall
 (`e3_not_solid`, `e7_not_solid`, `e9_not_solid`).
 
 Placement errors are taken over the whole R1 box (every plank within ε along `x` and `y`).
@@ -117,11 +117,11 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 - **Reference point.** Core places a block by its centre, physics by its lowest corner.
   `plankOf` converts, and `plankOf_box` proves the block stays where it was.
 - **Placement error: R1 is the model (team decision).** The two models measure error
-  differently, even though both defaults are 10/39 (2 mm):
+  differently, even though both defaults are 1/2 (3.9 mm):
   - physics (R1, `SmallShift ε`): every plank lands within ε of its own planned spot,
     along `x` and along `y`;
   - Core (`HumanModel`): `epsRel` is the error against the block(s) a block rests on, and
-    `eAbs` (default 50/39 = 5ε) caps the total drift from the plan. Errors can add up from
+    `eAbs` (default 50/39) caps the total drift from the plan. Errors can add up from
     level to level (docs/DESIGN.md §2.2).
 
   The adapter uses ε = `epsRel` with R1. So `ok` does **not** cover all of Core's errors.

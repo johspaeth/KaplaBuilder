@@ -14,7 +14,7 @@ import KaplaWeb
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
 
-`--clearance` also asks that a 2 mm error can never close a gap between two blocks. Blocks
+`--clearance` also asks that a 3.9 mm error can never close a gap between two blocks. Blocks
 that touch in the plan (side by side, end to end, one on another) are fine either way.
 -/
 
@@ -96,7 +96,7 @@ def describe : Diagnostic → String
   | .pressTips s c => s!"step {s + 1}: pressing on corner {c + 1} tips something"
   | .unreachable s => s!"step {s + 1}: may be hard to reach (warning only)"
   | .overlap i j => s!"blocks {i + 1} and {j + 1} overlap"
-  | .clearance i j => s!"blocks {i + 1} and {j + 1} have a small gap: a 2 mm error could close it"
+  | .clearance i j => s!"blocks {i + 1} and {j + 1} have a small gap: a 3.9 mm error could close it"
   | .unevenSupports b => s!"block {b + 1} rests on supports built differently"
   | .tooManyHands s => s!"step {s + 1}: more blocks than the builder has hands"
   | .emptyStep s => s!"step {s + 1}: places no block"
@@ -105,7 +105,7 @@ def describe : Diagnostic → String
 /-- Short lines for the page notes and the terminal. -/
 def physicsLines (opts : KaplaPhysics.PlanOptions) (r : PhysicsReport) : List String :=
   let clearance := if opts.clearance then "" else " (small gaps not checked)"
-  (if r.ok then s!"Physics (verified): well-formed and solid after every block, for 2 mm placement errors{clearance}"
+  (if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
    else s!"Physics (verified): not shown to be safe to build{clearance}") :: r.diagnostics.map describe
 
 /-- Run the verified physics engine (`physicsEngine` when clearance is off). -/
