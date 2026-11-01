@@ -288,9 +288,11 @@ def blueprintJson (title : String) (target : KaplaCore.TargetSpec) (c : KaplaCor
     , ("plan", Json.mkObj [("steps", Json.arr (c.plan.steps.map fun st =>
         Json.mkObj [("blocks", Json.arr (st.blocks.map pose).toArray)]).toArray)]) ]
 
-/-- Run a planner strategy on a target and list its candidates. -/
-def plan (name : String) (effort : KaplaPlanner.Claude.Effort) (blocks : Nat)
-    (targetFile out : Option String) : IO UInt32 := do
+/-- Run a planner strategy on a target and list its candidates. The physics engine and the
+scorer run here again on each candidate, so what is printed never comes from the planner's
+own report (a planner can return any report it likes). -/
+def plan (opts : KaplaPhysics.PlanOptions) (name : String) (effort : KaplaPlanner.Claude.Effort)
+    (blocks : Nat) (targetFile out : Option String) : IO UInt32 := do
   match KaplaPlanner.strategyWithEffort? name effort with
   | none =>
     IO.eprintln s!"unknown strategy \"{name}\"; known: {KaplaPlanner.strategies.map (·.name)}"
@@ -308,10 +310,11 @@ def plan (name : String) (effort : KaplaPlanner.Claude.Effort) (blocks : Nat)
     let effortNote := if KaplaPlanner.usesClaude s.name then s!" (effort {effort.name})" else ""
     IO.println s!"strategy {s.name}{effortNote}: {cands.length} candidates"
     for c in cands do
-      let physics := if c.physics.ok then "physics ok (verified)"
-        else if c.physics.diagnostics.isEmpty then "physics not checked"
-        else "physics not ok"
-      IO.println s!"  {c.plan.blockCount} blocks, height {KaplaPlanner.showQ c.score.height}, score {KaplaPlanner.showScore c.score.score}, {physics}"
+      let physics := runPhysics opts blocks c.plan
+      let score := KaplaSemantics.semanticEngine.score target c.score.height c.plan.blocks
+      IO.println s!"  {c.plan.blockCount} blocks, height {KaplaPlanner.showQ score.height}, score {KaplaPlanner.showScore score.score}, {if score.accepted then "accepted" else "not accepted"}"
+      for line in physicsLines opts c.plan physics do
+        IO.println s!"    {line}"
     match out, cands with
     | some path, c :: _ =>
       if let some dir := (System.FilePath.mk path).parent then IO.FS.createDirAll dir
@@ -471,7 +474,8 @@ def exampleEntry : Entry :=
     Json.mkObj [("center", Json.arr #[0, 0, 1])]])]])])).toOption.isNone
 
 /-- The physics and the score of a plan, for the page: `view` (blocks and steps for the viewer), `score`,
-`stands`, `physics` (lines of text), and `saved` (the plan as the page sends it back to save it). The
+`stands`, `assurance` (`"robust"`: also for 3.9 mm placement errors; `"nominal"`: at the planned
+positions only), `physics` (lines of text), and `saved` (the plan as the page sends it back to save it). The
 physics engine and the scorer run here, so none of this comes from the planner or from a file. -/
 def proposalJson (target : KaplaCore.TargetSpec) (p : SavedPlan) : Except String Json := do
   let opts : KaplaPhysics.PlanOptions := {}
@@ -482,6 +486,7 @@ def proposalJson (target : KaplaCore.TargetSpec) (p : SavedPlan) : Except String
     [ ("view", view)
     , ("score", KaplaSemantics.reportToJson score)
     , ("stands", Json.bool physics.ok)
+    , ("assurance", Json.str (match physics.assurance with | .robust => "robust" | .nominal => "nominal"))
     , ("physics", Json.arr ((physicsLines opts p.plan physics).map Json.str).toArray)
     , ("saved", savedPlanToJson p) ]
 
@@ -862,7 +867,7 @@ def main (args : List String) : IO UInt32 := do
   | "plan" :: rest =>
     let rec go (name : String) (effort : KaplaPlanner.Claude.Effort) (blocks : Nat)
         (target out : Option String) : List String → IO UInt32
-      | [] => plan name effort blocks target out
+      | [] => plan opts name effort blocks target out
       | "--strategy" :: n :: r => go n effort blocks target out r
       | "--effort" :: e :: r => match KaplaPlanner.Claude.Effort.ofName? e with
         | some e => go name e blocks target out r

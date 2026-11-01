@@ -15,7 +15,7 @@ module comment and `main` in `app/Main.lean`.
 |---|---|---|
 | `kapla check BLUEPRINT.json [--max N]` | Runs the verified physics engine (`KaplaPhysics.coreCheck`) on the blueprint, with the default builder and at most `N` blocks (default 200). Prints what it finds. | 0 when the plan is `ok`, 1 when not |
 | `kapla view BLUEPRINT.json [--out DIR]` | Writes `DIR/index.html` (default `out/`): 3D view, step cards, and the physics result in the notes. Format: `web/README.md`. | 0 |
-| `kapla plan [--blocks N] [--strategy NAME] [--effort LEVEL] [--target MODEL.json] [--out BLUEPRINT.json]` | Runs one planner strategy (`empty` by default, `ai`, `ai-unchecked`) on a bubble model (default: the egg), then the physics engine and the scorer. `--out` writes a blueprint for `kapla view`. `ai` and `ai-unchecked` ask Claude and need a key; `--effort` is `low`, `medium` or `high` (default `high`). | 0 |
+| `kapla plan [--blocks N] [--strategy NAME] [--effort LEVEL] [--target MODEL.json] [--out BLUEPRINT.json]` | Runs one planner strategy (`empty` by default, `ai`, `ai-unchecked`) on a bubble model (default: the egg). Then it runs the physics engine and the scorer **again** on each candidate, so what it prints never comes from the planner's own report. `--out` writes a blueprint for `kapla view`. `ai` and `ai-unchecked` ask Claude and need a key; `--effort` is `low`, `medium` or `high` (default `high`). | 0 |
 | `kapla serve [--port N]` | Starts the website on this computer only, default port 8000. Run it from the top folder of the repo. | – |
 | `kapla gallery-check` | Reads every file in `gallery/` and lists the ones that are not good entries. CI and `make check` run it. | 0 when all are good |
 
