@@ -304,8 +304,9 @@ theorem keepsGaps_of_clear (ε : Rat) (b : Build) (hc : Clear ε b) : KeepsGaps 
     ⟨hi'.1, hi'.2.1⟩ ⟨hi'.2.2.1, hi'.2.2.2⟩ ⟨hj'.1, hj'.2.1⟩ ⟨hj'.2.2.1, hj'.2.2.2⟩
 
 /-- Property 4: an accepted plan uses at most `maxPlanks` planks, and after every step the
-build so far is well-formed, keeps its gaps with placement errors up to `ε` (when
-`opts.clearance` is on), and is solid for those errors (K4, K5). -/
+build so far is well-formed, keeps its gaps with placement errors up to `ε` and puts no
+plank into a tight slot (when `opts.clearance` is on), and is solid for those errors
+(K4, K5, H6). -/
 theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   simp only [checkPlan, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true',
@@ -315,9 +316,9 @@ theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps
   rw [show k - 1 + 1 = k by omega] at hw hc hs
   have hs := solidAnswer_sound ε _ hs
   refine ⟨hw, fun ho => ?_, hs⟩
-  rcases hc with hc | hc
+  rcases hc with hc | ⟨hc, hslot⟩
   · rw [hc] at ho; cases ho
-  · exact keepsGaps_of_clear ε _ hc
+  · exact ⟨keepsGaps_of_clear ε _ hc, of_decide_eq_false hslot⟩
 
 /-! ## The simple rule for a column (property 6) -/
 
@@ -386,6 +387,44 @@ theorem tower_clearPair (ε : Rat) (hε : ε ≤ 1 / 2) (i j : Nat) (hij : i ≠
       simp only [Plank.top, Pose.size]
       grind
 
+/-- Two different planks of the square tower never touch side by side: planks on different
+levels share no height, and the two planks of one level are 9 apart. -/
+theorem tower_noSideTouch (i j : Nat) (hij : i ≠ j) :
+    (FacingAlongX (towerPlank i) (towerPlank j) →
+      (towerPlank j).x1 ≠ (towerPlank i).x ∧ (towerPlank i).x1 ≠ (towerPlank j).x) ∧
+    (FacingAlongY (towerPlank i) (towerPlank j) →
+      (towerPlank j).y1 ≠ (towerPlank i).y ∧ (towerPlank i).y1 ≠ (towerPlank j).y) := by
+  by_cases hl : i / 2 = j / 2
+  · have hp : i % 2 ≠ j % 2 := by omega
+    rcases towerPlank_cases i with ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ <;>
+    (try omega) <;>
+    · rw [ei, ej]
+      simp only [FacingAlongX, FacingAlongY, Plank.x1, Plank.y1, Plank.top, Pose.size]
+      grind
+  · have hc : ((i / 2 : Nat) : Rat) + 1 ≤ ((j / 2 : Nat) : Rat) ∨
+        ((j / 2 : Nat) : Rat) + 1 ≤ ((i / 2 : Nat) : Rat) := by
+      rcases Nat.lt_or_gt_of_ne hl with h' | h'
+      · left; exact_mod_cast h'
+      · right; exact_mod_cast h'
+    rcases towerPlank_cases i with ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ <;>
+    · rw [ei, ej]
+      simp only [FacingAlongX, FacingAlongY, Plank.top, Pose.size]
+      grind
+
+/-- No plank of the square tower goes into a tight slot. -/
+theorem tower_noTightSlot (m : Nat) : ¬ InTightSlot (towerBuild m) (towerPlank m) := by
+  rintro (⟨a, ha, c, -, h1, -, h3, -⟩ | ⟨a, ha, c, -, h1, -, h3, -⟩) <;>
+  · simp only [towerBuild, List.mem_map, List.mem_range] at ha
+    obtain ⟨i, hi, rfl⟩ := ha
+    first
+      | exact ((tower_noSideTouch m i (by omega)).1 h3).1 h1
+      | exact ((tower_noSideTouch m i (by omega)).2 h3).1 h1
+
+theorem squareTower_get (n m : Nat) (h : m < 2 * n) : (squareTower n).get m = towerPlank m := by
+  simp [squareTower, Build.get, List.getD_eq_getElem?_getD, h]
+
 /-- The square tower passes the clearance check for errors up to `ε ≤ 1/2`. -/
 theorem tower_clear (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : Clear ε (towerBuild k) := by
   intro i hi j hj hij
@@ -403,8 +442,9 @@ theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε 
   refine ⟨by omega, fun k _ hk => ?_⟩
   rw [squareTower_take n k (by omega)]
   have hs := tower_solid ε hε0 hε k
-  exact ⟨tower_wellFormed k,
-    fun _ => keepsGaps_of_clear ε _ (tower_clear ε hε k), hs⟩
+  refine ⟨tower_wellFormed k, fun _ => ⟨keepsGaps_of_clear ε _ (tower_clear ε hε k), ?_⟩, hs⟩
+  rw [squareTower_take n (k - 1) (by omega), squareTower_get n (k - 1) (by omega)]
+  exact tower_noTightSlot (k - 1)
 
 /-! ## Reaching the spot (property 5, K3) -/
 

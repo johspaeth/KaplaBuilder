@@ -53,12 +53,15 @@ what a theorem means, you must change `specs/`, which needs a spec review.
   "falls" ⇒ not stable.
 - `checkPlan_sound`: an accepted plan has at most N planks, and after every step it is
   well-formed at the planned positions and **solid** (property 4, K4). With the clearance
-  check on (`PlanOptions.clearance := true`; off by default) it also **keeps its gaps**
+  check on (`PlanOptions.clearance`, on by default) it also **keeps its gaps**
   (`KeepsGaps`): two planks that do not touch in the plan are never pushed into each other
   by errors up to ε. The checker asks for a gap of at least 2ε between such planks
   (`Clear`). Planks that touch in the plan (`Meets`: side by side, end to end, one on
   another) are left out, as R5 says: a plank pushed against its neighbour moves with it.
   So walls of touching planks pass; only near misses (a gap above 0 and below 2ε) fail.
+  The clearance check also refuses a plank dropped into a **tight slot** (`InTightSlot`):
+  a gap exactly its own width between two planks placed before it, touching both sides.
+  Each wall can land ε towards the other, so the slot can end up 1 unit too narrow.
 - `reachDir_sound`, `hardToReach_nil_sound`: a step the checker does not flag can be put
   in place along a straight path from far away plus a drop of `h > 0`, never sharing inside
   space with a placed plank (property 5, K3). Touching a placed plank on the way (sliding
@@ -133,10 +136,10 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
   only up to one level (measured: ε = 30/39 already fails both), so the planner could build
   almost nothing. Core's `HumanModel` docs should be brought in line with R1 (a change to
   `core/`, for the team).
-- **Clearance.** `physicsEngine` uses the default `PlanOptions` (clearance off).
-  `kapla check --clearance` uses `coreCheck { clearance := true }`: blocks that touch in
-  the plan are fine, and blocks with a gap below 2ε get a `clearance` diagnostic. Core's
-  `clear` is not used.
+- **Clearance.** `physicsEngine` and `kapla check` use the default `PlanOptions`
+  (clearance on); `kapla check --no-clearance` turns it off. Blocks that touch in the plan
+  are fine, blocks with a gap below 2ε get a `clearance` diagnostic, and a block dropped
+  into a tight slot gets a `tightSlot` diagnostic. Core's `clear` is not used.
 - **Reach.** K3 gives `unreachable` warnings, which do not change `ok`.
 - **Not used:** `eAbs`, `clear`, `muSafe`. The engine never reports `slides` or
   `unevenSupports`, and `slackPerBlock` is `none`. Core has no diagnostic for

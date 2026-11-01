@@ -20,9 +20,11 @@ How core's plan is read:
   level to level (up to `eAbs`); those are not covered. With `ε = eAbs`, no build taller
   than one level would pass, so the team chose R1.
 * **Clearance.** `coreCheck` takes the `PlanOptions`; `physicsEngine` uses the default
-  (clearance off). When it is on, blocks that touch in the plan are still fine, but two
-  blocks with a gap must keep it: the gap must be at least `2 * epsRel`, so no placement
-  error can close it. Pairs with a smaller gap get a `clearance` diagnostic.
+  (clearance on). Blocks that touch in the plan are still fine, but two blocks with a gap
+  must keep it: the gap must be at least `2 * epsRel`, so no placement error can close it.
+  Pairs with a smaller gap get a `clearance` diagnostic. A block that goes into a slot
+  exactly its own width, between two blocks placed before it, gets a `tightSlot`
+  diagnostic.
 * **Turns.** Only quarter turns have a physics pose. A plan with any other turn is not
   `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
@@ -61,6 +63,10 @@ def clearancePairs (ε : Rat) (b : Build) : List Diagnostic :=
       i < j && !decide (Overlap (b.get i) (b.get j)) &&
         !decide (ClearPair ε (b.get i) (b.get j))).map fun j => .clearance i j
 
+/-- Every block that goes into a tight slot between blocks placed before it (H6). -/
+def tightSlots (b : Build) : List Nat :=
+  (List.range b.length).filter fun k => decide (InTightSlot (b.take k) (b.get k))
+
 /-- The first block after which the build is not shown to be well-formed and solid.
 (Near misses get their own `clearance` diagnostic.) -/
 def firstUnsafeBlock (ε : Rat) (b : Build) : Option Nat :=
@@ -96,11 +102,13 @@ def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : Bu
         ((hardToReach dropGap b).map stepOf).eraseDups.map .unreachable
       { ok := stepDiags.isEmpty && safe,
         diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++
-          (if opts.clearance then clearancePairs h.epsRel b else []) ++
+          (if opts.clearance then
+            clearancePairs h.epsRel b ++ ((tightSlots b).map stepOf).map .tightSlot
+          else []) ++
           unsafeDiags ++ reachDiags }
 
-/-- The verified physics engine, for `app/Main.lean` to pass to the planner. Clearance is
-off (the default `PlanOptions`). -/
+/-- The verified physics engine, for `app/Main.lean` to pass to the planner. It uses the
+default `PlanOptions`: clearance on. -/
 def physicsEngine : KaplaCore.PhysicsEngine := ⟨coreCheck {}⟩
 
 end KaplaPhysics

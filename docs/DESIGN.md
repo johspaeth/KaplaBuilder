@@ -44,7 +44,7 @@ an explicit rule in the verified spec:
 | H3 | **Order-dependent stability** | a cantilever that only stands once its counterweight is on | every build step is checked, never only the final state |
 | H4 | **The press of placing** | the hand presses the new block down and the overhang below tips | not modelled: builders set blocks down without pressing (§2.3) |
 | H5 | **Unreachable placement** | a block that must go into a closed pocket, or under an overhang | hand access check: the block plus fingers can be lowered or slid into place (§2.4) |
-| H6 | **Tight fits** | a gap that is exactly one block wide | no near-misses: gaps are either 0 (blocks touch by design) or at least the clearance c |
+| H6 | **Tight fits** | a gap that is exactly one block wide | no near-misses: gaps are either 0 (blocks touch by design) or at least 2ε, and no block is dropped into a slot exactly its own width (`InTightSlot`) |
 | H7 | **Needs more hands than a person has** | A-frame rafters that only stand as a pair | a step places at most `hands` blocks at once (default 1) |
 | H8 | **Uneven parallel supports**: a block resting on two separate stacks rocks if their real heights differ | a bridge over pillars built from different block mixes | equal-composition rule for parallel support paths (§2.5) |
 | H9 | **Leaning blocks slide** | roof rafters that slip on smooth wood | friction with a safety margin (μ_safe < μ_real), plus margin on the friction cone (§3) |

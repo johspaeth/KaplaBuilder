@@ -85,8 +85,9 @@ example : ¬ ¬ Stable e1 := fun h => h e1_stable
 
 /-- Property 4 ("the plan is safe"): when the engine accepts a plan, it uses at most
 `maxPlanks` planks, and after every step the build so far is well-formed, is solid for
-placement errors up to `ε`, and (only when `opts.clearance` is on) keeps its gaps for those
-errors: planks that do not touch in the plan are not pushed into each other (K4, K5). -/
+placement errors up to `ε`, and (only when `opts.clearance` is on, the default) keeps its
+gaps for those errors: planks that do not touch in the plan are not pushed into each other,
+and no plank goes into a slot exactly its own width (K4, K5, H6). -/
 theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   sorry
@@ -104,11 +105,16 @@ example : ¬ SafePlan {} placementError 1 e2 := fun h => absurd h.1 (by decide)
 -- Ruled out: accepting a plan with a plank that rests on nothing (E5: an edge touch, P3).
 example : ¬ SafePlan {} placementError 200 e5 := fun h =>
   absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
+-- Ruled out (clearance on, the default): a plank dropped into a slot exactly its own width,
+-- between two planks placed before it.
+example : ¬ SafePlan {} placementError 200
+    [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 6, 0⟩, ⟨.flatX, 0, 3, 0⟩] := fun h =>
+  ((h.2 3 (by decide) (by decide)).2.1 rfl).2 (by decide +kernel)
 -- Ruled out (clearance on): two planks 1/4 apart. Moving each 1/4 towards the other is
 -- within the 3.9 mm error and makes them share inside space (P1).
 example : ¬ SafePlan { clearance := true } placementError 200
     [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] := fun h =>
-  (h.2 2 (by decide) (by decide)).2.1 rfl
+  ((h.2 2 (by decide) (by decide)).2.1 rfl).1
     (fun i => if i = 0 then (0, 1 / 4) else (0, -1 / 4)) (by unfold SmallShift; decide +kernel)
     0 (by decide) 1 (by decide) (by decide +kernel) (by decide +kernel)
 
@@ -305,8 +311,8 @@ example : KaplaCore.Pose.example.box ≠ (⟨.flatX, 0, 0, 1 / 2⟩ : Plank).toB
 block has a physics pose, and the blocks, placed one after the other in plan order, are a
 safe plan with options `opts`: at most `maxBlocks` of them, and after every block
 well-formed, solid for every placement error up to `epsRel`, and (if `opts.clearance` is on)
-keeping its gaps for every such error (R1, K4, K5). `physicsEngine` uses the default
-options. Core's errors that add up from level to level are not covered (R1 is the model). -/
+keeping its gaps for every such error with no plank put into a tight slot (R1, K4, K5, H6).
+`physicsEngine` uses the default options, with `clearance` on. Core's errors that add up from level to level are not covered (R1 is the model). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧

@@ -184,23 +184,57 @@ def KeepsGaps (ε : Rat) (b : Build) : Prop :=
   ∀ d, SmallShift ε b.length d → ∀ i < b.length, ∀ j < b.length,
     ¬ Meets (b.get i) (b.get j) → ¬ Overlap ((b.shift d).get i) ((b.shift d).get j)
 
+/-- The side faces of `p` and `q` that face each other along `x` share an area bigger than
+zero: their `y` ranges and their `z` ranges overlap by more than a line. -/
+def FacingAlongX (p q : Plank) : Prop :=
+  (p.y < q.y1 ∧ q.y < p.y1) ∧ (p.z < q.top ∧ q.z < p.top)
+
+/-- The same along `y`: their `x` ranges and their `z` ranges overlap by more than a line. -/
+def FacingAlongY (p q : Plank) : Prop :=
+  (p.x < q.x1 ∧ q.x < p.x1) ∧ (p.z < q.top ∧ q.z < p.top)
+
+instance (p q : Plank) : Decidable (FacingAlongX p q) := by unfold FacingAlongX; infer_instance
+instance (p q : Plank) : Decidable (FacingAlongY p q) := by unfold FacingAlongY; infer_instance
+
+/-- H6 (tight fits). Plank `p` goes into a slot exactly its own width: one plank already
+`placed` touches its low side and another touches its high side, along `x` or along `y`.
+Each wall can land up to `ε` towards the other, so the slot can end up too narrow for `p`. -/
+def InTightSlot (placed : Build) (p : Plank) : Prop :=
+  (∃ a ∈ placed, ∃ c ∈ placed,
+    a.x1 = p.x ∧ p.x1 = c.x ∧ FacingAlongX p a ∧ FacingAlongX p c) ∨
+  (∃ a ∈ placed, ∃ c ∈ placed,
+    a.y1 = p.y ∧ p.y1 = c.y ∧ FacingAlongY p a ∧ FacingAlongY p c)
+
+instance (placed : Build) (p : Plank) : Decidable (InTightSlot placed p) := by
+  unfold InTightSlot; infer_instance
+
+/-- Example: a plank dropped between two planks 3 apart is in a tight slot. -/
+example : InTightSlot [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 6, 0⟩] ⟨.flatX, 0, 3, 0⟩ := by
+  decide +kernel
+
+/-- Example: placed next to only one plank, it is not. -/
+example : ¬ InTightSlot [⟨.flatX, 0, 0, 0⟩] ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
+
 /-- Which checks a plan must pass. -/
 structure PlanOptions where
-  /-- Also ask that no placement error can close a small gap (`KeepsGaps`). Off by
-  default. Planks that touch by design are allowed either way. -/
-  clearance : Bool := false
+  /-- Also ask that no placement error can close a small gap (`KeepsGaps`), and that no
+  plank goes into a slot exactly its own width (`InTightSlot`). On by default. Planks
+  that touch by design are allowed either way. -/
+  clearance : Bool := true
   deriving Repr, DecidableEq, Inhabited
 
 /-- K1, K4, K5: the plan places one plank per step, uses at most `maxPlanks` planks, and
 after every step the build so far is
 1. well-formed at the planned positions,
 2. if `opts.clearance` is on: planks with a gap keep it with placement errors up to `ε`,
-   and
+   and the plank of this step did not go into a tight slot between earlier planks, and
 3. solid with placement errors up to `ε`. -/
 def SafePlan (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build) : Prop :=
   steps.length ≤ maxPlanks ∧
     ∀ k, 1 ≤ k → k ≤ steps.length →
-      WellFormed (steps.take k) ∧ (opts.clearance → KeepsGaps ε (steps.take k)) ∧
+      WellFormed (steps.take k) ∧
+        (opts.clearance → KeepsGaps ε (steps.take k) ∧
+          ¬ InTightSlot (steps.take (k - 1)) (steps.get (k - 1))) ∧
         SolidWithin ε (steps.take k)
 
 end KaplaPhysics

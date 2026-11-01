@@ -146,13 +146,14 @@ instance (ε : Rat) (b : Build) : Decidable (Clear ε b) := by
   unfold Clear; infer_instance
 
 /-- Check a build plan (K4, K5): at most `maxPlanks` planks, and after every step the
-build so far is well-formed, keeps its gaps for placement errors up to `ε` (only if
-`opts.clearance` is on), and is solid for those errors. -/
+build so far is well-formed, keeps its gaps for placement errors up to `ε` and puts no plank
+into a tight slot (only if `opts.clearance` is on), and is solid for those errors. -/
 def checkPlan (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build) : Bool :=
   decide (steps.length ≤ maxPlanks) &&
     (List.range steps.length).all fun k =>
       decide (WellFormed (steps.take (k + 1))) &&
-        (!opts.clearance || decide (Clear ε (steps.take (k + 1)))) &&
+        (!opts.clearance ||
+          (decide (Clear ε (steps.take (k + 1))) && !decide (InTightSlot (steps.take k) (steps.get k)))) &&
         solidAnswer ε (steps.take (k + 1))
 
 /-- What the engine says about one step of a plan, for the planner and the web page. -/

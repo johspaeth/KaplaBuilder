@@ -10,10 +10,17 @@ Details: [docs/DESIGN.md](docs/DESIGN.md). Who does what: [docs/WORKSPLIT.md](do
 
 - It uses **at most N blocks**.
 - It **stays standing after every step**, not only at the end.
-- It stays standing **even if your hands are a bit imprecise** (default: 1/2 of a block
-  thickness per block, 50/39 total drift).
-- You can **put every block in place by hand**: no closed pockets, no gaps that are exactly
-  one block wide, and one block per step (the `hands` setting, default 1).
+- It stays standing **even if your hands are a bit imprecise**: each block may land up to
+  1/2 of a block thickness (3.9 mm) from its planned spot, along `x` and along `y`.
+- **Blocks fit where they go**: no gaps that a 3.9 mm error could close, no block dropped
+  into a slot exactly its own width, and one block per step (the `hands` setting, default 1).
+
+Not guaranteed (yet):
+
+- Errors that **add up from level to level** (each block lined up against a block that is
+  itself off). The 3.9 mm is measured from the plan, not from the block below.
+- **Reaching** every block by hand: a block in a closed pocket only gets a warning
+  ("may be hard to reach").
 - **Every block is part of the target, and every part of the target is built.**
 - Its **likeness score** to the target is computed correctly. There is no minimum score: a
   person approves the design.

@@ -7,15 +7,17 @@ import KaplaWeb
 /-! The `kapla` CLI. The only place where the real engines meet.
 
 * `kapla` lists the components.
-* `kapla check BLUEPRINT.json [--max N] [--clearance]` runs the verified physics engine
+* `kapla check BLUEPRINT.json [--max N] [--no-clearance]` runs the verified physics engine
   on the blueprint (default builder, at most `N` blocks, default 200) and lists the problems
   it finds. Exit code 0 when the plan is `ok`, 1 when it is not.
-* `kapla view BLUEPRINT.json [--out DIR] [--clearance]` writes `DIR/index.html` (default
+* `kapla view BLUEPRINT.json [--out DIR] [--no-clearance]` writes `DIR/index.html` (default
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
 
-`--clearance` also asks that a 3.9 mm error can never close a gap between two blocks. Blocks
-that touch in the plan (side by side, end to end, one on another) are fine either way.
+By default the engine also asks that a 3.9 mm error can never close a gap between two
+blocks, and that no block goes into a slot exactly its own width. `--no-clearance` turns
+these two checks off. Blocks that touch in the plan (side by side, end to end, one on
+another) are fine either way.
 -/
 
 open Lean (Json JsonNumber)
@@ -96,6 +98,7 @@ def describe : Diagnostic → String
   | .unreachable s => s!"step {s + 1}: may be hard to reach (warning only)"
   | .overlap i j => s!"blocks {i + 1} and {j + 1} overlap"
   | .clearance i j => s!"blocks {i + 1} and {j + 1} have a small gap: a 3.9 mm error could close it"
+  | .tightSlot s => s!"step {s + 1}: the block goes into a slot exactly its own width; a 3.9 mm error could close it"
   | .unevenSupports b => s!"block {b + 1} rests on supports built differently"
   | .tooManyHands s => s!"step {s + 1}: more blocks than the builder has hands"
   | .emptyStep s => s!"step {s + 1}: places no block"
@@ -103,11 +106,11 @@ def describe : Diagnostic → String
 
 /-- Short lines for the page notes and the terminal. -/
 def physicsLines (opts : KaplaPhysics.PlanOptions) (r : PhysicsReport) : List String :=
-  let clearance := if opts.clearance then "" else " (small gaps not checked)"
+  let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
   (if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
    else s!"Physics (verified): not shown to be safe to build{clearance}") :: r.diagnostics.map describe
 
-/-- Run the verified physics engine (`physicsEngine` when clearance is off). -/
+/-- Run the verified physics engine (`physicsEngine` when clearance is on). -/
 def runPhysics (opts : KaplaPhysics.PlanOptions) (maxBlocks : Nat) (plan : BuildPlan) :
     PhysicsReport :=
   KaplaPhysics.coreCheck opts HumanModel.default maxBlocks plan
@@ -141,12 +144,12 @@ def view (opts : KaplaPhysics.PlanOptions) (file : String) (out : String) : IO U
     return 0
 
 def usage : String :=
-  "usage: kapla check BLUEPRINT.json [--max N] [--clearance]\n" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--clearance]"
+  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
+  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]"
 
 def main (args : List String) : IO UInt32 := do
-  let opts : KaplaPhysics.PlanOptions := { clearance := args.contains "--clearance" }
-  match args.filter (· != "--clearance") with
+  let opts : KaplaPhysics.PlanOptions := { clearance := !args.contains "--no-clearance" }
+  match args.filter (· != "--no-clearance") with
   | ["check", file] => check opts file defaultMaxBlocks
   | ["check", file, "--max", n] =>
     match n.toNat? with
@@ -159,8 +162,8 @@ def main (args : List String) : IO UInt32 := do
     for name in [KaplaPhysics.componentName, KaplaSemantics.componentName,
                  KaplaPlanner.componentName, KaplaWeb.componentName] do
       IO.println s!"  - {name}"
-    IO.println "Check a blueprint: kapla check BLUEPRINT.json [--max N] [--clearance]"
-    IO.println "Show a blueprint:  kapla view BLUEPRINT.json [--out DIR] [--clearance]"
+    IO.println "Check a blueprint: kapla check BLUEPRINT.json [--max N] [--no-clearance]"
+    IO.println "Show a blueprint:  kapla view BLUEPRINT.json [--out DIR] [--no-clearance]"
     return 0
   | _ =>
     IO.eprintln usage
