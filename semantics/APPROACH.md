@@ -87,6 +87,10 @@ of a handful of blobs.
 
 ## 2. The interpret loop (untrusted)
 
+**Replaced in part, 1 Nov 2026.** The website is planned in `semantics/STEP7.md`, and that file wins
+where they differ. It lives in `app/`, `web/` and `semantics/`, not in `semantics/dev/`. There is no
+transcript file and no 3-view SVG page.
+
 Nothing in this section is trusted. It produces a `BubbleModel`; the verified part only ever
 sees the model, never the conversation that made it.
 
@@ -439,7 +443,7 @@ is forbidden. Big inputs go in `#guard`, which is a build-time test, not a proof
 | `Grid.lean` | `GridPt`, `centre`, `targetCells`, `blockCells` (blocks are `Pose` from `KaplaCore`) |
 | `Score.lean` | `covered` (with the per-bubble fill), `extra`, `missing`, `score`, `solid`, `perBubble`; block-side definitions that are also the implementation |
 | `Check.lean` | `WithinTarget`, `CoversTarget`, `checkWithin`, `checkCovers`, the "too small" list |
-| `Engine.lean` | the `SemanticEngine` implementation (`interpret`, `refine`, `score`); **the only file that uses the engine and report types** (`SemanticEngine`, `TargetSpec`, `ScoreReport`). Any file may use `Q3`, `Bubble`, `BubbleModel`, `Frame` and `Pose`. Also hosts `componentName`, which `app/Main.lean` prints |
+| `Engine.lean` | the `SemanticEngine` implementation (`interpret`, `refine`, `score`); **the only file that uses the engine and report types** (`SemanticEngine`, `TargetSpec`, `ScoreReport`). Any file may use `Q3`, `Bubble`, `BubbleModel` and `Pose`. Also hosts `componentName`, which `app/Main.lean` prints |
 | `Claude.lean` | Messages API client over `curl`, prompt templates, retries |
 | `Preview.lean` | 3-view SVG of a model, optionally with a plan |
 | `semantics/dev/*.lean` | the CLI tools of §2, one `main` each, outside the library so they do not clash with `kapla` in `lake check`. `dev/Score.lean` runs `runScore`: model file, blocks file, height |
@@ -537,9 +541,7 @@ Yaw-rotated bubbles and the optional lemmas of §6 come after I2 if there is tim
 
 **Open questions**
 
-1. **Serving the chat page.** Lean core has no HTTP server; `kapla serve` is D's. Candidate:
-   a short script under `semantics/dev/` that serves the page and shells out to the Dev
-   tools. Decide when the roadmap is written.
+1. **Serving the website.** Settled: Lean's `Std.Http.Server` works, in `kapla serve`. See `STEP7.md`.
 2. **Silhouette for images** (B3): projection along which axis, mask resolution, and whether
    the mask arrives through `TargetSpec.silhouette` as pixels or as a polygon.
 3. **Frame refinement.** Worth adding as an untrusted helper the planner can call, or not at
