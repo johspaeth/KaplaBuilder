@@ -85,35 +85,106 @@ Axes: z points up, the ground is z = 0, units are mm. This must match `KaplaCore
 ## 3. Pipeline
 
 ```
-TargetSpec, N, HumanModel
+TargetSpec (bubbles), N, HumanModel
    │
-   ├─ 1. Decompose      parts of the target → regions (tower, wall, roof, trunk, …)
-   ├─ 2. Scale search   try a few scales s; keep the best result
-   │     for each s:
-   │      ├─ 3. Motifs       fill each region with a motif (pure, cost known up front)
-   │      ├─ 4. Budget       split N blocks over the regions (knapsack)
-   │      ├─ 5. Assemble     place regions in world coordinates; stack roof on walls
-   │      ├─ 6. Sequence     backward search: take the design apart, reverse it (§3.5)
-   │      │                  → steps of 1..hands blocks, grip, approach, phase
-   │      │                  → verified validator: steps rebuild exactly the design
-   │      ├─ 7. Pre-check    cheap local checks (block count, one-block gaps)
-   │      ├─ 8. Physics      physics.check; on unstable step k → back to 6 with a hint;
-   │      │                  if sequencing fails → 9. Repair (change the design) → back to 5
-   │      └─ 10. Score       semantics.score
-   └─ 11. Rank          by score, then by difficulty; return the top k
+   ├─ 1. Bubbles        the target is a union of turned ellipsoids ("bubbles") (§3.1)
+   ├─ 2. Scale search   try several scales s and grid offsets; keep the best (§3.2)
+   │     for each (s, offset):
+   │      ├─ 3. Allowed cells   grid cells that lie strictly inside the scaled bubbles (§3.3)
+   │      ├─ 4. Design D        fill the surface with blocks, layer by layer, plus the
+   │      │                     inner support it needs; at most N blocks (§3.4)
+   │      │                     → verified check: every block strictly inside the bubbles
+   │      ├─ 5. Sequence        backward search: take D apart, reverse it (§3.5)
+   │      │                     → verified check: the steps rebuild exactly D
+   │      ├─ 6. Pre-check       cheap local checks (block count, one-block gaps) (§3.6)
+   │      ├─ 7. Physics         physics.check; on unstable step k → back to 5 with a hint;
+   │      │                     if sequencing fails → 8. Repair: change D → back to 5 (§3.7)
+   │      └─ 9. Score           semantics.score
+   └─ 10. Rank          by score, then by difficulty; return the top k
 ```
 
-### 3.1 Decompose
-Read `TargetSpec.parts`: each part has a kind (tower, wall, roof:gable / cone / hip, trunk,
-…) and a bounding box. One part becomes one region. The planner does **not** evaluate the
-full shape DSL. The semantic engine scores the result against the real shape.
+The design problem in one sentence: **choose a scale and a set of at most N blocks that
+lie strictly inside the target, cover its surface as well as possible, and can be built
+step by step without falling.**
+
+### 3.1 The target: bubbles
+
+The semantic engine describes the target as a union of **bubbles**. A bubble is a turned,
+stretched sphere (an ellipsoid), given exactly in rational numbers:
+
+```lean
+structure Bubble where
+  part   : String       -- which part of the target it belongs to ("head", "tower 2", …)
+  center : Q3
+  axes   : Q3 × Q3 × Q3 -- u₁, u₂, u₃
+-- point x is inside  ⇔  (u₁·(x−c))² + (u₂·(x−c))² + (u₃·(x−c))² ≤ 1
+```
+
+Each `uᵢ` is an axis direction divided by that axis's radius. Any turn and any stretch can
+be written this way with rational numbers; no special angles are needed. A plain sphere of
+radius r has `u₁ = (1/r, 0, 0)`, `u₂ = (0, 1/r, 0)`, `u₃ = (0, 0, 1/r)`.
+
+The bubbles can overlap. The target is everything inside at least one bubble.
 
 ### 3.2 Scale search
-A target has no fixed size. We try a short list of scales (for example the largest scale
-where the cheapest motif still fits in N, then 3/4, 1/2 of that). Each scale gives one
-candidate.
 
-### 3.3 Motifs
+The target has no fixed size; the planner chooses the scale s.
+- **Too small**: thin parts (a tail, a spire) have no room for even one block, because blocks
+  must be strictly inside. They vanish.
+- **Too large**: N blocks cannot cover the surface. Covering a surface needs about s² blocks,
+  so the useful scales are limited from above by N.
+
+The likeness need not rise and fall smoothly with s, so we **sample** about 5–8 scales
+between these two limits. At each scale we also try a few grid offsets (shifting the grid by
+a fraction of a cell changes what fits). Each (scale, offset) gives one design.
+
+### 3.3 Allowed cells (strictly inside)
+
+A grid cell is **allowed** if its 8 corners lie inside one and the same bubble. A bubble is
+convex, so the whole cell is then inside the target. A block is allowed if all its cells
+are allowed. This may lose a little room where two bubbles meet, but it never lets a block
+stick out.
+
+Every test is exact arithmetic in `Rat`. The planner works with integer cells after this
+step.
+
+Kinds of allowed cells:
+- **surface cell**: allowed, with at least one of its 6 neighbours not allowed;
+- **inner cell**: allowed, all 6 neighbours allowed.
+
+### 3.4 Design: cover the surface
+
+Likeness is judged by the **outside shape** (surface focus). A hollow shell looks the same as
+a solid build and costs far fewer blocks (about s² instead of s³). So the goal is: **cover
+as many surface cells as possible, and use inner cells only where the shell needs support.**
+
+Built **layer by layer, bottom up**, as Kapla is built:
+1. **Ring**: in each layer, place blocks along the surface cells of that slice, like walls
+   following the outline. Flat blocks for slices that change slowly; on-edge or upright
+   blocks where a part is narrow and tall (trunk, spire).
+2. **Bond**: blocks cross the joints of the layer below (the running bond of a wall, the
+   crossing corners of a log cabin). This holds the ring together.
+3. **Steps in and out**: where the outline grows from one layer to the next, the ring must
+   overhang. Keep each overhang small enough that the load stays over its support (cheap
+   grid estimate). Where the outline grows too fast, add inner support (a ledge or pillar,
+   in inner cells) or leave the part out.
+4. **Lids**: where the shape closes on top, span the opening with blocks resting on the
+   ring below (a block spans up to 13 cells). Wide openings close in steps, each layer
+   reaching in a little (like a stepped roof).
+5. **Budget**: if this needs more than N blocks, decide what to keep. First every part keeps
+   some blocks (the semantic engine's per-part score shows a missing part), then the blocks
+   that define the outline seen from the side, then the rest.
+6. **Improve**: try to move, swap or turn single blocks to cover more surface cells; repeat
+   while it helps (with fuel).
+
+The search is untrusted. Its output passes a **verified check**,
+`insideBubbles bubbles s D : Bool`: every cell of every block has its 8 corners inside one
+bubble (§5).
+
+**Motifs** (tower, wall, slab, stepped roof; §3.4.1) are reused as ring and lid patterns, and
+for tiny N.
+
+#### 3.4.1 Motifs
 A motif is a pure function from a few parameters to blocks, together with its block count:
 
 ```lean
@@ -123,21 +194,13 @@ structure Motif (P : Type) where
   cost   : P → Nat                -- = (blocks p).length, proven per motif
 ```
 
-Order of work:
-1. **single**: one upright block ("tree trunk"). This handles N = 1.
-2. **log-cabin tower**: pairs of flat blocks, each layer turned 90°.
-3. **wall**: flat blocks in running bond (each row shifted by half a block).
-4. **slab / floor**: flat blocks side by side.
-5. **stepped roof**: flat rows, each stepping in by a safe overhang.
-6. Later (needs tilted blocks from physics M3): leaning-rafter gable, A-frame pairs, tipi,
-   hip. See docs/DESIGN.md §4.
+Available: single upright block (N = 1, "tree trunk"), log-cabin tower, solid column. Planned:
+wall in running bond, slab, stepped roof. Later (needs tilted blocks from physics M3):
+leaning-rafter gable, A-frame pairs, tipi, hip (docs/DESIGN.md §4).
 
-### 3.4 Budget
-Each region has a few motif variants (for example tower height 4, 8, 12 layers). Choosing
-one variant per region so that the total cost is at most N, with the largest estimated
-gain, is a small knapsack. Small dynamic programming over N is fast enough for N ≤ a few
-hundred. The estimate is "volume of the region covered". The real score comes from the
-semantic engine later.
+#### 3.4.2 Tiny N (N ≤ 4)
+A fixed catalog of small layouts (upright trunk, two-block T, small arch, …), each placed
+inside the bubbles at the best scale. The best scoring one wins.
 
 ### 3.5 Sequence: backward ("assembly by disassembly")
 The sequencer gets the designed structure **D** (a list of blocks) and finds an order in
@@ -197,12 +260,14 @@ save physics calls, but they are not verified and not part of any promise.
 
 | Diagnostic | Edit, in order of preference |
 |---|---|
-| `Unstable(step, block)` / `PressTips` | **sequence again first**, with step k marked bad (the backward search finds another order or a two-hand step); then change the design: shorten the overhang, add a counterweight block, drop the block |
+| `Unstable(step, block)` / `PressTips` | **sequence again first**, with step k marked bad (the backward search finds another order or a two-hand step); then change the design: shorten the overhang, add a counterweight or inner support block (inside the bubbles), drop the block |
 | `Slides(step, contact)` | steeper pitch; add a stopper block (roofs, later) |
 | `Unreachable(step)` | move the step earlier; change the approach |
 | `TooManyHands(step)` | split the step |
 | `Overlap` / `Clearance` | move by one cell; drop the block |
-| `UnevenSupports(block)` | make both supports the same motif |
+| `UnevenSupports(block)` | build both supports the same way |
+
+A design change may never add a block outside the bubbles: the `insideBubbles` check runs again.
 
 Two kinds of edits: a new **order** (sequencer only, D unchanged) and a new **design**
 (D → D′, then sequence D′ from scratch). Only the repair loop changes the design; the
@@ -210,12 +275,7 @@ sequencer never adds or drops blocks. After each edit we check again. The loop h
 fuel (default 8 rounds) and a global limit on physics calls. If fuel runs out, we drop the
 candidate.
 
-### 3.8 Tiny N (N ≤ 4)
-A fixed catalog of small layouts (upright trunk, two-block T, small arch, …). We check and
-score all of them and keep the best. This gives the "1 block → stand it upright as a tree
-trunk" case.
-
-### 3.9 Rank and difficulty
+### 3.8 Rank and difficulty
 Sort by score. If two scores are within 0.02, the easier plan wins. Difficulty comes from
 the smallest slack in the physics report, the number of two-hand steps, and the number of
 leaning blocks. It maps to easy, medium or expert.
@@ -230,14 +290,15 @@ planner/KaplaPlanner/
   Grid.lean        GridBlock, Orient, occupancy, overlap / rests-on / gap, toPose
   Motif.lean       the Motif structure
   Motifs/Single.lean  Motifs/Tower.lean  Motifs/Wall.lean  Motifs/Slab.lean  Motifs/SteppedRoof.lean
-  Decompose.lean   TargetSpec → regions
-  Budget.lean      knapsack
+  Bubble.lean      inside test, allowed / surface / inner cells (§3.1, §3.3)
+  Inside.lean      insideBubbles check (verified, §5)
+  Design.lean      scale search, rings, bonding, lids, budget, improvement (untrusted, §3.2, §3.4)
   Sequencer.lean   backward search, steps, grip, approach, phase (untrusted)
   Validate.lean    validateSequence (verified, §5)
   Stability.lean   cheap grid stability estimate used inside the search (untrusted)
   PreCheck.lean    local checks of §3.6
   Repair.lean      Diagnostic → edit
-  Search.lean      scale search, tiny-N catalog, rank, difficulty
+  Search.lean      tiny-N catalog, rank, difficulty
   Planner.lean     `planner : KaplaCore.Planner`
   Tests.lean       runs on the fixture targets with the mocks
 ```
@@ -247,8 +308,8 @@ planner/KaplaPlanner/
 ## 5. What we prove
 
 Most safety rules belong to the physics engine: every step stands, no block is in mid-air,
-no blocks overlap (`certify_sound`). The planner proves what only the planner knows: **how
-the build steps relate to the structure it designed.**
+no blocks overlap (`certify_sound`). The planner proves what only the planner knows: **that
+the design stays inside the target, and how the build steps relate to the design.**
 
 Let D be the designed structure and **state k** the blocks standing after step k (the
 blocks of the first k steps; core defines a plan this way).
@@ -265,10 +326,21 @@ whatever the search does. Together they say the build is a strictly growing chai
 nothing to exactly D. Physics then checks each state in that chain, and each one is a real
 stage on the way to the figure the user is shown.
 
+3. **(c) Strictly inside the target.** Every point of every block of D lies inside the
+   (scaled) bubbles. Stated for the check `insideBubbles` (§3.4): "if it accepts, every point
+   of every block is inside some bubble". In words: **the plan never builds outside the
+   shape**.
+   Proof idea: a block is a union of cells; each cell's 8 corners lie inside one bubble.
+   The bubble test is a sum of squares of straight-line (linear) functions, and such a
+   square is never larger in the middle of a segment than at its ends. Every point of a cell
+   is reached from its corners by three such in-between steps (along x, y, z), so it is
+   inside too. This needs inequalities on `Rat` without Mathlib: the riskiest proof so far,
+   so we try it early.
+
 Also kept:
-3. **Budget and physics** (`planPure_sound`, already in `specs/`): every returned plan
+4. **Budget and physics** (`planPure_sound`, already in `specs/`): every returned plan
    passed the physics check and uses at most N blocks.
-4. **Motif cost** (internal lemma): `(m.blocks p).length = m.cost p`.
+5. **Motif cost** (internal lemma): `(m.blocks p).length = m.cost p`.
 
 Today `sequence_perm` (in `specs/`) proves the end of (b) for the simple bottom-up
 sequencer. It will be replaced by the validator theorem.
@@ -299,6 +371,8 @@ The planner develops against these. They are *not* trusted and are deliberately 
 - **SemanticMock.score**: volume IoU between the blocks and the target part boxes, best of
   three scales (target as high, as wide or as deep as the blocks).
 - **SemanticMock.bound**: `min(1, N · block volume / target volume)`.
+- **To change** for the bubble design: the mock target becomes bubbles, and the mock score
+  becomes surface-based (share of surface cells covered by blocks) to match §3.4.
 
 ---
 
@@ -329,8 +403,9 @@ follow WORKSPLIT §3.
 | engines | `PhysicsEngine`, `SemanticEngine`, `Planner` (§1) |
 | mocks | `PhysicsMock`, `SemanticMock` (§7) |
 
-The key point for the planner is that **every target part carries a bounding box and a
-kind**. Then the planner never needs to evaluate the shape DSL itself.
+**Needed next** (core change, agree with B): `TargetSpec` gets `bubbles : List Bubble`
+(§3.1). Each bubble names its part, so per-part scores still work. The planner then reads
+only the bubbles, never the shape DSL.
 
 ---
 
@@ -338,17 +413,21 @@ kind**. Then the planner never needs to evaluate the shape DSL itself.
 
 | # | Deliverable | Done when |
 |---|---|---|
-| P0 | `KaplaCore` v0.1 contract + mocks (team PR) | builds; all four review it |
+| P0 ✅ | `KaplaCore` v0.1 contract + mocks | merged |
 | P1 ✅ | Grid, single + tower + column motifs, bottom-up sequencer, pre-check, planner on mocks | merged |
 | P1.5 | Backward sequencer with backtracking and pairs; `validateSequence` + theorem (a)(b) in `specs/` | counterweight and "only stand as a pair" examples sequenced correctly on mocks; comparator green |
-| P2 | Wall, slab, decompose, budget, scale search, repair loop, tiny-N catalog | a candidate for every fixture target at N = 1, 4, 20, 200 |
+| P2 | Bubbles in core; allowed cells; `insideBubbles` + theorem (c) in `specs/` | comparator green; examples: a block that sticks out is rejected |
+| P3 | Surface design: rings, bonding, lids, budget, improvement, scale search; repair loop | a candidate for every fixture target at N = 1, 4, 20, 200 on mocks |
 | P4 | Roof motifs (stepped first; leaning ones after physics M3), knapsack tuning | Neuschwanstein@200 on real engines (I3) |
 
 ## 10. Open questions for the team
 
-1. Does `TargetSpec.parts` carry a bounding box per part (§8)? This is B's call.
-2. Block index in `Diagnostic`: position in the flattened plan, or (step, index in step)?
+1. B: the target as **bubbles** (turned ellipsoids, §3.1), each tagged with its part. Agreed
+   format?
+2. B: a **surface-based** likeness score (the outside shape counts, not the inside volume).
+   How exactly is it measured (surface coverage, silhouettes from several views, …)? The
+   planner's internal goal (§3.4) should match it.
+3. Block index in `Diagnostic`: position in the flattened plan, or (step, index in step)?
    This is A's call.
-3. Can `PhysicsEngine` also offer a cheap `checkState` (does this set of blocks stand)? The
+4. Can `PhysicsEngine` also offer a cheap `checkState` (does this set of blocks stand)? The
    backward search asks this many times; today it uses its own rough estimate. Additive.
-4. Should the mocks live in `KaplaCore.Mocks` (D needs them too for I1)? Proposed: yes.
