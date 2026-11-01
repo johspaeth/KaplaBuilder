@@ -4,11 +4,12 @@ import KaplaPlanner.Eyeball
 /-! # Design: fill the bubbles' surface with blocks (DESIGN.md §3.4)
 
 Minimal version (P3, demo):
-- flat blocks only, both directions; layer by layer from the ground up;
+- flat blocks only; layer by layer from the ground up, along x and along y in turn;
 - every block lies strictly inside the bubbles, can be placed by eye, does not overlap,
   and (above the ground) has its centre over the blocks it rests on;
-- greedy: in each layer, keep adding the block that covers the most surface cubes not yet
-  covered, until no block adds any, or the budget is used up;
+- greedy shell: in each layer, keep adding the block with the best shell score (new surface
+  cubes covered, plus a bonus for row ends and the outermost rows), until no block covers a
+  new surface cube, or the budget is used up;
 - a few scales and ground heights are tried; the best surface coverage wins.
 
 Untrusted: the result is checked again by `insideBubbles` (proven) and `eyeballable`. -/
@@ -97,11 +98,33 @@ structure Fill where
 def gain (surface : Std.HashSet Cell) (f : Fill) (b : GridBlock) : Nat :=
   (coveredCubes b).countP fun c => surface.contains c && !f.covered.contains c
 
-/-- Fill one layer at height `z`. `below` are the blocks of the layer below; `seed` is the
-first block for the ground layer. -/
+/-- The direction of the blocks in layer number `k`: along x in even layers, along y in odd
+layers. Each layer crosses the one below, which ties the walls together. -/
+def layerOrient (k : Nat) : Orient := if k % 2 == 0 then .flatX else .flatY
+
+/-- Where a block's row is (across the block), and where it is along the row. -/
+def rowPos (b : GridBlock) : Int × Int := if b.orient == .flatX then (b.y, b.x) else (b.x, b.y)
+
+/-- Shell score of a block (DESIGN.md §3.4): new surface cubes covered, plus a bonus for
+the two ends of each row and for the two outermost rows. Together, over two crossing
+layers, these close the outline from every side. `pool` are all blocks that may go into
+this layer. -/
+def shellScore (surface : Std.HashSet Cell) (f : Fill) (pool : List GridBlock)
+    (b : GridBlock) : Nat :=
+  let g := gain surface f b
+  if g == 0 then 0 else
+  let (r, a) := rowPos b
+  let inRow := (pool.filter fun c => (rowPos c).1 == r).map (fun c => (rowPos c).2)
+  let rows := pool.map fun c => (rowPos c).1
+  let rowEnd := some a == inRow.min? || some a == inRow.max?
+  let outerRow := some r == rows.min? || some r == rows.max?
+  g + (if rowEnd then 30 else 0) + (if outerRow then 30 else 0)
+
+/-- Fill one layer at height `z` with blocks in direction `o`. `below` are the blocks of the
+layer below; `seed` is the first block for the ground layer. -/
 def fillLayer (bs : Array Bubble) (surface : Std.HashSet Cell) (stands : List GridBlock → Bool)
-    (z : Int) (below : List GridBlock) (seed : Option GridBlock) (budget : Nat) (f0 : Fill) :
-    StateM MaskCache Fill := do
+    (z : Int) (o : Orient) (below : List GridBlock) (seed : Option GridBlock) (budget : Nat)
+    (f0 : Fill) : StateM MaskCache Fill := do
   let mut f := f0
   let mut layer : List GridBlock := []
   -- blocks that may go in this layer: lined up with a block below (or, on the ground, with a
@@ -121,16 +144,16 @@ def fillLayer (bs : Array Bubble) (surface : Std.HashSet Cell) (stands : List Gr
     -- grow the pool from new reference blocks
     for a in refs do
       for b in candidatesFrom a z do
-        if !seen.contains b then
+        if b.orient == o && !seen.contains b then
           seen := seen.insert b
           if centreSupported below b && placedByEye (f.placed.toList) b && (← blockOk bs b) then
             pool := b :: pool
     refs := []
     -- best block that does not overlap the layer
     let free := pool.filter fun b => !layer.any (·.overlaps b)
-    pool := free
-    -- best gain first; take the first one with which the structure still stands
-    let ranked := ((free.map fun b => (b, gain surface f b)).filter (·.2 > 0)).mergeSort
+    -- best shell score first; take the first one with which the structure still stands
+    let all := pool
+    let ranked := ((free.map fun b => (b, shellScore surface f all b)).filter (·.2 > 0)).mergeSort
       fun a b => a.2 ≥ b.2
     let best := ranked.find? fun (b, _) => stands (f.placed.toList ++ [b])
     match best with
@@ -165,7 +188,7 @@ def bestSeed (bs : Array Bubble) (surface : Std.HashSet Cell) (allowed : Std.Has
   match (xs.min? : Option Int), (xs.max? : Option Int), (ys.min? : Option Int), (ys.max? : Option Int) with
   | some x0, some x1, some y0, some y1 =>
     let mut best : Option (GridBlock × Nat) := none
-    for o in [Orient.flatX, .flatY] do
+    for o in [Orient.flatX] do
       for x in intRange (x0 - 60) ((x1 - x0 + 64).toNat / 3 + 1) 3 do
         for y in intRange (y0 - 60) ((y1 - y0 + 64).toNat / 3 + 1) 3 do
           let b : GridBlock := ⟨o, x, y, 0⟩
@@ -188,10 +211,10 @@ def designPlaced (stands : List GridBlock → Bool) (bs : List Bubble) (n : Nat)
     let mut f : Fill := {}
     let mut below : List GridBlock := []
     let mut z : Int := 0
-    for _ in [0:(topZ / 4 + 1).toNat] do
+    for k in [0:(topZ / 4 + 1).toNat] do
       if f.placed.size ≥ n then break
       let before := f.placed.size
-      f ← fillLayer arr surface stands z below seed (n - f.placed.size) f
+      f ← fillLayer arr surface stands z (layerOrient k) below seed (n - f.placed.size) f
       below := (f.placed.toList.drop before)
       if below.isEmpty then break
       z := z + 4
