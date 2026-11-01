@@ -17,8 +17,8 @@ leaves open; never resolve a design choice on your own.
 - Lean 4.35.0, pinned. No Mathlib; Lean core only (Batteries is allowed but not in the
   manifest, ask first). Imports: `KaplaCore` and `KaplaSemantics.*` only, never Physics,
   Planner, Web. `Rat` everywhere, never `Float`. `autoImplicit` is off: name every variable.
-- Block units internally: 1 unit = block thickness, a block is 15 × 3 × 1. Millimetres
-  (7.8 × 23.4 × 117) appear only in `Engine.lean`, the only file that uses `KaplaCore` types.
+- Block units everywhere: 1 unit = block thickness, a block is 15 × 3 × 1. No other unit exists
+  in the project. `Engine.lean` is the only file that uses `KaplaCore` types.
 - Forbidden words, also inside comments and docstrings: sorry, admit, axiom, native_decide,
   implemented_by, extern, unsafe, maxHeartbeats 0, debug.skipKernelTC. Rephrase. Warnings fail
   CI: no unused variables, no deprecated names, no unfinished proofs in a PR (WIP commits may).
@@ -34,7 +34,7 @@ leaves open; never resolve a design choice on your own.
 `Bubble.lean` types · `Frame.lean` frame, place, canonicalFrame · `Json.lean` codec · `Grid.lean`
 cells, targetCells, blockCells · `Score.lean` covered (per-bubble fill), extra, missing, score,
 solid, perBubble, verdict · `Check.lean` WithinTarget, CoversTarget, checkers · `Engine.lean`
-SemanticEngine, mm ↔ units, `componentName` · `Claude.lean` API client · `Dev/*.lean` CLI tools
+SemanticEngine, `componentName` · `Claude.lean` API client · `Dev/*.lean` CLI tools
 (the chat page's backend) · `Proofs/*.lean` one per spec file, same theorem names ·
 `semantics/fixtures/{targets,plans,score_expected}/` · `semantics/dev/` Docker, shell helpers,
 chat page. The frame is always an argument; nothing picks one silently.

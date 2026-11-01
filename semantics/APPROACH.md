@@ -129,13 +129,11 @@ The plan is a pile of real blocks with real sizes. The bubble model is a figurin
 exactly 1 with no unit attached. Before asking how well the blocks cover the bunny, we have to
 decide how big the bunny is and where on the table it stands. That is all §3 does.
 
-**Block units.** Inside `KaplaSemantics` every length is in block units: 1 unit = one block
-thickness = 7.8 mm. A block is 15 × 3 × 1 units (length × width × thickness): lying flat it
+**Block units.** Across the whole project every length is in block units: 1 unit = one block
+thickness. A block is 15 × 3 × 1 units (length × width × thickness): lying flat it
 is a 15 × 3 × 1 brick, on edge 15 × 1 × 3, upright 1 × 3 × 15. Every block dimension is a
-whole number and a tower of ten flat blocks is exactly 10 tall. `KaplaCore` measures in
-millimetres (7.8 × 23.4 × 117); `Engine.lean` converts at the boundary by dividing by 39/5,
-exactly in `Rat`, so 117 mm → 15 and 23.4 mm → 3. No other module ever sees a millimetre.
-DESIGN.md's default grid spacing h = 7.8 mm is exactly 1 unit.
+whole number and a tower of ten flat blocks is exactly 10 tall. `KaplaCore` uses the same
+units, so nothing is converted anywhere. The default grid spacing is 1 unit.
 
 **Frame.** Think of the model as a rubber figurine. Two things may be done to it: blow it up
 uniformly by a factor `s : Rat` (s > 0, every direction equally, no stretching), and slide it
@@ -155,7 +153,7 @@ and "missing" means "not built yet". This is a contract point, §8 item 7.
 
 **Canonical frame**, for the final report. `canonicalFrame plan model` is a separate
 function the orchestrator calls once a plan is finished: `s` = plan height / model height
-(the model is 1 tall, so a 30-unit plan gives s = 30 and the bunny becomes 23.4 cm tall, body
+(the model is 1 tall, so a 30-unit plan gives s = 30 and the bunny becomes 30 units tall, body
 about 18 × 13 × 17 units); `tx, ty` make the x/y bounding-box centres of the placed model
 and of the plan coincide; an empty plan gets (1, 0, 0). Deterministic, no search.
 
@@ -404,7 +402,7 @@ is forbidden. Big inputs go in `#guard`, which is a build-time test, not a proof
 | `Grid.lean` | `GridPt`, `centre`, local `Block` with `cells` and `corners`, `targetCells`, `blockCells` |
 | `Score.lean` | `covered` (with the per-bubble fill), `extra`, `missing`, `score`, `solid`, `perBubble`, `verdict`; block-side definitions that are also the implementation |
 | `Check.lean` | `WithinTarget`, `CoversTarget`, `checkWithin`, `checkCovers`, the "too small" list |
-| `Engine.lean` | the `SemanticEngine` implementation (`interpret`, `refine`, `score`, `check`); mm ↔ unit conversion; **the only file that touches `KaplaCore` types**, so a contract change hits one file. Also hosts `componentName`, which `app/Main.lean` prints |
+| `Engine.lean` | the `SemanticEngine` implementation (`interpret`, `refine`, `score`, `check`); **the only file that touches `KaplaCore` types**, so a contract change hits one file. Also hosts `componentName`, which `app/Main.lean` prints |
 | `Claude.lean` | Messages API client over `curl`, prompt templates, retries |
 | `Preview.lean` | 3-view SVG of a model, optionally with a plan |
 | `Dev/*.lean` | the four CLI tools of §2, one `main` each |
@@ -419,7 +417,7 @@ imports the definition modules it needs (`KaplaSemantics.Score`, `KaplaSemantics
 
 ## 8. KaplaCore dependency and what to raise with the team now
 
-Core v0.1 freezes the week of 2 Nov (WORKSPLIT §7). Today `KaplaCore` has only `Q3`.
+Core v0.1 freezes the week of 2 Nov (WORKSPLIT §7). `KaplaCore` now has the v0.1 draft, read in roadmap step 1.
 WORKSPLIT §3 has `TargetSpec = Shape + Option Mask + List PartTag` and
 `SemanticEngine = { interpret, score (TargetSpec, List Pose), bound (TargetSpec, Nat) }`.
 Proposals to write up for D before the freeze:
@@ -429,12 +427,12 @@ Proposals to write up for D before the freeze:
    If the codec for it moves into Core, the round-trip tests of §6 move with it.
 2. **`refine : TargetSpec → String → IO TargetSpec`** on `SemanticEngine`, for the feedback
    loop. The transcript stays on my side of the interface (a file next to the model).
-3. **Core stays in millimetres; semantics converts to block units at the boundary.** Nobody
-   else needs to know about units.
+3. **Block units everywhere (ruled 1 Nov 2026).** Core, planner, viewer and JSON all use
+   15 × 3 × 1; millimetres are gone. Branch `core/block-units`.
 4. **`Pose.contains` lives in Core**, so block cells are defined once for everyone (WORKSPLIT
-   §3 already lists it). Ask for half-open faces (`lo ≤ t < hi` in the block's own
-   coordinates): it costs nothing and gives exactly 45 cells per axis-aligned block at any
-   offset. Until `Pose` exists, `Grid.lean` uses a local axis-aligned block type
+   §3 already lists it). Half-open faces (`lo ≤ t < hi` along world x, y and z,
+   whatever the block's turn, ruled 1 Nov 2026, branch `core/block-units`) give exactly 45 cells per
+   axis-aligned block at any offset. Until `Pose` exists, `Grid.lean` uses a local axis-aligned block type
    (15 × 3 × 1 units) behind `Engine.lean`.
 5. **Ask D for the fixture set** (WORKSPLIT §5: targets tree, duck, house, gable_roof,
    castle; plans tree_1block, tower_10, ...). I need bubble-model versions of the targets
