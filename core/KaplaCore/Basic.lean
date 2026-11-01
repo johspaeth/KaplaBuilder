@@ -1,6 +1,7 @@
 /-! # Numbers, points and boxes
 
-All lengths are exact fractions (`Rat`) in millimetres. Axes: `z` points up, the ground is
+All lengths are exact fractions (`Rat`) in block units: one unit is one block thickness, so
+a block is 15 × 3 × 1. Axes: `z` points up, the ground is
 at `z = 0`. -/
 
 namespace KaplaCore
@@ -8,7 +9,7 @@ namespace KaplaCore
 /-- Exact rational numbers. We never use floats. -/
 abbrev Q := Rat
 
-/-- A point in space with exact rational coordinates (millimetres). -/
+/-- A point in space with exact rational coordinates (block units). -/
 structure Q3 where
   x : Rat
   y : Rat
@@ -42,7 +43,7 @@ structure Box where
 /-- The size of the box along x, y and z. -/
 def Box.size (b : Box) : Q3 := b.hi.sub b.lo
 
-/-- The volume of the box (cubic millimetres). -/
+/-- The volume of the box (cubic block units). -/
 def Box.volume (b : Box) : Q := let s := b.size; s.x * s.y * s.z
 
 /-- The smallest box that contains both boxes. -/
