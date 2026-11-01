@@ -48,8 +48,136 @@ def footModel : BubbleModel :=
   { name := "foot"
     bubbles := [{ label := "foot", tags := [], center := ⟨0, 0, 0⟩, semi := ⟨1, 1, 1⟩ }] }
 
+/-! ## Structural models -/
+
+/-- A bridge: two vertical towers with a horizontal span between them. Tests horizontal
+spanning and cantilever support. -/
+def bridgeModel : BubbleModel :=
+  { name := "bridge"
+    bubbles :=
+      [ { label := "left tower", tags := ["tower"], center := ⟨-1, 0, 6 / 10⟩
+          semi := ⟨2 / 10, 2 / 10, 6 / 10⟩ }
+      , { label := "right tower", tags := ["tower"], center := ⟨1, 0, 6 / 10⟩
+          semi := ⟨2 / 10, 2 / 10, 6 / 10⟩ }
+      , { label := "span", tags := [], center := ⟨0, 0, 13 / 10⟩
+          semi := ⟨12 / 10, 15 / 100, 15 / 100⟩ } ] }
+
+/-- A semicircular arch: two vertical bases with three curved segments forming an arch.
+Tests compression structures and curved load paths. -/
+def archModel : BubbleModel :=
+  { name := "arch"
+    bubbles :=
+      [ { label := "left base", tags := ["tower"], center := ⟨-8 / 10, 0, 3 / 10⟩
+          semi := ⟨2 / 10, 2 / 10, 3 / 10⟩ }
+      , { label := "right base", tags := ["tower"], center := ⟨8 / 10, 0, 3 / 10⟩
+          semi := ⟨2 / 10, 2 / 10, 3 / 10⟩ }
+      , { label := "left curve", tags := ["wall"], center := ⟨-4 / 10, 0, 7 / 10⟩
+          semi := ⟨15 / 100, 15 / 100, 2 / 10⟩ }
+      , { label := "right curve", tags := ["wall"], center := ⟨4 / 10, 0, 7 / 10⟩
+          semi := ⟨15 / 100, 15 / 100, 2 / 10⟩ }
+      , { label := "keystone", tags := [], center := ⟨0, 0, 9 / 10⟩
+          semi := ⟨15 / 100, 15 / 100, 15 / 100⟩ } ] }
+
+/-- A pyramid: wide stable base tapering to a point at the top. Tests efficient
+wide-to-narrow stacking strategy. -/
+def pyramidModel : BubbleModel :=
+  { name := "pyramid"
+    bubbles := [{ label := "pyramid", tags := ["tower"], center := ⟨0, 0, 75 / 100⟩
+                  semi := ⟨1, 1, 75 / 100⟩ }] }
+
+/-- A tall narrow tower: three stacked cylinders with decreasing radius. Tests extreme
+height-to-width ratio and stability vs height tradeoff. -/
+def towerModel : BubbleModel :=
+  { name := "tower"
+    bubbles :=
+      [ { label := "base", tags := ["tower"], center := ⟨0, 0, 25 / 100⟩
+          semi := ⟨4 / 10, 4 / 10, 25 / 100⟩ }
+      , { label := "middle", tags := ["tower"], center := ⟨0, 0, 85 / 100⟩
+          semi := ⟨3 / 10, 3 / 10, 35 / 100⟩ }
+      , { label := "top", tags := ["tower"], center := ⟨0, 0, 14 / 10⟩
+          semi := ⟨2 / 10, 2 / 10, 2 / 10⟩ } ] }
+
+/-- An overhang: small base with heavy top extending past it. Tests cantilever physics and
+counterweight understanding. -/
+def overhangModel : BubbleModel :=
+  { name := "overhang"
+    bubbles :=
+      [ { label := "base", tags := ["tower"], center := ⟨0, 0, 3 / 10⟩
+          semi := ⟨3 / 10, 3 / 10, 3 / 10⟩ }
+      , { label := "cantilever", tags := ["slab"], center := ⟨5 / 10, 0, 8 / 10⟩
+          semi := ⟨4 / 10, 3 / 10, 2 / 10⟩ } ] }
+
+/-! ## Animal and object models -/
+
+/-- A dog: body, head, four legs, and tail. -/
+def dogModel : BubbleModel :=
+  { name := "dog"
+    bubbles :=
+      [ { label := "body", tags := ["tower"], center := ⟨0, 0, 35 / 100⟩
+          semi := ⟨35 / 100, 2 / 10, 25 / 100⟩ }
+      , { label := "head", tags := ["tower"], center := ⟨45 / 100, 0, 45 / 100⟩
+          semi := ⟨15 / 100, 15 / 100, 15 / 100⟩ }
+      , { label := "front left leg", tags := ["wall"], center := ⟨2 / 10, -1 / 10, 15 / 100⟩
+          semi := ⟨5 / 100, 5 / 100, 15 / 100⟩ }
+      , { label := "front right leg", tags := ["wall"], center := ⟨2 / 10, 1 / 10, 15 / 100⟩
+          semi := ⟨5 / 100, 5 / 100, 15 / 100⟩ }
+      , { label := "back left leg", tags := ["wall"], center := ⟨-2 / 10, -1 / 10, 15 / 100⟩
+          semi := ⟨5 / 100, 5 / 100, 15 / 100⟩ }
+      , { label := "back right leg", tags := ["wall"], center := ⟨-2 / 10, 1 / 10, 15 / 100⟩
+          semi := ⟨5 / 100, 5 / 100, 15 / 100⟩ }
+      , { label := "tail", tags := [], center := ⟨-4 / 10, 0, 4 / 10⟩
+          semi := ⟨5 / 100, 5 / 100, 1 / 10⟩ } ] }
+
+/-- A duck: body, head with bill, and tail. -/
+def duckModel : BubbleModel :=
+  { name := "duck"
+    bubbles :=
+      [ { label := "body", tags := ["tower"], center := ⟨0, 0, 25 / 100⟩
+          semi := ⟨3 / 10, 25 / 100, 2 / 10⟩ }
+      , { label := "head", tags := ["tower"], center := ⟨25 / 100, 0, 4 / 10⟩
+          semi := ⟨12 / 100, 12 / 100, 12 / 100⟩ }
+      , { label := "bill", tags := [], center := ⟨4 / 10, 0, 4 / 10⟩
+          semi := ⟨8 / 100, 5 / 100, 5 / 100⟩ }
+      , { label := "tail", tags := [], center := ⟨-25 / 100, 0, 3 / 10⟩
+          semi := ⟨8 / 100, 1 / 10, 1 / 10⟩ } ] }
+
+/-- A three-layer cake: three stacked cylinders of decreasing size. -/
+def cakeModel : BubbleModel :=
+  { name := "cake"
+    bubbles :=
+      [ { label := "bottom layer", tags := ["slab"], center := ⟨0, 0, 15 / 100⟩
+          semi := ⟨5 / 10, 5 / 10, 15 / 100⟩ }
+      , { label := "middle layer", tags := ["slab"], center := ⟨0, 0, 45 / 100⟩
+          semi := ⟨35 / 100, 35 / 100, 15 / 100⟩ }
+      , { label := "top layer", tags := ["slab"], center := ⟨0, 0, 75 / 100⟩
+          semi := ⟨2 / 10, 2 / 10, 15 / 100⟩ } ] }
+
+/-- A horse: body, head, neck, four legs, and tail. -/
+def horseModel : BubbleModel :=
+  { name := "horse"
+    bubbles :=
+      [ { label := "body", tags := ["tower"], center := ⟨0, 0, 5 / 10⟩
+          semi := ⟨4 / 10, 25 / 100, 3 / 10⟩ }
+      , { label := "neck", tags := ["tower"], center := ⟨35 / 100, 0, 65 / 100⟩
+          semi := ⟨15 / 100, 12 / 100, 2 / 10⟩ }
+      , { label := "head", tags := ["tower"], center := ⟨45 / 100, 0, 9 / 10⟩
+          semi := ⟨12 / 100, 12 / 100, 15 / 100⟩ }
+      , { label := "front left leg", tags := ["wall"], center := ⟨2 / 10, -15 / 100, 2 / 10⟩
+          semi := ⟨6 / 100, 6 / 100, 2 / 10⟩ }
+      , { label := "front right leg", tags := ["wall"], center := ⟨2 / 10, 15 / 100, 2 / 10⟩
+          semi := ⟨6 / 100, 6 / 100, 2 / 10⟩ }
+      , { label := "back left leg", tags := ["wall"], center := ⟨-2 / 10, -15 / 100, 2 / 10⟩
+          semi := ⟨6 / 100, 6 / 100, 2 / 10⟩ }
+      , { label := "back right leg", tags := ["wall"], center := ⟨-2 / 10, 15 / 100, 2 / 10⟩
+          semi := ⟨6 / 100, 6 / 100, 2 / 10⟩ }
+      , { label := "tail", tags := [], center := ⟨-45 / 100, 0, 45 / 100⟩
+          semi := ⟨8 / 100, 8 / 100, 15 / 100⟩ } ] }
+
 /-- All demo models. -/
-def demoModels : List BubbleModel := [ballModel, bunnyModel, eggModel, footModel]
+def demoModels : List BubbleModel :=
+  [ballModel, bunnyModel, eggModel, footModel,
+   bridgeModel, archModel, pyramidModel, towerModel, overhangModel,
+   dogModel, duckModel, cakeModel, horseModel]
 
 /-- The block budgets every model is tried with. -/
 def demoBudgets : List Nat := [10, 40, 100]
@@ -100,11 +228,11 @@ def demos : List Demo :=
     let d : Demo := { model := m, blocks := n }
     { d with reference := referenceOf d.name }
 
-#guard demos.length == 12
+#guard demos.length == 39
 #guard (demos.map (·.name)).eraseDups.length == demos.length
 -- The earlier planner stayed within the budget on every problem it was tried on.
 #guard demos.all fun d => d.reference.all (·.blocksUsed ≤ d.blocks)
--- Every reference belongs to a demo.
+-- Every reference belongs to a demo (only the original 3 models have references).
 #guard (demos.filter (·.reference.isSome)).length == 9
 
 /-! ## Checking a planner's answer -/
