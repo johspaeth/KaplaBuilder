@@ -1,3 +1,5 @@
 /.lake/
 *.olean
 .DS_Store
+# Holds the API key. Never commit it.
+.env
