@@ -341,18 +341,22 @@ theorem targetCells_correct (m : BubbleModel) (height : Q) (g : GridPt) :
     g ∈ targetCells m height ↔ ∃ b ∈ m.bubbles, (placeAt height b).contains g.centre = true
 theorem blockCells_correct (plan : List Pose) (hrot : ∀ blk ∈ plan, blk.rot.valid = true) (g : GridPt) :
     g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre = true
-theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
     checkWithin m height plan = true ↔ WithinTarget m height plan
-theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
     checkCovers m height plan = true ↔ CoversTarget m height plan
 theorem score_in_unit_interval (m : BubbleModel) (height : Q) (plan : List Pose) :
     0 ≤ score m height plan ∧ score m height plan ≤ 1
+theorem perBubble_in_unit_interval (built : List GridPt) (b : Bubble) :
+    0 ≤ perBubble built b ∧ perBubble built b ≤ 1
 ```
 
 The fill is computed on a bubble's own cells (`coveredOfBubble` filters `bubbleCells`), so covered
 cells are inside the bubble by definition and theorem 5 does not need `fill_subset_target`.
 
-Five main theorems. Each is stated once in `specs/KaplaSpecs/Semantics.lean` (unproven
+Six main theorems. Each is stated once in `specs/KaplaSpecs/Semantics.lean` (unproven
 there, human-reviewed) and proved under the same name in `semantics/KaplaSemantics/Proofs/`;
 `comparator/semantics.json` ties them together. For each: what it says in words, why it
 matters, its **surface** (the definitions a reviewer must read), a concrete **example** with
@@ -372,30 +376,36 @@ contains 136); `flat`, one block covering [0,15] × [0,3] × [0,1].
 2. **`blockCells_correct`**: `g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre`.
    Same for blocks, against `Pose.contains` from `KaplaCore`. It holds when every block has a real
    turn (cos² + sin² = 1, ruled 1 Nov 2026). With made-up turn numbers it is false.
-   Surface: `Pose.contains`, `GridPt.centre`.
+   Surface: `Pose.contains`, `GridPt.centre`, `Rot.valid`, `blockCells`, `poseCells`, `Pose.box`,
+   `boxCells`, `dedupe`.
    Example: `#guard (blockCells [flat]).length == 45`.
-   Rejects: a list of 44 cells.
+   Rejects: the empty list.
 3. **`checkWithin_correct`**: `checkWithin F m plan = true ↔ WithinTarget F m plan`.
-   The checker says yes exactly when every block has a cell inside some bubble.
+   The checker says yes exactly when every block shares a cell with some bubble, tested with
+   `Pose.contains` and `Bubble.contains`, not with the checker's own cell lists. It holds when
+   every block has a real turn.
    Why: this is the rejection rule; a wrong `true` lets a floating block through, a wrong
    `false` throws away a good plan.
-   Surface: `WithinTarget`, `blockCells`, `Bubble.contains`, `place`.
+   Surface: `WithinTarget`, `Pose.contains`, `Rot.valid`, `Bubble.contains`, `placeAt`,
+   `checkWithin`, `blockOutside`, `poseCells`.
    Example: `flat` against `ball` at s = 2 passes (the cell (0, 0, 0) is inside); `flat`
    moved to x ∈ [20, 35] fails.
    Rejects: a checker that tests only block centres (it says no to a long block whose end is
    inside and whose centre is out).
 4. **`checkCovers_correct`**: `checkCovers F m plan = true ↔ CoversTarget F m plan`.
    The checker says yes exactly when every bubble with at least one grid centre at this
-   frame contains a block cell.
+   frame shares a cell with some block, tested the same way. It holds when every block has a
+   real turn.
    Why: this is the other rejection rule; it is also where "too small at this scale" is
    decided.
-   Surface: `CoversTarget`, `targetCells` per bubble, `blockCells`.
+   Surface: `CoversTarget`, `Pose.contains`, `Rot.valid`, `Bubble.contains`, `placeAt`,
+   `checkCovers`, `bubbleUncovered`, `bubbleCells`, `blockCells`.
    Example: the bunny at s = 30 with one block in each of its six bubbles passes; remove the
    tail's block and it fails.
    Rejects: a checker that looks only at the bubble's centre cell (a hollow tower has no
    block at its centre and would be wrongly rejected).
-5. **`score_in_unit_interval`**: `0 ≤ score F m plan ∧ score F m plan ≤ 1`, and the same
-   for every `perBubble` value.
+5. **`score_in_unit_interval`**: `0 ≤ score F m plan ∧ score F m plan ≤ 1`. The same bound
+   for every `perBubble` value is a sixth theorem, `perBubble_in_unit_interval`.
    Why: the verdict bands and the web badge assume a ratio.
    Surface: `score`, `covered`, `targetCells`, `blockCells`, `extra`.
    Example: `flat` against `ball` at s = 2: one block cell inside the ball, nothing to fill,

@@ -104,9 +104,6 @@ def runScore (modelText blocksText heightText : String) : Except String String :
   r.score == 1 / 52 && r.missing == 7 && r.extra == 44 && r.accepted && r.verdict == .symbolic &&
     r.perPart == [("ball", 1 / 8)]
 
-/-- Example: a block far from the ball. -/
-private def farBlock : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
-
 -- A block far away is rejected, and it is named.
 #guard
   let r := scoreReport ballModel 2 [flatBlock, farBlock]

@@ -1,7 +1,7 @@
 import KaplaSemantics.Check
 import Std.Data.HashSet.Lemmas
 
-/-! # Proofs of the five semantics theorems
+/-! # Proofs of the six semantics theorems
 
 The statements are in `specs/KaplaSpecs/Semantics.lean`. What each one says, and why it matters,
 is in `semantics/APPROACH.md` §6. -/
@@ -64,26 +64,6 @@ theorem mem_dedupe (cells : List GridPt) (g : GridPt) : g ∈ dedupe cells ↔ g
 /-- `dedupe` leaves no cube twice. -/
 theorem nodup_dedupe (cells : List GridPt) : (dedupe cells).Nodup := by
   exact (List.reverse_perm _).nodup_iff.2 (dedupe_loop cells {} [] (by simp) List.nodup_nil).2
-
-/-! ## Counting -/
-
-/-- A list with no repeats, all of whose items are in `b`, is no longer than `b`. -/
-private theorem length_le_of_subset {α : Type} [DecidableEq α] (a b : List α)
-    (hn : a.Nodup) (hs : ∀ x ∈ a, x ∈ b) : a.length ≤ b.length := by
-  induction a generalizing b with
-  | nil => simp
-  | cons x xs ih =>
-    have hx : x ∈ b := hs x (by simp)
-    have hn' := List.nodup_cons.1 hn
-    have hsub : ∀ y ∈ xs, y ∈ b.erase x := by
-      intro y hy
-      have hne : y ≠ x := fun e => hn'.1 (e ▸ hy)
-      exact (List.mem_erase_of_ne hne).2 (hs y (List.mem_cons_of_mem _ hy))
-    have := ih _ hn'.2 hsub
-    rw [List.length_erase_of_mem hx] at this
-    have hpos : 0 < b.length := List.length_pos_of_mem hx
-    simp only [List.length_cons]
-    omega
 
 /-! ## Numbers -/
 
@@ -188,16 +168,6 @@ theorem mem_bubbleCells (b : Bubble) (g : GridPt) :
   simp only [bubbleCells, List.mem_filter]
   exact ⟨fun h => h.2, fun h => ⟨mem_boxCells_of_contains b g h, h⟩⟩
 
-/-! ## The two checks -/
-
-theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
-    checkWithin m height plan = true ↔ WithinTarget m height plan := by
-  simp [checkWithin, WithinTarget, blockOutside]
-
-theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
-    checkCovers m height plan = true ↔ CoversTarget m height plan := by
-  simp [checkCovers, CoversTarget, bubbleUncovered, List.isEmpty_eq_false_iff]
-
 /-! ## The score -/
 
 /-- Every covered cube is a target cube. -/
@@ -252,7 +222,7 @@ theorem perBubble_in_unit_interval (built : List GridPt) (b : Bubble) :
 theorem score_in_unit_interval (m : BubbleModel) (height : Q) (plan : List Pose) :
     0 ≤ score m height plan ∧ score m height plan ≤ 1 := by
   apply scoreOf_in_unit_interval
-  exact length_le_of_subset _ _ (nodup_dedupe _) (covered_subset_target m height _)
+  exact (nodup_dedupe _).length_le_of_subset fun _ h => covered_subset_target m height _ _ h
 
 /-! ## The two lists of cubes -/
 
@@ -336,6 +306,43 @@ theorem blockCells_correct (plan : List Pose) (hrot : ∀ blk ∈ plan, blk.rot.
   · rintro ⟨blk, hb, hg⟩
     exact ⟨blk, hb, (mem_poseCells blk (hrot blk hb) g).2 hg⟩
 
+/-! ## The two checks -/
+
+theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
+    checkWithin m height plan = true ↔ WithinTarget m height plan := by
+  have hlist : checkWithin m height plan = true ↔ ∀ blk ∈ plan, ∃ g ∈ poseCells blk,
+      ∃ b ∈ m.bubbles, (placeAt height b).contains g.centre = true := by
+    simp [checkWithin, blockOutside]
+  rw [hlist]
+  constructor
+  · intro h blk hb
+    obtain ⟨g, hg, hin⟩ := h blk hb
+    exact ⟨g, (mem_poseCells blk (hrot blk hb) g).1 hg, hin⟩
+  · intro h blk hb
+    obtain ⟨g, hg, hin⟩ := h blk hb
+    exact ⟨g, (mem_poseCells blk (hrot blk hb) g).2 hg, hin⟩
+
+theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
+    checkCovers m height plan = true ↔ CoversTarget m height plan := by
+  have hlist : checkCovers m height plan = true ↔ ∀ b ∈ m.bubbles,
+      bubbleCells (placeAt height b) ≠ [] →
+        ∃ g ∈ blockCells plan, (placeAt height b).contains g.centre = true := by
+    simp [checkCovers, bubbleUncovered, List.isEmpty_eq_false_iff]
+  rw [hlist]
+  constructor
+  · intro h b hb ⟨c, hc⟩
+    have hne : bubbleCells (placeAt height b) ≠ [] := fun he =>
+      List.not_mem_nil (he ▸ (mem_bubbleCells _ c).2 hc)
+    obtain ⟨g, hg, hin⟩ := h b hb hne
+    obtain ⟨blk, hblk, hcon⟩ := (blockCells_correct plan hrot g).1 hg
+    exact ⟨blk, hblk, g, hcon, hin⟩
+  · intro h b hb hne
+    obtain ⟨c, hc⟩ := List.exists_mem_of_ne_nil _ hne
+    obtain ⟨blk, hblk, g, hcon, hin⟩ := h b hb ⟨c, (mem_bubbleCells _ c).1 hc⟩
+    exact ⟨g, (blockCells_correct plan hrot g).2 ⟨blk, hblk, hcon⟩, hin⟩
+
 /-! ## Examples
 
 Each theorem on a concrete input, and outputs it rejects. The ball is `ballModel` at height 2: the
@@ -345,18 +352,15 @@ What a reviewer must read for each theorem:
 - `targetCells_correct`: `GridPt.centre`, `Bubble.contains`, `placeAt`, `Bubble.place`, `targetCells`.
 - `blockCells_correct`: `GridPt.centre`, `Pose.contains`, `Rot.valid`, `blockCells`, `poseCells`,
   `Pose.box`, `boxCells`, `dedupe`.
-- `checkWithin_correct`: `WithinTarget`, `poseCells`, `Pose.contains`, `Pose.box`, `boxCells`,
-  `Bubble.contains`, `placeAt`, `checkWithin`.
-- `checkCovers_correct`: `CoversTarget`, `bubbleCells`, `Bubble.box`, `boxCells`, `blockCells`,
-  `Bubble.contains`, `placeAt`, `checkCovers`.
+- `checkWithin_correct`: `WithinTarget`, `GridPt.centre`, `Pose.contains`, `Rot.valid`,
+  `Bubble.contains`, `placeAt`, `checkWithin`, `blockOutside`, `poseCells`, `Pose.box`, `boxCells`.
+- `checkCovers_correct`: `CoversTarget`, `GridPt.centre`, `Pose.contains`, `Rot.valid`,
+  `Bubble.contains`, `placeAt`, `checkCovers`, `bubbleUncovered`, `bubbleCells`, `Bubble.box`,
+  `boxCells`, `blockCells`, `poseCells`, `Pose.box`, `dedupe`.
 - `score_in_unit_interval`: `score`, `scoreOf`, `targetCells`, `coveredCells`, `extraCells`,
-  `blockCells`. -/
-
-/-- A block whose end is in the ball but whose middle is not. -/
-private def endBlock : Pose := ⟨.flat, .id, ⟨7, 0, 1 / 2⟩⟩
-
-/-- A block far from the ball. -/
-private def farBlock : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
+  `blockCells`.
+- `perBubble_in_unit_interval`: `perBubble`, `bubbleCells`, `Bubble.box`, `boxCells`,
+  `Bubble.contains`. -/
 
 -- targetCells_correct: a cube in the ball is listed.
 example : (-1, -1, 0) ∈ targetCells ballModel 2 :=
@@ -379,39 +383,31 @@ example : ¬ ∀ g : GridPt, g ∈ ([(5, 5, 5)] : List GridPt) ↔
 
 -- checkWithin_correct: a block with one cube in the ball passes.
 example : WithinTarget ballModel 2 [flatBlock] :=
-  (checkWithin_correct _ _ _).1 (by decide +kernel)
+  (checkWithin_correct _ _ _ (by decide +kernel)).1 (by decide +kernel)
 
 -- A block far away fails.
 example : ¬ WithinTarget ballModel 2 [farBlock] := fun h =>
-  absurd ((checkWithin_correct _ _ _).2 h) (by decide +kernel)
+  absurd ((checkWithin_correct _ _ _ (by decide +kernel)).2 h) (by decide +kernel)
 
 -- It rejects a checker that tests only the middle of a block: this block's middle is outside the
 -- ball, yet the block is within the target.
 example : (placeAt 2 ballModel.bubbles.head!).contains endBlock.center = false ∧
     WithinTarget ballModel 2 [endBlock] :=
-  ⟨by decide +kernel, (checkWithin_correct _ _ _).1 (by decide +kernel)⟩
-
-/-- `flatBlock` fills the cube (0, 0, 0), which is in the ball. -/
-private theorem flat_built : ((0, 0, 0) : GridPt) ∈ blockCells [flatBlock] := by
-  simp only [blockCells, mem_dedupe, List.flatMap_cons, List.flatMap_nil, List.append_nil]
-  exact List.mem_filter.2 ⟨by decide +kernel, by decide +kernel⟩
+  ⟨by decide +kernel, (checkWithin_correct _ _ _ (by decide +kernel)).1 (by decide +kernel)⟩
 
 -- checkCovers_correct: a block with a cube in the ball covers it.
 example : checkCovers ballModel 2 [flatBlock] = true := by
-  refine (checkCovers_correct _ _ _).2 ?_
+  refine (checkCovers_correct _ _ _ (by decide +kernel)).2 ?_
   intro b hb _
   simp only [ballModel, List.mem_singleton] at hb
   subst hb
-  exact ⟨_, flat_built, by decide +kernel⟩
+  exact ⟨flatBlock, .head _, (0, 0, 0), by decide +kernel, by decide +kernel⟩
 
 -- With no blocks, the ball is not covered.
 example : ¬ CoversTarget ballModel 2 [] := by
   intro h
-  obtain ⟨g, hg, _⟩ := h _ (.head _) (by
-    intro he
-    have hm := (mem_bubbleCells (placeAt 2 ballModel.bubbles.head!) (-1, -1, 0)).2 (by decide +kernel)
-    exact List.not_mem_nil (he ▸ hm))
-  simp [blockCells, mem_dedupe] at hg
+  obtain ⟨_, hb, _⟩ := h _ (.head _) ⟨(-1, -1, 0), by decide +kernel⟩
+  exact List.not_mem_nil hb
 
 -- score_in_unit_interval: the bound holds, and the wrong formula's 45 / 8 is rejected.
 example : score ballModel 2 [flatBlock] ≠ 45 / 8 := by
@@ -421,6 +417,14 @@ example : score ballModel 2 [flatBlock] ≠ 45 / 8 := by
   exact absurd this (by decide +kernel)
 
 #guard score ballModel 2 [flatBlock] == 1 / 52
+
+-- perBubble_in_unit_interval: the bound holds on a real value, and a share of 2 is rejected.
+example : perBubble (blockCells [flatBlock]) (placeAt 2 ballModel.bubbles.head!) ≠ 2 := by
+  intro h
+  have := (perBubble_in_unit_interval (blockCells [flatBlock])
+    (placeAt 2 ballModel.bubbles.head!)).2
+  rw [h] at this
+  exact absurd this (by decide +kernel)
 
 /-- A block with made-up turn numbers: both are 0, so its turn is not a real rotation. -/
 private def fakeBlock : Pose := ⟨.flat, ⟨0, 0⟩, ⟨0, 0, 1 / 2⟩⟩

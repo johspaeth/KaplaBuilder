@@ -4,8 +4,10 @@ The proofs of these statements are in `semantics/KaplaSemantics/Proofs/Semantics
 Copy each block to the file named above it, review it, then run `lake comparator`.
 This file is only a draft: delete it when the two files are in place.
 
-To review first: `blockCells_correct` has a condition, ruled on 1 Nov 2026. Every block's turn must
-be a real rotation (cos² + sin² = 1). Without it the statement is false.
+To review first: `blockCells_correct`, `checkWithin_correct` and `checkCovers_correct` have a
+condition, ruled on 1 Nov 2026. Every block's turn must be a real rotation (cos² + sin² = 1). Without
+it `blockCells_correct` is false. The JSON reader refuses any other turn, so the condition holds for
+every plan the engine reads.
 
 ## `specs/KaplaSpecs/Semantics.lean`
 
@@ -34,19 +36,28 @@ theorem blockCells_correct (plan : List Pose) (hrot : ∀ blk ∈ plan, blk.rot.
     g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre = true := by
   sorry
 
-/-- The checker says yes exactly when every block has a cube inside some bubble. -/
-theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+/-- When every block has a real turn, the checker says yes exactly when every block shares a cube
+with some bubble. -/
+theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
     checkWithin m height plan = true ↔ WithinTarget m height plan := by
   sorry
 
-/-- The checker says yes exactly when every bubble with cubes at this height has a block cube. -/
-theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+/-- When every block has a real turn, the checker says yes exactly when every bubble with cubes at
+this height shares a cube with some block. -/
+theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
     checkCovers m height plan = true ↔ CoversTarget m height plan := by
   sorry
 
 /-- The similarity number is from 0 to 1. -/
 theorem score_in_unit_interval (m : BubbleModel) (height : Q) (plan : List Pose) :
     0 ≤ score m height plan ∧ score m height plan ≤ 1 := by
+  sorry
+
+/-- The covered share of each bubble, shown by the web badge, is from 0 to 1. -/
+theorem perBubble_in_unit_interval (built : List GridPt) (b : Bubble) :
+    0 ≤ perBubble built b ∧ perBubble built b ≤ 1 := by
   sorry
 
 end KaplaSemantics
@@ -63,7 +74,8 @@ end KaplaSemantics
     "KaplaSemantics.blockCells_correct",
     "KaplaSemantics.checkWithin_correct",
     "KaplaSemantics.checkCovers_correct",
-    "KaplaSemantics.score_in_unit_interval"
+    "KaplaSemantics.score_in_unit_interval",
+    "KaplaSemantics.perBubble_in_unit_interval"
   ],
   "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
 }
