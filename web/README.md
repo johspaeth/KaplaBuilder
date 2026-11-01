@@ -24,14 +24,14 @@ step cards work without it.
 ```json
 {
   "title": "House",                      // optional
-  "subtitle": "60 blocks, adult",        // optional
+  "subtitle": "60 blocks",               // optional
   "notes": ["stands after every step"],  // optional, shown under the title
   "plan": {                              // or put "steps" at the top level
     "steps": [
       { "blocks": [
           { "up": "flat",                // "flat" | "edge" | "upright"
             "rot": { "c": 1, "s": 0 },   // cos and sin of the turn about the vertical axis
-            "center": [0, 0, "39/10"] }  // mm; numbers or exact fractions as strings
+            "center": [0, 0, "1/2"] }    // numbers or exact fractions as strings
         ],
         "phase": "layer 1",              // optional, shown on the card
         "grip": "longSides",             // optional: longSides | shortEnds | topEnd
@@ -41,9 +41,9 @@ step cards work without it.
 }
 ```
 
-A block is 117 × 23.4 × 7.8 mm. `flat` lies on its wide face, `edge` on its long narrow
+A block is 15 × 3 × 1 (one unit is one block thickness). `flat` lies on its wide face, `edge` on its long narrow
 face, `upright` stands on its end. `center` is the centre of the block, so a flat block on
-the ground has `z = 3.9`. Steps are shown in order; a step with two blocks is marked
+the ground has `z = 1/2`. Steps are shown in order; a step with two blocks is marked
 "two hands". Other fields are ignored.
 
 `web/examples/` has a house (27 blocks) and a duck (15 blocks).

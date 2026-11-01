@@ -55,7 +55,7 @@ def cellSpan (lo hi : Q) : List Int :=
   (intRange a (z - a + 1).toNat).map (· * (cubeSide : Int))
 
 /-- A world cube, given by its lowest corner in units (all three a multiple of 4). World
-cubes are 7.8 mm and fixed in space; the planner uses them to measure the target. -/
+cubes have the side of one block thickness and are fixed in space; the planner uses them to measure the target. -/
 abbrev Cell := Int × Int × Int
 
 /-- All allowed world cubes (DESIGN.md §3.3): cubes whose 8 corners lie inside one bubble,

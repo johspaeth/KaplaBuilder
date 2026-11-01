@@ -7,18 +7,18 @@ check, `insideBubbles`. Its promise, proven in `Proofs.lean` (statement in
 `specs/KaplaSpecs/Planner.lean`): if the check accepts, **every point** of every block lies
 inside some bubble. Not just the corners: every point.
 
-How the check works: a block is cut into cubes of one block thickness (7.8 mm): 15 × 3 × 1
+How the check works: a block is cut into cubes of one block thickness: 15 × 3 × 1
 cubes for a flat block. A cube passes if its 8 corners lie inside one and the same bubble.
 A block passes if all its cubes pass. -/
 
 namespace KaplaPlanner
 open KaplaCore
 
-/-- The cube (side 7.8 mm = 4 units) whose lowest corner is at `(i, j, k)` units, as a box
-in mm. -/
+/-- The cube (side one block thickness = 4 grid units) whose lowest corner is at `(i, j, k)`
+grid units, as a box in block units. -/
 def cellBox (i j k : Int) : Box :=
-  let mm (v : Int) : Q := (v : Q) * unit
-  ⟨⟨mm i, mm j, mm k⟩, ⟨mm (i + cubeSide), mm (j + cubeSide), mm (k + cubeSide)⟩⟩
+  let q (v : Int) : Q := (v : Q) * unit
+  ⟨⟨q i, q j, q k⟩, ⟨q (i + cubeSide), q (j + cubeSide), q (k + cubeSide)⟩⟩
 
 /-- The cube's 8 corners all lie inside the same bubble, for some bubble in the list. -/
 def cellInside (bs : List Bubble) (i j k : Int) : Bool :=
@@ -41,12 +41,12 @@ def insideBubbles (bs : List Bubble) (design : List GridBlock) : Bool :=
 -- a flat block is cut into 15 × 3 × 1 = 45 cubes
 #guard (GridBlock.mk .flatX 0 0 0).cells.length == 45
 
-/-- Example: a ball of radius 100 mm, centred 100 mm above the ground. -/
-def exampleBall : Bubble := Bubble.ball "ball" ⟨0, 0, 100⟩ 100
+/-- Example: a ball of radius 13, centred 13 above the ground (in block units). -/
+def exampleBall : Bubble := Bubble.ball "ball" ⟨0, 0, 13⟩ 13
 
--- a flat block through the middle of the ball fits (it is 117 mm long)
+-- a flat block through the middle of the ball fits (it is 15 long)
 #guard insideBubbles [exampleBall] [⟨.flatX, -30, -6, 48⟩]
--- the same block moved 62.4 mm along x sticks out of the ball
+-- the same block moved 8 along x sticks out of the ball
 #guard !insideBubbles [exampleBall] [⟨.flatX, -62, -6, 48⟩]
 -- a block on the ground is outside: the ball only touches the ground at one point
 #guard !insideBubbles [exampleBall] [⟨.flatX, -30, -6, 0⟩]

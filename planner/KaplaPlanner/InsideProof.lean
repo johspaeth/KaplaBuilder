@@ -132,7 +132,7 @@ theorem axis_cube (lo : Int) (n : Nat) (hn : 0 < n) (x : Rat)
   refine ⟨m, hm, ?_, ?_⟩ <;> simp only [cubeSide] <;> push_cast <;> grind
 
 /-- Every point of a block lies in one of its cubes. -/
-theorem cell_of_point (blk : GridBlock) (p : Q3) (hp : blk.boxMm.contains p) :
+theorem cell_of_point (blk : GridBlock) (p : Q3) (hp : blk.box.contains p) :
     ∃ c ∈ blk.cells, (cellBox c.1 c.2.1 c.2.2).contains p := by
   obtain ⟨hx1, hx2, hy1, hy2, hz1, hz2⟩ := hp
   obtain ⟨cx, cy, cz⟩ := Orient.cubes_pos blk.orient

@@ -13,10 +13,10 @@ namespace KaplaWeb
 
 open Lean
 
-/-- Block size in mm: length, width, thickness. -/
-def blockL : Float := 117
-def blockW : Float := 23.4
-def blockT : Float := 7.8
+/-- Block size: length, width, thickness. -/
+def blockL : Float := 15
+def blockW : Float := 3
+def blockT : Float := 1
 
 /-- Read a number written as a JSON number (`3`, `2.5`) or as an exact fraction in a
 string (`"-169/10"`, `"7"`). -/
@@ -42,7 +42,7 @@ def readNum (j : Json) : Except String Float :=
 structure ViewBlock where
   /-- `"flat"`, `"edge"` or `"upright"`. -/
   up : String
-  /-- Centre in mm. -/
+  /-- Centre. -/
   x : Float
   y : Float
   z : Float
@@ -128,8 +128,8 @@ def parsePlan (txt : String) : Except String ViewPlan := do
 /-- A two-block stack, the second block turned a quarter turn. -/
 def exampleJson : String :=
   "{\"title\": \"Two blocks\", \"steps\": [
-     {\"blocks\": [{\"up\": \"flat\", \"rot\": {\"c\": 1, \"s\": 0}, \"center\": [0, 0, \"39/10\"]}]},
-     {\"blocks\": [{\"up\": \"flat\", \"rot\": {\"c\": 0, \"s\": 1}, \"center\": [0, 0, \"117/10\"]}],
+     {\"blocks\": [{\"up\": \"flat\", \"rot\": {\"c\": 1, \"s\": 0}, \"center\": [0, 0, \"1/2\"]}]},
+     {\"blocks\": [{\"up\": \"flat\", \"rot\": {\"c\": 0, \"s\": 1}, \"center\": [0, 0, \"3/2\"]}],
       \"phase\": \"layer 2\"}]}"
 
 #guard (readNum (.str "-169/10")).toOption == some (-16.9)
@@ -142,7 +142,7 @@ def exampleJson : String :=
 #guard ((parsePlan exampleJson).map fun p => (p.steps[0]!.blocks[0]!).bottom).toOption == some 0
 -- a quarter turn swaps the footprint's extent in x and y
 #guard ((parsePlan exampleJson).map fun p =>
-  ((p.steps[1]!.blocks[0]!).footprint.map (·.1)).foldl max (-1000)).toOption == some 11.7
+  ((p.steps[1]!.blocks[0]!).footprint.map (·.1)).foldl max (-1000)).toOption == some 1.5
 #guard (parsePlan "{\"steps\": [{}]}") matches .error _
 
 end KaplaWeb

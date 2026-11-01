@@ -2,7 +2,7 @@ import KaplaPlanner.Bubble
 
 /-! # Test targets made of bubbles
 
-Hand-made targets, each testing one difficulty (DESIGN.md §6). Sizes are in mm at scale 1;
+Hand-made targets, each testing one difficulty (DESIGN.md §6). Sizes are in block units (one block thickness) at scale 1;
 the planner chooses its own scale. -/
 
 namespace KaplaPlanner.Fixtures
@@ -13,33 +13,33 @@ def ofBubbles (bs : List Bubble) : TargetSpec :=
   { shape := .box ⟨⟨0, 0, 0⟩, ⟨0, 0, 0⟩⟩, bubbles := bs }
 
 /-- A ball resting on the ground. The simplest case: a ring, then a lid. -/
-def sphere : TargetSpec := ofBubbles [Bubble.ball "ball" ⟨0, 0, 100⟩ 100]
+def sphere : TargetSpec := ofBubbles [Bubble.ball "ball" ⟨0, 0, 13⟩ 13]
 
 /-- Three stacked balls: the outline narrows and widens again (overhangs, inner support). -/
 def snowman : TargetSpec := ofBubbles
-  [Bubble.ball "bottom" ⟨0, 0, 80⟩ 80, Bubble.ball "middle" ⟨0, 0, 200⟩ 55,
-   Bubble.ball "head" ⟨0, 0, 285⟩ 35]
+  [Bubble.ball "bottom" ⟨0, 0, 10⟩ 10, Bubble.ball "middle" ⟨0, 0, 25⟩ 7,
+   Bubble.ball "head" ⟨0, 0, 73 / 2⟩ (9 / 2)]
 
 /-- A tall thin ellipsoid: needs blocks on edge or upright. -/
-def spire : TargetSpec := ofBubbles [Bubble.ellipsoid "spire" ⟨0, 0, 200⟩ 30 30 200]
+def spire : TargetSpec := ofBubbles [Bubble.ellipsoid "spire" ⟨0, 0, 25⟩ 4 4 25]
 
 /-- An ellipsoid leaning by a 3-4-5 angle (about 37° from upright, turned about x). -/
 def leaning : TargetSpec := ofBubbles
-  [⟨"leaning", ⟨0, 90, 125⟩,
-    ⟨1 / 40, 0, 0⟩,                       -- across, radius 40
-    ⟨0, (3 / 5) / 150, (4 / 5) / 150⟩,     -- along the lean, radius 150
-    ⟨0, (-4 / 5) / 40, (3 / 5) / 40⟩⟩]     -- across, radius 40
+  [⟨"leaning", ⟨0, 12, 16⟩,
+    ⟨1 / 5, 0, 0⟩,                       -- across, radius 5
+    ⟨0, (3 / 5) / 19, (4 / 5) / 19⟩,     -- along the lean, radius 19
+    ⟨0, (-4 / 5) / 5, (3 / 5) / 5⟩⟩]     -- across, radius 5
 
 /-- A duck: body, a head that sticks out, and a thin beak that vanishes at small scales. -/
 def duck : TargetSpec := ofBubbles
-  [Bubble.ellipsoid "body" ⟨0, 0, 60⟩ 100 60 60, Bubble.ball "head" ⟨80, 0, 150⟩ 40,
-   Bubble.ellipsoid "beak" ⟨130, 0, 150⟩ 25 12 8]
+  [Bubble.ellipsoid "body" ⟨0, 0, 8⟩ 13 8 8, Bubble.ball "head" ⟨10, 0, 19⟩ 5,
+   Bubble.ellipsoid "beak" ⟨17, 0, 19⟩ 3 (3 / 2) 1]
 
 /-- Two towers and a bridge: separate parts, and a span between them. -/
 def gate : TargetSpec := ofBubbles
-  [Bubble.ellipsoid "left tower" ⟨-120, 0, 150⟩ 40 40 150,
-   Bubble.ellipsoid "right tower" ⟨120, 0, 150⟩ 40 40 150,
-   Bubble.ellipsoid "bridge" ⟨0, 0, 270⟩ 170 35 30]
+  [Bubble.ellipsoid "left tower" ⟨-15, 0, 19⟩ 5 5 19,
+   Bubble.ellipsoid "right tower" ⟨15, 0, 19⟩ 5 5 19,
+   Bubble.ellipsoid "bridge" ⟨0, 0, 35⟩ 22 (9 / 2) 4]
 
 /-- All test targets with their names. -/
 def all : List (String × TargetSpec) :=
@@ -79,7 +79,7 @@ def allowedOk (t : TargetSpec) (s : Q) : Bool :=
 def cellsOfPart (t : TargetSpec) (part : String) (s : Q) : Nat :=
   (allowedCells ((t.bubbles.filter (·.part == part)).map (placeBubble s ⟨0, 0, 0⟩))).size
 
--- The beak (16 mm high) has almost no room at scale 1, but plenty at scale 3: the planner
+-- The beak (2 high) has almost no room at scale 1, but plenty at scale 3: the planner
 -- must choose the scale with the thin parts in mind.
 #guard cellsOfPart duck "beak" 1 < 10 && cellsOfPart duck "beak" 3 > 100
 

@@ -129,47 +129,47 @@ def BuildPlan.ofBlocks (bs : List Pose) : BuildPlan := ⟨bs.map fun b => { bloc
 private def t : Q := blockThickness
 
 -- a stack of three blocks stands
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 0, flatAt 0 0 t, flatAt 0 0 (2*t)])).ok
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 0, flatAt 0 0 t, flatAt 0 0 (2*t)])).ok
 -- a block floating in the air falls
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 t])).diagnostics == [.unstable 0 0]
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 t])).diagnostics == [.unstable 0 0]
 -- an overhang of 3/4 of a block tips
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 0, flatAt 90 0 t])).diagnostics
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 0, flatAt 12 0 t])).diagnostics
   == [.unstable 1 1]
 -- an overhang that tips alone stands when a counterweight on its back end is placed in
 -- the same (two-hand) step ...
-private def overhang : Pose := flatAt 60 0 t
-private def counterweight : Pose := flatAt 30 0 (2*t)
-#guard (physicsMock.check .adult 10
+private def overhang : Pose := flatAt 8 0 t
+private def counterweight : Pose := flatAt 4 0 (2*t)
+#guard (physicsMock.check .default 10
   ⟨[{ blocks := [flatAt 0 0 0] }, { blocks := [overhang, counterweight] }]⟩).ok
 -- ... but placed one at a time, the overhang tips at step 1, before the counterweight is
 -- on: the mock checks every step, not only the finished structure
-#guard (physicsMock.check .adult 10
+#guard (physicsMock.check .default 10
   (.ofBlocks [flatAt 0 0 0, overhang, counterweight])).diagnostics == [.unstable 1 1]
 -- a log-cabin tower (each layer turned 90°) stands
 private def cabin (layers : Nat) : List Pose := (List.range layers).flatMap fun (k : Nat) =>
   let z := (k : Q) * t
   if k % 2 == 0 then [flatAt 0 0 z, flatAt 0 (blockLength - blockWidth) z]
   else [flatAt 0 0 z true, flatAt (blockLength - blockWidth) 0 z true]
-#guard (physicsMock.check .adult 20 (.ofBlocks (cabin 6))).ok
+#guard (physicsMock.check .default 20 (.ofBlocks (cabin 6))).ok
 -- too many blocks, too many hands, overlap
-#guard (physicsMock.check .adult 1 (.ofBlocks [flatAt 0 0 0, flatAt 200 0 0])).diagnostics
+#guard (physicsMock.check .default 1 (.ofBlocks [flatAt 0 0 0, flatAt 26 0 0])).diagnostics
   == [.tooManyBlocks 2 1]
-#guard (physicsMock.check .child 10 ⟨[{ blocks := [flatAt 0 0 0, flatAt 200 0 0] }]⟩).diagnostics
+#guard (physicsMock.check { HumanModel.default with hands := 1 } 10 ⟨[{ blocks := [flatAt 0 0 0, flatAt 26 0 0] }]⟩).diagnostics
   == [.tooManyHands 0]
-#guard (physicsMock.check .adult 10 (.ofBlocks [flatAt 0 0 0, flatAt 50 0 0])).diagnostics
+#guard (physicsMock.check .default 10 (.ofBlocks [flatAt 0 0 0, flatAt 6 0 0])).diagnostics
   == [.overlap 0 1]
 
 /-! ## Semantic mock -/
 
 namespace SemanticMock
 
-/-- The volume two boxes share (mm³). -/
+/-- The volume two boxes share (cubic block units). -/
 def sharedVolume (a b : Box) : Q :=
   let len (a1 a2 b1 b2 : Q) : Q := max 0 (min a2 b2 - max a1 b1)
   len a.lo.x a.hi.x b.lo.x b.hi.x * len a.lo.y a.hi.y b.lo.y b.hi.y *
   len a.lo.z a.hi.z b.lo.z b.hi.z
 
-/-- Volume of one block (mm³). -/
+/-- Volume of one block (cubic block units). -/
 def blockVolume : Q := blockLength * blockWidth * blockThickness
 
 /-- Move and scale a box: first scale about `o`, then add `d`. -/
@@ -200,7 +200,7 @@ def scales (t : TargetSpec) (blocks : List Pose) : List Q :=
 /-- Volume IoU of the blocks against the target scaled by `k`. Blocks are boxes (exact
 for turns of 0° and 90°). Target parts are assumed not to overlap, and blocks are assumed
 not to overlap (the physics check rejects that). `missing` and `extra` are given in units
-of one block thickness cubed (7.8³ mm³), rounded down. -/
+of one block thickness cubed, rounded down. -/
 def scoreAt (t : TargetSpec) (blocks : List Pose) (k : Q) : ScoreReport :=
   let parts := fitParts t blocks k
   let bboxes := blocks.map Pose.box

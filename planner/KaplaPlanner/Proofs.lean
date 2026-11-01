@@ -30,7 +30,7 @@ theorem sequence_perm (phase : String) (bs : List GridBlock) :
 bubble: the design never sticks out of the target. -/
 theorem insideBubbles_sound (bs : List Bubble) (design : List GridBlock)
     (h : insideBubbles bs design = true) :
-    ∀ blk ∈ design, ∀ p : Q3, blk.boxMm.contains p → ∃ b ∈ bs, b.contains p := by
+    ∀ blk ∈ design, ∀ p : Q3, blk.box.contains p → ∃ b ∈ bs, b.contains p := by
   intro blk hblk p hp
   obtain ⟨c, hc, hpc⟩ := cell_of_point blk p hp
   simp only [insideBubbles, List.all_eq_true] at h

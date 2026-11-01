@@ -3,7 +3,7 @@ import KaplaPlanner.Motif
 /-! # Solid column
 
 Like the log-cabin tower, but each layer is filled: 5 flat blocks side by side make a
-square of 117 × 117 mm. Each layer is turned 90° against the one below.
+square of 15 × 15 cells. Each layer is turned 90° against the one below.
 It costs 5 blocks per layer instead of 2, but it fills solid shapes. -/
 
 namespace KaplaPlanner.Motifs
@@ -26,7 +26,7 @@ theorem columnLayers_length (n : Nat) : (columnLayers n).length = 5 * n := by
   | zero => rfl
   | succ n ih => simp [columnLayers, ih, columnLayer_length]; omega
 
-/-- A solid column with the given number of layers (7.8 mm each). -/
+/-- A solid column with the given number of layers (height 1 each). -/
 def column : Motif Nat where
   name := "solid column"
   blocks := columnLayers

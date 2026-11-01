@@ -2,13 +2,13 @@ import KaplaCore
 
 /-! # The planning grid
 
-Positions are whole numbers of **units**; one unit is 1.95 mm, a quarter of the block
-thickness. A Kapla block is 60 × 12 × 4 units (117 × 23.4 × 7.8 mm). With this unit, the
-points a person can place a block at by eye (the ends, the centre and the quarter points of
-the block below) are all whole numbers.
+Positions are whole numbers of **grid units**; one grid unit is a quarter of the block
+thickness (`1/4` of a block unit, see `KaplaCore`). A Kapla block is 60 × 12 × 4 grid units
+(15 × 3 × 1 block units). With this unit, the points a person can place a block at by eye
+(the ends, the centre and the quarter points of the block below) are all whole numbers.
 
-For the "strictly inside" check, a block is cut into **cubes** of 4 × 4 × 4 units (7.8 mm,
-one block thickness): 15 × 3 × 1 cubes for a flat block.
+For the "strictly inside" check, a block is cut into **cubes** of 4 × 4 × 4 grid units (one
+block thickness): 15 × 3 × 1 cubes for a flat block.
 
 Checks on the grid (overlap, "rests on") are plain integer arithmetic. We convert to the
 exact `Pose` of `KaplaCore` only at the end (`GridBlock.toPose`). -/
@@ -32,13 +32,13 @@ inductive Orient where
   | uprightY
   deriving Repr, BEq, DecidableEq, Inhabited
 
-/-- One grid unit in mm: a quarter of the block thickness (1.95 mm). -/
+/-- One grid unit in block units: a quarter of the block thickness. -/
 def unit : Q := blockThickness / 4
 
 /-- Side of a cube in units (one block thickness). -/
 def cubeSide : Nat := 4
 
-/-- The size of a block in cubes (7.8 mm) along x, y, z. -/
+/-- The size of a block in cubes (one block thickness each) along x, y, z. -/
 def Orient.cubes : Orient → Nat × Nat × Nat
   | .flatX    => (15, 3, 1)
   | .flatY    => (3, 15, 1)
@@ -94,7 +94,7 @@ def onGround (b : GridBlock) : Bool := b.z == 0
 def shift (dx dy dz : Int) (b : GridBlock) : GridBlock :=
   { b with x := b.x + dx, y := b.y + dy, z := b.z + dz }
 
-/-- The same block as a `Pose` (mm). -/
+/-- The same block as a `Pose`. -/
 def toPose (b : GridBlock) : Pose :=
   let (up, rot) : Upright × Rot := match b.orient with
     | .flatX => (.flat, .id)       | .flatY => (.flat, .quarter)
@@ -103,10 +103,10 @@ def toPose (b : GridBlock) : Pose :=
   let c (lo : Int) (s : Int) : Q := ((2 * lo + s : Int) : Q) * unit / 2
   ⟨up, rot, ⟨c b.x b.sx, c b.y b.sy, c b.z b.sz⟩⟩
 
-/-- The block's box in mm, computed on the grid. -/
-def boxMm (b : GridBlock) : Box :=
-  let mm (v : Int) : Q := (v : Q) * unit
-  ⟨⟨mm b.x, mm b.y, mm b.z⟩, ⟨mm (b.x + b.sx), mm (b.y + b.sy), mm (b.z + b.sz)⟩⟩
+/-- The space the block fills (in block units), computed on the grid. -/
+def box (b : GridBlock) : Box :=
+  let q (v : Int) : Q := (v : Q) * unit
+  ⟨⟨q b.x, q b.y, q b.z⟩, ⟨q (b.x + b.sx), q (b.y + b.sy), q (b.z + b.sz)⟩⟩
 
 end GridBlock
 
@@ -116,14 +116,14 @@ def Orient.all : List Orient := [.flatX, .flatY, .edgeX, .edgeY, .uprightX, .upr
 -- The pose we output fills exactly the same box as the grid block, in every orientation.
 #guard Orient.all.all fun o =>
   let b : GridBlock := ⟨o, 2, -1, 3⟩
-  b.toPose.box == b.boxMm
+  b.toPose.box == b.box
 
 -- a flat block on the ground, and one on top of it
 #guard (GridBlock.mk .flatY 0 0 4).restsOn ⟨.flatX, 0, 0, 0⟩
 #guard !(GridBlock.mk .flatY 80 0 4).restsOn ⟨.flatX, 0, 0, 0⟩
 #guard (GridBlock.mk .flatX 0 0 0).overlaps ⟨.flatY, 59, 11, 0⟩
 #guard !(GridBlock.mk .flatX 0 0 0).overlaps ⟨.flatY, 60, 0, 0⟩
--- a flat block is 117 mm long
-#guard (GridBlock.mk .flatX 0 0 0).boxMm.size.x == blockLength
+-- a flat block is 15 long
+#guard (GridBlock.mk .flatX 0 0 0).box.size.x == blockLength
 
 end KaplaPlanner

@@ -1,113 +1,334 @@
-{"steps":
- [{"refs": [null],
+{
+ "steps": [
+  {
+   "refs": [
+    null
+   ],
    "phase": "layer 1",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["-169/10", "-117/5", "39/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [0],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      -3,
+      "1/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    0
+   ],
    "phase": "layer 1",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": ["-169/10", 0, "39/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [1],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      0,
+      "1/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    1
+   ],
    "phase": "layer 1",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["-169/10", "117/5", "39/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [0],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      3,
+      "1/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    0
+   ],
    "phase": "layer 2",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["247/20", "-117/5", "117/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [1],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "19/12",
+      -3,
+      "3/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    1
+   ],
    "phase": "layer 2",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": ["247/20", 0, "117/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [2],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "19/12",
+      0,
+      "3/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    2
+   ],
    "phase": "layer 2",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["247/20", "117/5", "117/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [3],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "19/12",
+      3,
+      "3/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    3
+   ],
    "phase": "layer 3",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["-169/10", "-117/5", "39/2"]}],
-   "approach": "fromAbove"},
-  {"refs": [4],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      -3,
+      "5/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    4
+   ],
    "phase": "layer 3",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": ["-169/10", 0, "39/2"]}],
-   "approach": "fromAbove"},
-  {"refs": [5],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      0,
+      "5/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    5
+   ],
    "phase": "layer 3",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["-169/10", "117/5", "39/2"]}],
-   "approach": "fromAbove"},
-  {"refs": [6],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      3,
+      "5/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    6
+   ],
    "phase": "layer 4",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["247/20", "-117/5", "273/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [7],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "19/12",
+      -3,
+      "7/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    7
+   ],
    "phase": "layer 4",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat", "rot": {"s": 0, "c": 1}, "center": ["247/20", 0, "273/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [8],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "19/12",
+      0,
+      "7/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    8
+   ],
    "phase": "layer 4",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["247/20", "117/5", "273/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [9],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "19/12",
+      3,
+      "7/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    9
+   ],
    "phase": "layer 5",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["-169/10", "-117/5", "351/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [10],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      -3,
+      "9/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    10
+   ],
    "phase": "layer 5",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["-169/10", 0, "351/10"]}],
-   "approach": "fromAbove"},
-  {"refs": [11],
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      0,
+      "9/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  },
+  {
+   "refs": [
+    11
+   ],
    "phase": "layer 5",
    "grip": "longSides",
-   "blocks":
-   [{"up": "flat",
-     "rot": {"s": 0, "c": 1},
-     "center": ["-169/10", "117/5", "351/10"]}],
-   "approach": "fromAbove"}]}
+   "blocks": [
+    {
+     "up": "flat",
+     "rot": {
+      "s": 0,
+      "c": 1
+     },
+     "center": [
+      "-13/6",
+      3,
+      "9/2"
+     ]
+    }
+   ],
+   "approach": "fromAbove"
+  }
+ ]
+}

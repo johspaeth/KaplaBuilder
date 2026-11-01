@@ -3,7 +3,7 @@ import KaplaPlanner.Motif
 /-! # Log-cabin tower
 
 Each layer has two flat blocks lying parallel, at opposite sides of a square of
-117 × 117 mm. Each layer is turned 90° against the one below, like the
+15 × 15 cells. Each layer is turned 90° against the one below, like the
 walls of a log cabin. Every block rests on both blocks of the layer below. -/
 
 namespace KaplaPlanner.Motifs
@@ -26,7 +26,7 @@ theorem towerLayers_length (n : Nat) : (towerLayers n).length = 2 * n := by
   | zero => rfl
   | succ n ih => simp [towerLayers, ih, towerLayer_length]; omega
 
-/-- A log-cabin tower with the given number of layers (7.8 mm each). -/
+/-- A log-cabin tower with the given number of layers (height 1 each). -/
 def tower : Motif Nat where
   name := "log-cabin tower"
   blocks := towerLayers

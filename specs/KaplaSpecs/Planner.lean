@@ -27,9 +27,9 @@ theorem planPure_sound (req : PlanRequest) (phys : PhysicsEngine) (sem : Semanti
     ∀ c ∈ planPure req phys sem, c.physics.ok = true ∧ c.plan.blockCount ≤ req.blocks := by
   sorry
 
-/-- A concrete request: a tower 117 × 117 × 300 mm, at most 20 blocks. -/
+/-- A concrete request: a tower 15 × 15 × 38, at most 20 blocks. -/
 def exampleRequest : PlanRequest :=
-  let b : Box := ⟨⟨0, 0, 0⟩, ⟨117, 117, 300⟩⟩
+  let b : Box := ⟨⟨0, 0, 0⟩, ⟨15, 15, 38⟩⟩
   { target := { shape := .box b, parts := [⟨"tower", .tower, b⟩] }, blocks := 20 }
 
 -- The promise is not empty: on this request the planner does return plans.
@@ -91,7 +91,7 @@ example : ¬ ([⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 0, 0⟩] : List GridBlock).P
 /-! ## 3. The design never sticks out of the target
 
 The target is a union of bubbles (stretched, turned spheres; `KaplaCore.Bubble`). A design
-is a list of blocks on the grid; `blk.boxMm` is the space block `blk` fills, in mm.
+is a list of blocks on the grid; `blk.box` is the space block `blk` fills.
 `insideBubbles bubbles design` is the planner's check. The promise: if the check accepts,
 **every point** of every block is inside some bubble. The check itself only looks at the
 corners of grid cells, so this is the part that needs a proof. -/
@@ -100,24 +100,24 @@ corners of grid cells, so this is the part that needs a proof. -/
 bubble: the design never sticks out of the target. -/
 theorem insideBubbles_sound (bs : List Bubble) (design : List GridBlock)
     (h : insideBubbles bs design = true) :
-    ∀ blk ∈ design, ∀ p : Q3, blk.boxMm.contains p → ∃ b ∈ bs, b.contains p := by
+    ∀ blk ∈ design, ∀ p : Q3, blk.box.contains p → ∃ b ∈ bs, b.contains p := by
   sorry
 
-/-- A ball of radius 100 mm, 100 mm above the ground, and a flat block through its middle. -/
-def ballTarget : List Bubble := [Bubble.ball "ball" ⟨0, 0, 100⟩ 100]
+/-- A ball of radius 13, 13 above the ground, and a flat block through its middle. -/
+def ballTarget : List Bubble := [Bubble.ball "ball" ⟨0, 0, 13⟩ 13]
 def blockInBall : GridBlock := ⟨.flatX, -30, -6, 48⟩
 
 -- The condition can be met: the check accepts this block.
 #guard insideBubbles ballTarget [blockInBall]
 
-/-- The promise rules out a block that sticks out: a block from x = 54.6 mm to 171.6 mm
-has a corner point outside the ball. (Grid positions are in units of 1.95 mm.) -/
-example : ¬ (∀ p : Q3, (GridBlock.mk .flatX 28 (-8) 48).boxMm.contains p →
+/-- The promise rules out a block that sticks out: a block from x = 7 to x = 22 has a corner
+point outside the ball. (Grid positions are in quarters of a block thickness.) -/
+example : ¬ (∀ p : Q3, (GridBlock.mk .flatX 28 (-8) 48).box.contains p →
     ∃ b ∈ ballTarget, b.contains p) := by
   intro h
-  -- the point (171.6, -15.6, 93.6) mm is a corner of the block, 171.6 mm from the centre axis
-  obtain ⟨b, hb, hp⟩ := h ⟨858 / 5, -78 / 5, 468 / 5⟩ (by
-    simp only [Box.contains, GridBlock.boxMm, GridBlock.sx, GridBlock.sy, GridBlock.sz,
+  -- the point (22, -2, 12) is a corner of the block, 22 from the centre axis
+  obtain ⟨b, hb, hp⟩ := h ⟨22, -2, 12⟩ (by
+    simp only [Box.contains, GridBlock.box, GridBlock.sx, GridBlock.sy, GridBlock.sz,
       Orient.size, Orient.cubes, cubeSide, unit, blockThickness]
     grind)
   simp only [ballTarget, List.mem_singleton] at hb

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# On feature-semantics, refuse to commit anything outside semantics/.
+[[ "$(git branch --show-current)" == "feature-semantics" ]] || exit 0
+bad=$(git diff --cached --name-only | grep -v '^semantics/' || true)
+if [[ -n "$bad" ]]; then
+  echo "pre-commit: staged paths outside semantics/:"; echo "$bad"; exit 1
+fi

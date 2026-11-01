@@ -17,7 +17,7 @@ end) is exactly at one of the other block's five points (left end, ¼, ½, ¾, r
 Touching end to end or side by side counts: the right end of one is the left end of the
 other.
 
-With the grid unit of 1.95 mm, all these points are whole numbers. -/
+With the grid unit of a quarter block thickness, all these points are whole numbers. -/
 
 namespace KaplaPlanner
 

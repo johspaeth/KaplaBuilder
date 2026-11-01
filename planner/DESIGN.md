@@ -51,10 +51,11 @@ passes the real engines. The planner code does not change.
 
 ## 2. Internal model: an integer grid
 
-Kapla blocks are exactly 1 : 3 : 15 (7.8 × 23.4 × 117 mm). So we plan on a grid of cubes
-with side **7.8 mm**, and a block fills a whole box of cells:
+Kapla blocks are exactly 15 × 3 × 1 block units. Block positions are whole numbers of
+**grid units** (a quarter of a block unit), so a block is 60 × 12 × 4 grid units. For the
+inside check a block is cut into cubes of side 1 block unit (4 grid units):
 
-| Orientation | Size in cells (x × y × z) |
+| Orientation | Size in cubes (x × y × z) |
 |---|---|
 | flat, long side along x | 15 × 3 × 1 |
 | flat, long side along y | 3 × 15 × 1 |
@@ -64,7 +65,7 @@ with side **7.8 mm**, and a block fills a whole box of cells:
 ```lean
 structure GridBlock where
   orient : Orient      -- one of the 6 rows above
-  anchor : Int × Int × Int   -- the cell with the smallest x, y, z
+  x y z  : Int        -- the lowest corner, in grid units
 ```
 
 Why a grid:
@@ -72,13 +73,16 @@ Why a grid:
   to test.
 - Motifs (towers, walls) are naturally on this grid.
 - We convert to the rational `Pose` of `KaplaCore` **once**, at the output:
-  centre = (anchor + size / 2) × 7.8 mm.
+  centre = (corner + size / 2) / 4.
 
 Blocks that are not on the grid (round towers, which rotate about the vertical axis, and
 leaning roof rafters) come later as a second kind of block that carries a `Pose`
 directly. The grid stays the default.
 
-Axes: z points up, the ground is z = 0, units are mm. This must match `KaplaCore`.
+Axes: z points up, the ground is z = 0. `KaplaCore` measures in block units (one block
+thickness; a block is 15 × 3 × 1). The planner's grid is finer: one grid unit is a quarter of
+a block unit, so the quarter points a person aims at (§3.4) are whole numbers. `toPose` and
+`GridBlock.box` convert to block units.
 
 ---
 
@@ -386,11 +390,11 @@ follow WORKSPLIT §3.
 | `Q` (= `Rat`), `Q3` | exists |
 | `Upright` | `flat`, `onEdge`, `standing` |
 | `Rot` | yaw as an exact rational (cos, sin) pair. Grid poses use 0° and 90° only |
-| `Pose` | `up`, `rot`, `center` (block centre, mm) |
+| `Pose` | `up`, `rot`, `center` (block centre) |
 | `Grip`, `Approach` | `longSides` / `shortEnds` / `topEnd`; `fromAbove` / `slide axis sign` |
 | `Step` | `blocks : List Pose`, `grip`, `approach`, `phase : String` |
 | `BuildPlan` | `steps : List Step`, `blockCount` |
-| `HumanModel` | all fields, plus `adult`, `child`, `expert` profiles |
+| `HumanModel` | all fields, plus `default` |
 | `PartTag` | `name`, `kind` (tower, wall, roof gable / cone / hip, trunk, other), `box` (axis-aligned min/max `Q3`) |
 | `TargetSpec` | `shape`, `silhouette?`, `parts : List PartTag` |
 | `Diagnostic` | the eight cases in WORKSPLIT §3. Step and block indices are `Nat` (block index = position in the flattened plan) |
