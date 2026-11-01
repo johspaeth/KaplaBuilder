@@ -281,6 +281,11 @@ private def farFlat : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
 -- the egg at height 30 has exactly the 5152 cells `egg.json` promises the planner
 #guard (SemanticMock.bubbleCells
   ((BubbleModel.egg.bubbles.head!).place (Frame.ofHeight 30))).length == 5152
+-- only cells above the ground count: a half sphere of radius 2 has 16 cells, none below ground
+#guard
+  let foot : Bubble := { label := "foot", tags := [], center := ⟨0, 0, 0⟩, semi := ⟨2, 2, 2⟩ }
+  let cells := SemanticMock.bubbleCells foot
+  cells.length == 16 && cells.all (·.z > 0)
 -- a block touching the ball: 1 of its 45 cells is inside, of 8 cells in the ball
 #guard
   let r := semanticMock.score ball (Frame.ofHeight 2) [flat]
