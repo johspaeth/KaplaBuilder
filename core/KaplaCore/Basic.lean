@@ -55,7 +55,25 @@ def Box.joinAll : List Box → Option Box
   | [] => none
   | b :: bs => some (bs.foldl Box.join b)
 
+/-- The point `p` is in the box (on its surface counts too). -/
+def Box.contains (b : Box) (p : Q3) : Prop :=
+  b.lo.x ≤ p.x ∧ p.x ≤ b.hi.x ∧ b.lo.y ≤ p.y ∧ p.y ≤ b.hi.y ∧ b.lo.z ≤ p.z ∧ p.z ≤ b.hi.z
+
+instance (b : Box) (p : Q3) : Decidable (b.contains p) := by
+  unfold Box.contains; infer_instance
+
+/-- The 8 corners of the box. -/
+def Box.corners (b : Box) : List Q3 :=
+  [b.lo.x, b.hi.x].flatMap fun x => [b.lo.y, b.hi.y].flatMap fun y =>
+    [b.lo.z, b.hi.z].map fun z => ⟨x, y, z⟩
+
+/-- The dot product: `u.x·v.x + u.y·v.y + u.z·v.z`. -/
+def Q3.dot (u v : Q3) : Q := u.x * v.x + u.y * v.y + u.z * v.z
+
 #guard (Box.mk ⟨0, 0, 0⟩ ⟨1, 2, 3⟩).volume == 6
+#guard decide ((Box.mk ⟨0, 0, 0⟩ ⟨1, 2, 3⟩).contains ⟨1, 1, 3⟩)
+#guard !decide ((Box.mk ⟨0, 0, 0⟩ ⟨1, 2, 3⟩).contains ⟨1, 1, 4⟩)
+#guard (Box.mk ⟨0, 0, 0⟩ ⟨1, 2, 3⟩).corners.length == 8
 #guard Box.join ⟨⟨0, 0, 0⟩, ⟨1, 1, 1⟩⟩ ⟨⟨2, 0, 0⟩, ⟨3, 1, 1⟩⟩ == ⟨⟨0, 0, 0⟩, ⟨3, 1, 1⟩⟩
 
 end KaplaCore

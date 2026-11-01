@@ -1,4 +1,5 @@
 import KaplaPlanner.Search
+import KaplaPlanner.InsideProof
 
 /-! Proofs of the statements in `specs/KaplaSpecs/Planner.lean`.
 The names and statements must match the spec exactly; `lake comparator` checks this. -/
@@ -24,5 +25,18 @@ theorem sequence_perm (phase : String) (bs : List GridBlock) :
     (GridStep.allBlocks (sequence phase bs)).Perm bs := by
   simp only [GridStep.allBlocks, sequence, List.flatMap_map, List.flatMap_singleton']
   exact List.mergeSort_perm _ _
+
+/-- If `insideBubbles` accepts a design, every point of every block lies inside some
+bubble: the design never sticks out of the target. -/
+theorem insideBubbles_sound (bs : List Bubble) (design : List GridBlock)
+    (h : insideBubbles bs design = true) :
+    ∀ blk ∈ design, ∀ p : Q3, blk.boxMm.contains p → ∃ b ∈ bs, b.contains p := by
+  intro blk hblk p hp
+  obtain ⟨c, hc, hpc⟩ := cell_of_point blk p hp
+  simp only [insideBubbles, List.all_eq_true] at h
+  have hcell := h blk hblk c hc
+  simp only [cellInside, List.any_eq_true, List.all_eq_true, decide_eq_true_eq] at hcell
+  obtain ⟨b, hb, hcorners⟩ := hcell
+  exact ⟨b, hb, contains_of_corners b _ hcorners p hpc⟩
 
 end KaplaPlanner

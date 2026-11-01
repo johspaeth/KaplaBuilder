@@ -1,4 +1,5 @@
 import KaplaPlanner.Search
+import KaplaPlanner.Inside
 
 /-! # Spec for KaplaPlanner (human-owned)
 
@@ -6,8 +7,9 @@ The statements here are the promise. Proofs live in `planner/KaplaPlanner/Proofs
 `sorry` is expected in this file only. `lake comparator --config comparator/planner.json`
 checks that the proofs prove exactly these statements, with only standard axioms.
 
-The planner is not trusted: the physics engine decides whether a plan is safe. These two
-theorems say the planner does not undo that decision or lose blocks on the way. -/
+The planner is not trusted: the physics engine decides whether a plan is safe. These
+theorems say the planner does not undo that decision, does not lose blocks on the way, and
+never builds outside the target shape. -/
 
 namespace KaplaPlanner
 open KaplaCore
@@ -85,5 +87,42 @@ example : ¬ ([⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 0, 0⟩] : List GridBlock).P
   have := h.count_eq ⟨.flatX, 0, 0, 0⟩
   revert this
   decide
+
+/-! ## 3. The design never sticks out of the target
+
+The target is a union of bubbles (stretched, turned spheres; `KaplaCore.Bubble`). A design
+is a list of blocks on the grid; `blk.boxMm` is the space block `blk` fills, in mm.
+`insideBubbles bubbles design` is the planner's check. The promise: if the check accepts,
+**every point** of every block is inside some bubble. The check itself only looks at the
+corners of grid cells, so this is the part that needs a proof. -/
+
+/-- If `insideBubbles` accepts a design, every point of every block lies inside some
+bubble: the design never sticks out of the target. -/
+theorem insideBubbles_sound (bs : List Bubble) (design : List GridBlock)
+    (h : insideBubbles bs design = true) :
+    ∀ blk ∈ design, ∀ p : Q3, blk.boxMm.contains p → ∃ b ∈ bs, b.contains p := by
+  sorry
+
+/-- A ball of radius 100 mm, 100 mm above the ground, and a flat block through its middle. -/
+def ballTarget : List Bubble := [Bubble.ball "ball" ⟨0, 0, 100⟩ 100]
+def blockInBall : GridBlock := ⟨.flatX, -8, -2, 12⟩
+
+-- The condition can be met: the check accepts this block.
+#guard insideBubbles ballTarget [blockInBall]
+
+/-- The promise rules out a block that sticks out: the same block moved one block length
+along x has a corner point outside the ball. -/
+example : ¬ (∀ p : Q3, (GridBlock.mk .flatX 7 (-2) 12).boxMm.contains p →
+    ∃ b ∈ ballTarget, b.contains p) := by
+  intro h
+  -- the point (171.6, -15.6, 93.6) mm is a corner of the block, 171.6 mm from the centre axis
+  obtain ⟨b, hb, hp⟩ := h ⟨858 / 5, -78 / 5, 468 / 5⟩ (by
+    simp only [Box.contains, GridBlock.boxMm, GridBlock.sx, GridBlock.sy, GridBlock.sz,
+      Orient.size, blockThickness]
+    grind)
+  simp only [ballTarget, List.mem_singleton] at hb
+  subst hb
+  simp only [Bubble.contains, Bubble.value, Bubble.ball, Q3.dot, Q3.sub] at hp
+  grind
 
 end KaplaPlanner

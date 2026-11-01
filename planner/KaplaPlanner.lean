@@ -8,6 +8,8 @@ import KaplaPlanner.Sequencer
 import KaplaPlanner.PreCheck
 import KaplaPlanner.Search
 import KaplaPlanner.Planner
+import KaplaPlanner.Inside
+import KaplaPlanner.InsideProof
 import KaplaPlanner.Proofs
 import KaplaPlanner.Tests
 

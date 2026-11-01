@@ -1,0 +1,142 @@
+import KaplaPlanner.Inside
+
+/-! # Lemmas for the proof that `insideBubbles` is correct
+
+The idea: the bubble formula is a sum of squares of straight-line (linear) functions. On a
+segment along one axis, such a sum is never larger in the middle than at both ends. So if
+both ends are inside a bubble, the whole segment is. Going along x, then y, then z, every
+point of a cell is reached from its 8 corners. -/
+
+namespace KaplaPlanner
+open KaplaCore
+
+/-- If `(c − a)·v ≤ (c − x)·va + (x − a)·vc` with `va, vc ≤ 1` and `a ≤ x ≤ c`, then
+`v ≤ 1`. (`hac` covers the case `a = c`, where the segment is one point.) -/
+theorem le_one_of_interp (a x c v va vc : Rat) (hax : a ≤ x) (hxc : x ≤ c)
+    (ha : va ≤ 1) (hc : vc ≤ 1) (hac : a = c → v = va)
+    (h : (c - a) * v ≤ (c - x) * va + (x - a) * vc) : v ≤ 1 := by
+  by_cases e : a = c
+  · rw [hac e]; exact ha
+  · have hpos : 0 < c - a := by grind
+    have h1 : (c - x) * va ≤ (c - x) * 1 := Rat.mul_le_mul_of_nonneg_left ha (by grind)
+    have h2 : (x - a) * vc ≤ (x - a) * 1 := Rat.mul_le_mul_of_nonneg_left hc (by grind)
+    have h3 : (c - a) * v ≤ (c - a) * 1 := by grind
+    exact Rat.le_of_mul_le_mul_left h3 hpos
+
+/-- A sum of three squares is not negative. -/
+theorem sum_sq_nonneg (a b c : Rat) : 0 ≤ a ^ 2 + b ^ 2 + c ^ 2 := by
+  have h1 : 0 ≤ a ^ 2 := Lean.Grind.OrderedRing.sq_nonneg
+  have h2 : 0 ≤ b ^ 2 := Lean.Grind.OrderedRing.sq_nonneg
+  have h3 : 0 ≤ c ^ 2 := Lean.Grind.OrderedRing.sq_nonneg
+  grind
+
+/-- `(c − a)(x − a)(c − x) ≥ 0` when `a ≤ x ≤ c`. -/
+theorem seg_nonneg (a x c : Rat) (hax : a ≤ x) (hxc : x ≤ c) :
+    0 ≤ (c - a) * (x - a) * (c - x) :=
+  Rat.mul_nonneg (Rat.mul_nonneg (by grind) (by grind)) (by grind)
+
+/-- Along x: if both ends of a segment are inside the bubble, so is every point between. -/
+theorem line_x (b : Bubble) (y z a x c : Rat) (hax : a ≤ x) (hxc : x ≤ c)
+    (ha : b.contains ⟨a, y, z⟩) (hc : b.contains ⟨c, y, z⟩) : b.contains ⟨x, y, z⟩ := by
+  unfold Bubble.contains at *
+  apply le_one_of_interp a x c _ _ _ hax hxc ha hc (fun e => by subst e; rw [show x = a by grind])
+  have key : (c - x) * b.value ⟨a, y, z⟩ + (x - a) * b.value ⟨c, y, z⟩ - (c - a) * b.value ⟨x, y, z⟩
+      = (b.u1.x ^ 2 + b.u2.x ^ 2 + b.u3.x ^ 2) * ((c - a) * (x - a) * (c - x)) := by
+    simp only [Bubble.value, Q3.dot, Q3.sub]; grind
+  have := Rat.mul_nonneg (sum_sq_nonneg b.u1.x b.u2.x b.u3.x) (seg_nonneg a x c hax hxc)
+  grind
+
+/-- Along y: same as `line_x`. -/
+theorem line_y (b : Bubble) (x z a y c : Rat) (hay : a ≤ y) (hyc : y ≤ c)
+    (ha : b.contains ⟨x, a, z⟩) (hc : b.contains ⟨x, c, z⟩) : b.contains ⟨x, y, z⟩ := by
+  unfold Bubble.contains at *
+  apply le_one_of_interp a y c _ _ _ hay hyc ha hc (fun e => by subst e; rw [show y = a by grind])
+  have key : (c - y) * b.value ⟨x, a, z⟩ + (y - a) * b.value ⟨x, c, z⟩ - (c - a) * b.value ⟨x, y, z⟩
+      = (b.u1.y ^ 2 + b.u2.y ^ 2 + b.u3.y ^ 2) * ((c - a) * (y - a) * (c - y)) := by
+    simp only [Bubble.value, Q3.dot, Q3.sub]; grind
+  have := Rat.mul_nonneg (sum_sq_nonneg b.u1.y b.u2.y b.u3.y) (seg_nonneg a y c hay hyc)
+  grind
+
+/-- Along z: same as `line_x`. -/
+theorem line_z (b : Bubble) (x y a z c : Rat) (haz : a ≤ z) (hzc : z ≤ c)
+    (ha : b.contains ⟨x, y, a⟩) (hc : b.contains ⟨x, y, c⟩) : b.contains ⟨x, y, z⟩ := by
+  unfold Bubble.contains at *
+  apply le_one_of_interp a z c _ _ _ haz hzc ha hc (fun e => by subst e; rw [show z = a by grind])
+  have key : (c - z) * b.value ⟨x, y, a⟩ + (z - a) * b.value ⟨x, y, c⟩ - (c - a) * b.value ⟨x, y, z⟩
+      = (b.u1.z ^ 2 + b.u2.z ^ 2 + b.u3.z ^ 2) * ((c - a) * (z - a) * (c - z)) := by
+    simp only [Bubble.value, Q3.dot, Q3.sub]; grind
+  have := Rat.mul_nonneg (sum_sq_nonneg b.u1.z b.u2.z b.u3.z) (seg_nonneg a z c haz hzc)
+  grind
+
+/-- If the 8 corners of a box are inside a bubble, every point of the box is. -/
+theorem contains_of_corners (b : Bubble) (bx : Box) (hc : ∀ q ∈ bx.corners, b.contains q)
+    (p : Q3) (hp : bx.contains p) : b.contains p := by
+  obtain ⟨hx1, hx2, hy1, hy2, hz1, hz2⟩ := hp
+  have corner : ∀ x y z, (x = bx.lo.x ∨ x = bx.hi.x) → (y = bx.lo.y ∨ y = bx.hi.y) →
+      (z = bx.lo.z ∨ z = bx.hi.z) → b.contains ⟨x, y, z⟩ := by
+    intro x y z hx hy hz
+    apply hc
+    simp only [Box.corners, List.flatMap_cons, List.flatMap_nil, List.map_cons, List.map_nil,
+      List.append_nil, List.cons_append, List.nil_append, List.mem_cons, List.not_mem_nil,
+      or_false]
+    rcases hx with rfl | rfl <;> rcases hy with rfl | rfl <;> rcases hz with rfl | rfl <;> simp
+  -- along x: the 4 edges of the box that run along x
+  have ex : ∀ y z, (y = bx.lo.y ∨ y = bx.hi.y) → (z = bx.lo.z ∨ z = bx.hi.z) →
+      b.contains ⟨p.x, y, z⟩ := fun y z hy hz =>
+    line_x b y z _ _ _ hx1 hx2 (corner _ _ _ (.inl rfl) hy hz) (corner _ _ _ (.inr rfl) hy hz)
+  -- along y: the 2 faces of the box at the bottom and the top
+  have ey : ∀ z, (z = bx.lo.z ∨ z = bx.hi.z) → b.contains ⟨p.x, p.y, z⟩ := fun z hz =>
+    line_y b p.x z _ _ _ hy1 hy2 (ex _ _ (.inl rfl) hz) (ex _ _ (.inr rfl) hz)
+  -- along z: the point itself
+  have := line_z b p.x p.y _ _ _ hz1 hz2 (ey _ (.inl rfl)) (ey _ (.inr rfl))
+  exact this
+
+/-- A run of `n ≥ 1` cells from `lo` covers every point between its ends: each such point
+is in one of the cells `lo + m`, `m < n`. -/
+theorem split_run (h : Rat) : ∀ (n : Nat) (lo : Int) (x : Rat), 0 < n →
+    (lo : Rat) * h ≤ x → x ≤ ((lo + n : Int) : Rat) * h →
+    ∃ m < n, ((lo + m : Int) : Rat) * h ≤ x ∧ x ≤ ((lo + m + 1 : Int) : Rat) * h := by
+  intro n
+  induction n with
+  | zero => intro _ _ h0; exact absurd h0 (Nat.lt_irrefl 0)
+  | succ n ih =>
+    intro lo x _ h1 h2
+    by_cases hx : x ≤ ((lo + 1 : Int) : Rat) * h
+    · exact ⟨0, Nat.succ_pos n, by simpa using h1, by simpa using hx⟩
+    · have hn : 0 < n := by
+        rcases Nat.eq_zero_or_pos n with rfl | hpos
+        · exact absurd (by simpa using h2) hx
+        · exact hpos
+      have h1' : ((lo + 1 : Int) : Rat) * h ≤ x := by grind
+      have h2' : x ≤ ((lo + 1 + n : Int) : Rat) * h := by
+        have : (lo + 1 + (n : Int)) = lo + ((n + 1 : Nat) : Int) := by omega
+        rw [this]; exact h2
+      obtain ⟨m, hm, a1, a2⟩ := ih (lo + 1) x hn (by simpa using h1') h2'
+      refine ⟨m + 1, by omega, ?_, ?_⟩
+      · have : lo + ((m + 1 : Nat) : Int) = lo + 1 + m := by omega
+        rw [this]; exact a1
+      · have : lo + ((m + 1 : Nat) : Int) + 1 = lo + 1 + m + 1 := by omega
+        rw [this]; exact a2
+
+theorem mem_intRange (a : Int) (n m : Nat) (hm : m < n) : a + (m : Int) ∈ intRange a n := by
+  simp only [intRange, List.mem_map, List.mem_range]
+  exact ⟨m, hm, rfl⟩
+
+/-- Every block is at least one cell long in each direction. -/
+theorem Orient.size_pos (o : Orient) :
+    0 < o.size.1 ∧ 0 < o.size.2.1 ∧ 0 < o.size.2.2 := by
+  cases o <;> decide
+
+/-- Every point of a block lies in one of its cells. -/
+theorem cell_of_point (blk : GridBlock) (p : Q3) (hp : blk.boxMm.contains p) :
+    ∃ c ∈ blk.cells, (cellBox c.1 c.2.1 c.2.2).contains p := by
+  obtain ⟨hx1, hx2, hy1, hy2, hz1, hz2⟩ := hp
+  obtain ⟨sx, sy, sz⟩ := Orient.size_pos blk.orient
+  obtain ⟨i, hi, ix1, ix2⟩ := split_run _ _ blk.x p.x sx hx1 hx2
+  obtain ⟨j, hj, jy1, jy2⟩ := split_run _ _ blk.y p.y sy hy1 hy2
+  obtain ⟨k, hk, kz1, kz2⟩ := split_run _ _ blk.z p.z sz hz1 hz2
+  refine ⟨(blk.x + i, blk.y + j, blk.z + k), ?_, ix1, ix2, jy1, jy2, kz1, kz2⟩
+  simp only [GridBlock.cells, List.mem_flatMap, List.mem_map]
+  exact ⟨_, mem_intRange _ _ _ hi, _, mem_intRange _ _ _ hj, _, mem_intRange _ _ _ hk, rfl⟩
+
+end KaplaPlanner

@@ -1,6 +1,14 @@
 {
   "challenge_module": "KaplaSpecs.Planner",
   "solution_module": "KaplaPlanner.Proofs",
-  "theorem_names": ["KaplaPlanner.planPure_sound", "KaplaPlanner.sequence_perm"],
-  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
+  "theorem_names": [
+    "KaplaPlanner.planPure_sound",
+    "KaplaPlanner.sequence_perm",
+    "KaplaPlanner.insideBubbles_sound"
+  ],
+  "permitted_axioms": [
+    "propext",
+    "Quot.sound",
+    "Classical.choice"
+  ]
 }
