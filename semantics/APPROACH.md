@@ -134,8 +134,7 @@ sees the model, never the conversation that made it.
 **Replaced, 1 Nov 2026.** `score` takes a height, not a `Frame`. There is no sideways shift: the
 blocks are built to fit the model, and every length of the model is multiplied by the height. If the
 blocks are off to one side, the score shows it. `canonicalFrame` and `Frame.lean` are dropped. Read
-"frame" below and in §4 to §7 as "height". This holds on `feature-semantics` now; `Frame` leaves Core
-when `core/score-height` merges.
+"frame" below and in §4 to §7 as "height". `Frame` is gone from Core too.
 
 The plan is a pile of real blocks with real sizes. The bubble model is a figurine of height
 exactly 1 with no unit attached. Before asking how well the blocks cover the bunny, we have to

@@ -34,7 +34,7 @@ def dedupe (cells : List GridPt) : List GridPt :=
     if acc.1.contains c then acc else (acc.1.insert c, c :: acc.2)) ({}, [])).2.reverse
 
 /-- The bubble at its real size for this height. -/
-def placeAt (height : Q) (b : Bubble) : Bubble := b.place (Frame.ofHeight height)
+def placeAt (height : Q) (b : Bubble) : Bubble := b.place height
 
 /-- The cubes inside one bubble that is already at its real size. -/
 def bubbleCells (b : Bubble) : List GridPt :=
