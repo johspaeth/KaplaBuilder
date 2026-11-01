@@ -23,6 +23,19 @@ Entry point: `KaplaPlanner.planner : KaplaCore.Planner` (pure core: `planPure`).
 | `Inside.lean`, `InsideProof.lean` | `insideBubbles`: the design is strictly inside the target's bubbles (proven) |
 | `Bubble.lean` | scale/move bubbles, safe bounding box, allowed and surface cells |
 | `Fixtures.lean` | bubble test targets: sphere, snowman, spire, leaning, duck, gate |
+| `Eyeball.lean` | the eyeball rule: each block lines up (ends, centre, quarters) with a block it rests on |
+| `Stability.lean` | cheap grid stability estimate used inside the search |
+| `Design.lean` | P3 minimal filler: layer by layer, greedy surface coverage, scale and ground height search |
+| `Export.lean` | blueprint JSON for the web viewer |
+
+## Demo
+
+```sh
+lake build planner-demo && .lake/build/bin/planner-demo 200          # all bubble targets
+lake exe kapla view out/planner-demo/duck.json --out out/planner-demo/duck
+open out/planner-demo/duck/index.html
+```
+Uses the physics mock, not the verified engine.
 
 Proven (standard axioms only):
 - `planPure_sound` (main theorem, in `specs/` + `comparator/planner.json`): every returned candidate passed the physics check and uses at most N blocks.

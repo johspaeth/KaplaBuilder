@@ -1,4 +1,7 @@
 import KaplaPlanner.Planner
+import KaplaPlanner.Design
+import KaplaPlanner.Stability
+import KaplaPlanner.Fixtures
 
 /-! # End-to-end tests on the mock engines
 
@@ -65,5 +68,18 @@ def resultOk (t : TargetSpec) (n : Nat) (human : HumanModel) : Bool :=
 #guard match run (boxTarget "tree" .trunk 30 30 200) 20 with
   | best :: _ => best.plan.blockCount == 1
   | [] => false
+
+/-! ## Bubble designs (P3) -/
+
+-- A small ball, at most 12 blocks: the design is strictly inside (proven check), every block
+-- can be placed by eye, the plan stands after every step (mock physics), and the budget holds.
+#guard
+  let t := Fixtures.ofBubbles [Bubble.ball "ball" ⟨0, 0, 80⟩ 80]
+  match design standsNow t 12 [1] [1 / 5] with
+  | none => false
+  | some d =>
+    let plan := toBuildPlan (sequence "ball" d.blocks)
+    !d.blocks.isEmpty && d.blocks.length ≤ 12 && insideBubbles d.bubbles d.blocks &&
+    eyeballable d.blocks && (physicsMock.check .adult 12 plan).ok
 
 end KaplaPlanner.Tests

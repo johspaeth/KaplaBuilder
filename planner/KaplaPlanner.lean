@@ -12,6 +12,10 @@ import KaplaPlanner.Inside
 import KaplaPlanner.InsideProof
 import KaplaPlanner.Bubble
 import KaplaPlanner.Fixtures
+import KaplaPlanner.Eyeball
+import KaplaPlanner.Stability
+import KaplaPlanner.Design
+import KaplaPlanner.Export
 import KaplaPlanner.Proofs
 import KaplaPlanner.Tests
 
