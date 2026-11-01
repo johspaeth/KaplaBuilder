@@ -17,15 +17,16 @@ A **cell** is a cube of the grid in §4 (WORKSPLIT calls it a voxel).
 ## 1. The target is a bubble model
 
 A target is a `BubbleModel`: a name and a list of `Bubble`s. A bubble is an ellipsoid with
-its axes parallel to x, y, z:
+its axes parallel to x, y, z. The types are in `core/KaplaCore/Bubble.lean`, shared with the
+planner:
 
 ```lean
 structure Bubble where
   label  : String       -- for people and reports: "head", "left ear", "tower NE"
   tags   : List String  -- hints for the planner, DESIGN.md §5 vocabulary:
                         -- tower, wall, roof:gable, roof:cone, roof:hip, trunk, ...
-  center : V3           -- centre in the unit frame (V3 = three Rat)
-  semi   : V3           -- semi-axes a, b, c; all > 0
+  center : Q3           -- centre in the unit frame (Q3 = three Rat)
+  semi   : Q3           -- semi-axes a, b, c; all > 0
 
 structure BubbleModel where
   name    : String
@@ -37,7 +38,8 @@ A point is inside a bubble when
     ((x − cx) / a)² + ((y − cy) / b)² + ((z − cz) / c)² ≤ 1.
 
 This is one line of exact `Rat` arithmetic, so `Bubble.contains` is a decidable `Bool`
-with no rounding anywhere. Division by a, b, c is fine because they are positive.
+with no rounding anywhere. A bubble with a semi-axis of 0 or less contains nothing. Lean
+computes x / 0 as 0, so without this rule it would contain every point.
 
 **The unit frame.** The model is scale-free. Up is +z. The lowest point of the model is at
 z = 0 (it stands on the ground). The highest point is at z = 1. x and y are free; the frame
@@ -106,7 +108,7 @@ sees the model, never the conversation that made it.
   by the person. Lean core has no HTTP server, so the page needs a small serving layer under
   `semantics/dev/` that calls the Dev tools below; how exactly is a roadmap item (§10). In
   the finished product the chat lives in the project web UI and the bubbles are drawn as
-  ellipsoids in the project's three.js viewer (D's component, §8 item 6); the bubble JSON is
+  ellipsoids in the project's three.js viewer (D's component, §8); the bubble JSON is
   already what such a page consumes.
 - **Feedback.** `refine model transcript remark → new model` sends the transcript plus the
   remark and gets a new model, validated the same way. The transcript is a JSON list of
@@ -143,13 +145,13 @@ numbers.
 
     place F b = { b with center := (s·cx + tx, s·cy + ty, s·cz), semi := (s·a, s·b, s·c) }
 
-**The frame is an argument, never a guess.** `score` and `check` (§4) take a `Frame`; there
-is no code path that chooses one silently. The reason is the half-built plan: at layer 5 of
+**The frame is an argument, never a guess.** `score` (§4) takes a `Frame`; there is no code
+path that chooses one silently. The reason is the half-built plan: at layer 5 of
 an intended 30, a frame fitted to the stump would shrink the bunny to 5 tall and report that
 the stump looks like a small bunny. Wrong question. The planner decides once, before placing
 anything, how tall the finished bunny will be, builds the frame from that, and passes the
 same frame with every call; then the half-built plan is compared with the full-size bunny
-and "missing" means "not built yet". This is a contract point, §8 item 7.
+and "missing" means "not built yet". This is a contract point, §8 item 3.
 
 **Canonical frame**, for the final report. `canonicalFrame plan model` is a separate
 function the orchestrator calls once a plan is finished: `s` = plan height / model height
@@ -185,8 +187,9 @@ Both are computed the same way: list the integer ranges of the bounding box (`Ra
 parameter anywhere: a block touches a bubble when one of its 45 centres is inside, and the
 grid itself is the resolution of everything.
 
-**Two acceptance checks.** These are the semantic counterpart of physics' `Valid`: a plan
-that fails either one is rejected, and the final output type gains them (§8 item 8).
+**Two acceptance checks.** These are the semantic counterpart of physics' `Valid`. A plan is
+accepted when it has at least one block and passes both. The score plays no part: there is no
+minimum, and a person gives the final approval.
 
 - **`WithinTarget F m plan`**: every block has at least one of its 45 cells inside some
   bubble. No block floats outside the bunny. (A block partly outside is allowed and costs
@@ -195,16 +198,21 @@ that fails either one is rejected, and the final output type gains them (§8 ite
   frame contains at least one block cell. No part of the bunny is left unbuilt. A bubble so
   small at this scale that it contains no centre at all (the tail at s = 8 has radius 0.56,
   less than half a cell) can never be covered; such bubbles are skipped by the rule and
-  listed in the report as "too small at this scale". The right place to catch them is the
-  chat (§2); this is the safety net.
+  listed in the report as `tooSmall`. The person can remove them in the UI before accepting
+  the design. This changes no result, because they contain no cells. Do not run `normalize`
+  after removing one: the model would change size and no longer match the proposal.
+
+"At least one block" closes one gap: if every bubble is too small, both checks pass with no
+blocks. Any real block is then fully outside, so such a target has no accepted plan.
 
 Both have decidable checkers (`checkWithin`, `checkCovers`) with the theorem "checker says
-yes ⇔ property holds" (§6). The checks only make sense for a finished plan (at layer 5 the
-ears are not built yet, and that is fine), so they live in a separate `check target frame
-plan` the orchestrator calls at the end; `score` returns a report at any stage and carries
-the two results as flags for the planner. Mid-build, the planner's useful signals are
-`extra` (is the material placed so far inside the bunny?) and per-bubble coverage ("paws
-90 %, body 20 %, head 0 %"); `missing` only means something at the end.
+yes ⇔ property holds" (§6). There is one call, `score target frame blocks`, for a finished
+or partial plan. Its report lists `outside` (blocks fully outside, always a reject) and
+`uncovered` (bubbles with no block yet, normal mid-build: at layer 5 the ears are not built
+yet), with the similarity number. `ScoreReport.accepted` is worked out from these lists.
+Mid-build, the planner's other useful signals are `extra` (is the material placed so far
+inside the bubble?) and per-bubble coverage ("paws 90 %, body 20 %, head 0 %"); `missing`
+only means something at the end.
 
 **Covered cells and the fill.** Kapla structures are hollow: a log-cabin tower is two
 blocks per layer around an empty middle. Comparing block cells against a solid bubble would
@@ -306,7 +314,7 @@ What takes its place as the user-facing guarantee is §4: every surviving block 
 the shape, every part of the shape is built, and the likeness number is computed correctly
 (§6). An unverified `suggestScale target N` helper can give the planner a starting height
 ("don't build a 60-tall bunny from 20 blocks"); a hint needs no proof. The README sentence,
-DESIGN.md §5, and `bound`/`Bound` in the shared interface change accordingly (§8 item 8).
+DESIGN.md §5 and the shared interface change accordingly (§8).
 
 ## 6. What gets verified
 
@@ -328,16 +336,15 @@ contains 136); `flat`, one block covering [0,15] × [0,3] × [0,1].
    Example: `#guard (targetCells ⟨2, 0, 0⟩ ball).length == 8`; `(-1, -1, 0)` is in the list.
    Rejects: the empty list; any list containing (5, 5, 5).
 2. **`blockCells_correct`**: `g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre`.
-   Same for blocks, against the block-containment definition (a local axis-aligned block
-   now, `Pose.contains` from `KaplaCore` once it exists).
-   Surface: `Block.contains`, `GridPt.centre`.
+   Same for blocks, against `Pose.contains` from `KaplaCore`.
+   Surface: `Pose.contains`, `GridPt.centre`.
    Example: `#guard (blockCells [flat]).length == 45`.
    Rejects: a list of 44 cells.
 3. **`checkWithin_correct`**: `checkWithin F m plan = true ↔ WithinTarget F m plan`.
    The checker says yes exactly when every block has a cell inside some bubble.
    Why: this is the rejection rule; a wrong `true` lets a floating block through, a wrong
    `false` throws away a good plan.
-   Surface: `WithinTarget`, `blockCells` (or `Block.cells`), `Bubble.contains`, `place`.
+   Surface: `WithinTarget`, `blockCells`, `Bubble.contains`, `place`.
    Example: `flat` against `ball` at s = 2 passes (the cell (0, 0, 0) is inside); `flat`
    moved to x ∈ [20, 35] fails.
    Rejects: a checker that tests only block centres (it says no to a long block whose end is
@@ -396,13 +403,13 @@ is forbidden. Big inputs go in `#guard`, which is a build-time test, not a proof
 
 | File | Contents |
 |---|---|
-| `Bubble.lean` | `V3`, `Bubble`, `BubbleModel`, `contains`, `normalize`, `wellFormed` |
-| `Frame.lean` | `Frame`, `place`, `canonicalFrame` |
+| `Bubble.lean` | `normalize` (the types, `contains`, `wellFormed`, `Frame` and `place` are in `KaplaCore.Bubble`) |
+| `Frame.lean` | `canonicalFrame` |
 | `Json.lean` | `encode` / `decode` for models, frames and reports; exact `Rat` codec |
-| `Grid.lean` | `GridPt`, `centre`, local `Block` with `cells` and `corners`, `targetCells`, `blockCells` |
-| `Score.lean` | `covered` (with the per-bubble fill), `extra`, `missing`, `score`, `solid`, `perBubble`, `verdict`; block-side definitions that are also the implementation |
+| `Grid.lean` | `GridPt`, `centre`, `targetCells`, `blockCells` (blocks are `Pose` from `KaplaCore`) |
+| `Score.lean` | `covered` (with the per-bubble fill), `extra`, `missing`, `score`, `solid`, `perBubble`; block-side definitions that are also the implementation |
 | `Check.lean` | `WithinTarget`, `CoversTarget`, `checkWithin`, `checkCovers`, the "too small" list |
-| `Engine.lean` | the `SemanticEngine` implementation (`interpret`, `refine`, `score`, `check`); **the only file that touches `KaplaCore` types**, so a contract change hits one file. Also hosts `componentName`, which `app/Main.lean` prints |
+| `Engine.lean` | the `SemanticEngine` implementation (`interpret`, `refine`, `score`); **the only file that uses the engine and report types** (`SemanticEngine`, `TargetSpec`, `ScoreReport`). Any file may use `Q3`, `Bubble`, `BubbleModel`, `Frame` and `Pose`. Also hosts `componentName`, which `app/Main.lean` prints |
 | `Claude.lean` | Messages API client over `curl`, prompt templates, retries |
 | `Preview.lean` | 3-view SVG of a model, optionally with a plan |
 | `Dev/*.lean` | the four CLI tools of §2, one `main` each |
@@ -415,50 +422,43 @@ placeholder and goes away when `Engine.lean` takes over `componentName`. The roo
 imports the definition modules it needs (`KaplaSemantics.Score`, `KaplaSemantics.Check`,
 ...) and never the root.
 
-## 8. KaplaCore dependency and what to raise with the team now
+## 8. The contract in KaplaCore
 
-Core v0.1 freezes the week of 2 Nov (WORKSPLIT §7). `KaplaCore` now has the v0.1 draft, read in roadmap step 1.
-WORKSPLIT §3 has `TargetSpec = Shape + Option Mask + List PartTag` and
-`SemanticEngine = { interpret, score (TargetSpec, List Pose), bound (TargetSpec, Nat) }`.
-Proposals to write up for D before the freeze:
+Settled and merged in PR #17 (1 Nov 2026). Rulings:
 
-1. **`TargetSpec` carries a bubble model**, either as the `Shape` or as a new variant
-   `Shape.bubbles`. Labels and tags live on the bubbles, so `parts` can be derived from them.
-   If the codec for it moves into Core, the round-trip tests of §6 move with it.
-2. **`refine : TargetSpec → String → IO TargetSpec`** on `SemanticEngine`, for the feedback
-   loop. The transcript stays on my side of the interface (a file next to the model).
-3. **Block units everywhere (ruled 1 Nov 2026).** Core, planner, viewer and JSON all use
-   15 × 3 × 1; millimetres are gone. Branch `core/block-units`.
-4. **`Pose.contains` lives in Core**, so block cells are defined once for everyone (WORKSPLIT
-   §3 already lists it). Half-open faces (`lo ≤ t < hi` along world x, y and z,
-   whatever the block's turn, ruled 1 Nov 2026, branch `core/block-units`) give exactly 45 cells per
-   axis-aligned block at any offset. Until `Pose` exists, `Grid.lean` uses a local axis-aligned block type
-   (15 × 3 × 1 units) behind `Engine.lean`.
-5. **Ask D for the fixture set** (WORKSPLIT §5: targets tree, duck, house, gable_roof,
-   castle; plans tree_1block, tower_10, ...). I need bubble-model versions of the targets
-   and will draft them. Until the shared `fixtures/` exists, mine live under
-   `semantics/fixtures/`.
-6. **The end-user experience is a chat box plus the 3D viewer.** Built with D on top of
-   `interpret`/`refine`: the project's three.js page draws the bubbles as ellipsoids next to
-   the blocks. The bubble JSON is already what such a page consumes. That is also the demo a
-   judge sees; the dev chat page of §2 is my stand-in until then.
-7. **The frame crosses the interface.** `score` and `check` take a `Frame`; `ScoreReport`
-   carries it. Without this the planner cannot score a half-built plan correctly (§3) and
-   nobody can reproduce a reported number.
-8. **Drop `bound` and `Bound`; add `check`.** `bound : TargetSpec → Nat → Bound` goes (§5).
-   `check : TargetSpec → Frame → List Pose → Except (List SemanticDiagnostic) Unit` comes in,
-   with diagnostics `BlockOutside i` and `BubbleUncovered label`. The final output type in
-   WORKSPLIT §3 becomes `{p // Valid H N p ∧ WithinTarget ∧ CoversTarget} × verified score`.
-   `verdict` moves onto `ScoreReport`, which has `frame`, `score`, `solid`, `perPart`,
-   `missing`, `extra`, `tooSmall : List String`, and the two check results as flags. One-line
-   changes to README ("what the plan guarantees") and DESIGN.md §5: "proven upper bound"
-   becomes "every block is part of the target and every part of the target is built".
-9. **Exact `Rat` in JSON.** Proposal for the Core codec: a JSON number when the denominator
-   divides a power of ten (every decimal Claude writes), else the string `"p/q"`; the decoder
-   accepts both. Round trips are then exact.
-10. **Batteries** is allowed by the rules but is not in `lake-manifest.json`. I plan to need
-    only Lean core; if a `Rat` lemma is missing I prove it locally rather than ask for a
-    dependency.
+1. **Bubbles in Core.** `Bubble`, `BubbleModel`, `contains`, `wellFormed`, `Frame`, `place`,
+   `Frame.ofHeight` and the egg are in `core/KaplaCore/Bubble.lean`, so the planner and the
+   engine share one meaning of "inside". `normalize` and the JSON codec stay here.
+2. **Targets.** `Shape.bubbles` is the bubble shape; the older shapes stay for now.
+   `TargetSpec.ofBubbles` makes one part per bubble. The planner cannot import the codec, so
+   it tests with `TargetSpec.egg`. In real runs it gets its target in the `PlanRequest`.
+3. **`SemanticEngine`.** `interpret`, `refine : TargetSpec → String → IO TargetSpec`, and
+   `score : TargetSpec → Frame → List Pose → ScoreReport`. `bound` and `Bound` are gone (§5).
+   There is no separate `check`. The transcript stays on my side (a file next to the model).
+4. **`ScoreReport`** adds `frame`, `blockCount`, `outside` (block positions), `uncovered` and
+   `tooSmall` (bubble labels), next to `score`, `perPart`, `missing` and `extra`. `iou` stays
+   only because `specs/KaplaSpecs/Planner.lean` sets it. `solid` is not in the report.
+   `accepted` and `verdict` are functions of the report. Bubbles are named by label, so
+   step 7 must reject duplicate labels.
+5. **Exact `Rat` in JSON.** A JSON number when the denominator divides a power of ten (every
+   decimal Claude writes), else the string `"p/q"`; the decoder accepts both. This stays in
+   `Json.lean`, as Core has no JSON code.
+6. **Blocks.** Block cells come from `Pose.contains` in Core, with half-open faces, so an
+   axis-aligned block has exactly 45 cells at any offset.
+
+Still open:
+
+- **The planner does not filter on `accepted`.** It can return plans these rules reject. On
+  the egg with 60 blocks, all three plans it returns have blocks fully outside (its towers
+  have a fixed width). `planPure_sound` promises nothing about acceptance yet.
+- **The planner chooses a sideways shift** (`frameFor` in `planner/KaplaPlanner/Search.lean`),
+  so the egg it builds is not around x = 0, y = 0. This is allowed; the note in `egg.json` says so.
+- **Fixtures.** Ask D for the fixture set (WORKSPLIT §5). Until the shared `fixtures/` exists,
+  mine live under `semantics/fixtures/`.
+- **The end-user experience is a chat box plus the 3D viewer,** built with D on top of
+  `interpret` and `refine`. The dev chat page of §2 is my stand-in until then.
+- **Batteries** is allowed by the rules but is not in `lake-manifest.json`. I plan to need only
+  Lean core; if a `Rat` lemma is missing I prove it locally.
 
 ## 9. Dev workflow
 
@@ -499,7 +499,7 @@ is structured separately; this is only my track.
 
 | | Deliverable | Verified | Due |
 |---|---|---|---|
-| **B1** | bubble model + JSON, grid, `targetCells`, `blockCells`, covered/fill, score, `check`, `canonicalFrame`, `Dev/Score`, first fixtures | theorems 1–4 | before I1, 20 Nov |
+| **B1** | bubble model + JSON, grid, `targetCells`, `blockCells`, covered/fill, score, checkers, `canonicalFrame`, `Dev/Score`, first fixtures | theorems 1–4 | before I1, 20 Nov |
 | **B2** | chat page, Claude client, `normalize`, preview SVG, `refine`, `Dev/Interpret` + `Dev/Preview`, `SemanticEngine` wired in `Engine.lean` | — | ~1 Dec |
 | **B3** | image input, silhouette IoU against the input mask, per-bubble scores in the report, narration text | theorem 5 if not done in B1 | before I2, 18 Dec |
 
