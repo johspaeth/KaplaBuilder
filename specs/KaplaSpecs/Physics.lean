@@ -1,4 +1,5 @@
 import KaplaPhysics.Engine
+import KaplaPhysics.CoreAdapter
 import KaplaSpecs.PhysicsRules.Examples
 
 /-! # Spec for KaplaPhysics (human-owned)
@@ -257,5 +258,50 @@ theorem not_stands_and_falls (b : Build) (ps : List Push) (ms : List Motion)
 -- one can hold on its own, so neither is impossible by itself.
 example : checkPushes e1 e1Pushes = true := by decide +kernel
 example : FallCertificate e4 e4Motion := by decide +kernel
+
+/-! ## The engine behind KaplaCore's interface
+
+The planner and the app see the engine through `KaplaCore.PhysicsEngine`, which works on
+core blocks (centre, any turn, 1 or 2 blocks per step). `plankOf` and `buildOf`
+(`specs/KaplaSpecs/PhysicsRules/FromCore.lean`) turn core blocks into planks. -/
+
+/-- The conversion keeps each block where it is: for a block with a physics pose, core's box
+for it and the plank's box are the same. -/
+theorem plankOf_box (p : KaplaCore.Pose) (q : Plank) (h : plankOf p = some q) :
+    p.box = q.toBox := by
+  sorry
+
+-- Core's example block (flat, centre at height 1/2) is a flat plank on the ground.
+example : plankOf KaplaCore.Pose.example = some ⟨.flatX, -15 / 2, -3 / 2, 0⟩ := by
+  decide +kernel
+-- Ruled out: reading core's centre as the plank's corner puts the block somewhere else.
+example : KaplaCore.Pose.example.box ≠ (⟨.flatX, 0, 0, 1 / 2⟩ : Plank).toBox := fun h =>
+  absurd (congrArg (·.lo.z) h) (by decide +kernel)
+
+/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
+block has a physics pose, and the blocks, placed one after the other in plan order, are a
+safe plan: at most `maxBlocks` of them, and well-formed and solid for placement errors up to
+`epsRel` after every block (K4, K5). -/
+theorem coreCheck_ok_sound (h : KaplaCore.HumanModel) (maxBlocks : Nat)
+    (plan : KaplaCore.BuildPlan) (hok : (coreCheck h maxBlocks plan).ok = true) :
+    (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
+      ∃ b, buildOf plan.blocks = some b ∧ SafePlan h.epsRel maxBlocks b := by
+  sorry
+
+-- One flat block on the ground, with the default builder: the engine says `ok`.
+example : (coreCheck .default 200 ⟨[{ blocks := [KaplaCore.Pose.example] }]⟩).ok = true := by
+  decide +kernel
+-- Ruled out: `ok` for a block that floats one unit above the ground (P3).
+example : (coreCheck .default 200
+    ⟨[{ blocks := [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] }]⟩).ok ≠ true := fun hok => by
+  obtain ⟨_, b, hb, hs⟩ := coreCheck_ok_sound _ _ _ hok
+  have hf : buildOf [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] = some floating := by decide +kernel
+  obtain rfl : b = floating := Option.some.inj (hb.symm.trans hf)
+  exact absurd (hs.2 1 (by decide) (by decide)).1 (by decide +kernel)
+-- Ruled out: `ok` for a step with two blocks when the builder has one hand.
+example : (coreCheck { KaplaCore.HumanModel.default with hands := 1 } 200
+    ⟨[{ blocks := [KaplaCore.Pose.example, ⟨.flat, .id, ⟨0, 0, 3 / 2⟩⟩] }]⟩).ok ≠ true :=
+  fun hok => absurd ((coreCheck_ok_sound _ _ _ hok).1 _ (List.mem_singleton_self _)).2
+    (by decide)
 
 end KaplaPhysics

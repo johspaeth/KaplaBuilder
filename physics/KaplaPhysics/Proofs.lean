@@ -3,6 +3,7 @@ import KaplaPhysics.Sums
 import KaplaPhysics.RobustProofs
 import KaplaPhysics.ColumnProofs
 import KaplaPhysics.TowerProofs
+import KaplaPhysics.CoreAdapter
 
 /-! # Proofs of the physics theorems
 
@@ -367,5 +368,63 @@ theorem hardToReach_sound (h : Rat) (steps : Build) (k : Nat) (hk : k < steps.le
 theorem hardToReach_nil_sound (h : Rat) (steps : Build) (hn : hardToReach h steps = []) :
     EveryStepReachable h steps := fun k hk =>
   hardToReach_sound h steps k hk (by simp [hn])
+
+/-! ## The engine behind KaplaCore's interface -/
+
+/-- For a block with a physics pose, core's box and the plank's box are the same, so the
+plank is the same block in the same place. -/
+theorem plankOf_box (p : KaplaCore.Pose) (q : Plank) (h : plankOf p = some q) :
+    p.box = q.toBox := by
+  obtain ⟨up, r, ⟨cx, cy, cz⟩⟩ := p
+  have h1 : Rat.abs 1 = 1 := by decide +kernel
+  have hm1 : Rat.abs (-1) = 1 := by decide +kernel
+  have h0 : Rat.abs 0 = 0 := by decide +kernel
+  simp only [plankOf, poseOf, isStraightTurn, isQuarterTurn] at h
+  split at h
+  · rename_i hr
+    rcases hr with rfl | rfl <;> cases up <;> simp at h <;> subst h <;>
+    simp [KaplaCore.Pose.box, Plank.toBox, KaplaCore.Upright.dims, Plank.x1, Plank.y1, Plank.top,
+      Pose.size, KaplaCore.Q3.sub, KaplaCore.Q3.add, KaplaCore.blockLength, KaplaCore.blockWidth,
+      KaplaCore.blockThickness, h1, hm1, h0] <;> grind
+  · split at h
+    · rename_i _ hr
+      rcases hr with rfl | rfl <;> cases up <;> simp at h <;> subst h <;>
+      simp [KaplaCore.Pose.box, Plank.toBox, KaplaCore.Upright.dims, Plank.x1, Plank.y1, Plank.top,
+        Pose.size, KaplaCore.Q3.sub, KaplaCore.Q3.add, KaplaCore.blockLength, KaplaCore.blockWidth,
+        KaplaCore.blockThickness, h1, hm1, h0] <;> grind
+    · simp at h
+
+/-- No step diagnostics means every step places 1 to `hands` blocks. -/
+theorem stepDiagnostics_nil (h : KaplaCore.HumanModel) (plan : KaplaCore.BuildPlan)
+    (hs : (stepDiagnostics h plan).isEmpty = true) :
+    ∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands := by
+  intro st hst
+  obtain ⟨k, hk⟩ : ∃ k, (st, k) ∈ plan.steps.zipIdx := by
+    obtain ⟨k, hk, rfl⟩ := List.getElem_of_mem hst
+    exact ⟨k, List.mem_iff_getElem.mpr ⟨k, by simp [hk], by simp⟩⟩
+  simp only [stepDiagnostics, List.isEmpty_iff, List.flatMap_eq_nil_iff] at hs
+  have := hs _ hk
+  simp only [List.append_eq_nil_iff] at this
+  obtain ⟨h1, h2⟩ := this
+  constructor
+  · cases hb : st.blocks with
+    | nil => simp [hb] at h1
+    | cons _ _ => simp
+  · split at h2
+    · simp at h2
+    · omega
+
+/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
+block has a physics pose, and the blocks, one per step, are a safe plan (K4, K5). -/
+theorem coreCheck_ok_sound (h : KaplaCore.HumanModel) (maxBlocks : Nat)
+    (plan : KaplaCore.BuildPlan) (hok : (coreCheck h maxBlocks plan).ok = true) :
+    (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
+      ∃ b, buildOf plan.blocks = some b ∧ SafePlan h.epsRel maxBlocks b := by
+  unfold coreCheck at hok
+  split at hok
+  · simp at hok
+  · rename_i b hb
+    simp only [Bool.and_eq_true] at hok
+    exact ⟨stepDiagnostics_nil h plan hok.1, b, hb, checkPlan_sound _ _ _ hok.2⟩
 
 end KaplaPhysics

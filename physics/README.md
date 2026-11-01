@@ -23,6 +23,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors and `SolidWithin` (R1–R3), `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
 | `Tower.lean` | the square tower of example E8 | yes: read it |
 | `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
+| `FromCore.lean` | `plankOf`, `buildOf`: a core block (centre, quarter turn) as a physics plank (lowest corner, one of six poses) | yes: read it |
 | `Examples.lean` | builds E1–E12; proofs from the rules alone that E1 stands, that E4 falls, that E3 is not solid, and a few more | checked by Lean |
 
 | File in this folder | What it does | Trusted? |
@@ -32,6 +33,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
 | `Reach.lean` | K3 checker: tries five straight paths (from above, from each side) plus the drop | checked by the proofs |
 | `Engine.lean` | `stabilityAnswer`, `verdict` (solid / risky / falls), `checkPlan` | checked by the proofs |
+| `CoreAdapter.lean` | `coreCheck` and `physicsEngine`: the engine behind `KaplaCore.PhysicsEngine` | checked by the proofs |
 | `Sums.lean`, `RobustProofs.lean`, `ColumnProofs.lean`, `TowerProofs.lean`, `Proofs.lean` | the proofs (main statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
 | `Examples.lean` | the engine on E1–E12 as `#guard`s; more instances of the theorems; bad answers the rules reject | tests |
 
@@ -69,6 +71,11 @@ what a theorem means, you must change `specs/`, which needs a spec review.
   gets both a passing push set and a fall certificate.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
+- `plankOf_box`: a core block and the plank it becomes fill the same box.
+- `coreCheck_ok_sound`: when `physicsEngine` says a core plan is `ok`, every step places 1 to
+  `hands` blocks, every block has a physics pose, and the blocks, one after the other, are a
+  safe plan for placement errors up to `epsRel` (K4, K5). With the planner's
+  `planPure_sound` (its candidates are `ok`), every candidate is a safe plan.
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.
 
@@ -83,7 +90,27 @@ A "solid" verdict is always right.
 Placement errors are taken over the whole R1 box (every plank within ε along `x` and `y`).
 R5 only removes some of these errors, so "solid" here implies solid under R5.
 
+## Using it from the app
+
+`KaplaPhysics.physicsEngine : KaplaCore.PhysicsEngine` replaces `physicsMock`; `app/Main.lean`
+(owner D) has to pass it to the planner. How a core plan is read:
+
+- Blocks of one step are checked one after the other, in list order (K1). This is cautious:
+  a step whose blocks stand only together is refused.
+- `epsRel` is ε of R1: each block may land up to `epsRel` off its own planned spot.
+- Only quarter turns have a physics pose; any other turn makes the plan not `ok`.
+- K3 gives `unreachable` warnings, which do not change `ok`.
+- `eAbs`, `press`, `clear`, `muSafe` are not used; the engine never reports `slides`,
+  `pressTips`, `clearance` or `unevenSupports`, and `slackPerBlock` is `none`.
+- Core has no diagnostic for "risky" or "this turn has no physics pose", so both are
+  reported as `unstable step block` for the block where things first go wrong.
+
 ## Not done yet
+
+- `HumanModel` says `epsRel` is measured against the block below, and `eAbs` bounds the
+  total drift. The physics rules (R1) bound each block's error from its own planned spot.
+  The two are not the same (in R1, two touching blocks can be up to `2 ε` apart); the team
+  should pick one.
 
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
 - Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses

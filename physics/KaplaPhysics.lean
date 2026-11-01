@@ -8,6 +8,7 @@ import KaplaPhysics.Reach
 import KaplaPhysics.ColumnProofs
 import KaplaPhysics.TowerProofs
 import KaplaPhysics.Engine
+import KaplaPhysics.CoreAdapter
 import KaplaPhysics.Proofs
 import KaplaPhysics.Examples
 

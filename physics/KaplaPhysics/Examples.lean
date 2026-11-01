@@ -1,4 +1,5 @@
 import KaplaPhysics.Proofs
+import KaplaPhysics.CoreAdapter
 import KaplaSpecs.PhysicsRules.Examples
 
 /-! # Worked examples (section 12 of `spec/physics-rules.md`)
@@ -166,5 +167,68 @@ example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
 /-- A sideways push bigger than `μ` times the up-push is not allowed. -/
 example : ¬ (FrictionPush.mk ⟨1, .plank 0, 5, 0, 1⟩ 1 0).Allowed (2 / 5) e2 :=
   fun h => absurd h.2.2.1 (by decide +kernel)
+
+/-! ## Through KaplaCore's interface (`coreCheck`)
+
+The same builds written as core plans: blocks given by their centre, `flatAt` for flat
+blocks, one block per step unless said otherwise. -/
+
+section Core
+open KaplaCore (HumanModel BuildPlan flatAt physicsMock)
+
+/-- A block on its long edge, along `x`, with its lowest corner at `(x, y, z)`. -/
+def coreEdgeAt (x y z : Rat) : KaplaCore.Pose := ⟨.onEdge, .id, ⟨x + 15 / 2, y + 1 / 2, z + 3 / 2⟩⟩
+
+/-- E2 as a core plan. -/
+def coreE2 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 5 0 1]
+/-- E7 as a core plan. -/
+def coreE7 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt (15 / 4) 0 1, flatAt (45 / 4) 0 2]
+/-- E12 as a core plan. -/
+def coreE12 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)]
+/-- E12 with B and C put on in the same step, one in each hand. -/
+def coreE12TwoHands : BuildPlan :=
+  ⟨[{ blocks := [flatAt 0 0 0] }, { blocks := [flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)] }]⟩
+/-- E8 with two levels as a core plan. -/
+def coreTower : BuildPlan :=
+  .ofBlocks [flatAt 0 0 0, flatAt 0 12 0, flatAt 0 0 1 true, flatAt 12 0 1 true]
+/-- A block between two walls, under a roof, with a block across each open end: it stands,
+but no straight path reaches it. -/
+def coreBoxedIn : BuildPlan := .ofBlocks
+  [flatAt 0 0 0 true, flatAt 0 0 1 true, flatAt 0 0 2 true,
+   flatAt 12 0 0 true, flatAt 12 0 1 true, flatAt 12 0 2 true,
+   flatAt 0 0 3, coreEdgeAt 0 15 0, coreEdgeAt 0 (-1) 0, flatAt 6 0 0 true]
+
+-- The conversion gives the same planks as the physics examples.
+#guard buildOf coreE7.blocks == some e7
+#guard buildOf coreE12.blocks == some e12
+#guard buildOf coreTower.blocks == some (squareTower 2)
+
+#guard coreCheck .default 200 coreE2 == { ok := true }
+#guard coreCheck .default 200 coreTower == { ok := true }
+-- E7 stands on paper but is risky: block 2 (step 2) is where it goes wrong.
+#guard coreCheck .default 200 coreE7 == { ok := false, diagnostics := [.unstable 2 2] }
+-- E12: B falls before C can hold it down.
+#guard coreCheck .default 200 coreE12 == { ok := false, diagnostics := [.unstable 1 1] }
+-- Blocks of one step are checked one after the other, so two hands do not save E12.
+#guard coreCheck .default 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
+-- A block turned by the 3-4-5 angle has no physics pose.
+#guard coreCheck .default 200 (.ofBlocks [⟨.flat, .ofTriple 3 4 5, ⟨0, 0, 1 / 2⟩⟩]) ==
+  { ok := false, diagnostics := [.unstable 0 0] }
+#guard coreCheck .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 1 0 0]) ==
+  { ok := false, diagnostics := [.overlap 0 1, .unstable 1 1, .unreachable 1] }
+#guard coreCheck .default 3 coreTower == { ok := false, diagnostics := [.tooManyBlocks 4 3] }
+#guard coreCheck .default 200 ⟨[{ blocks := [] }]⟩ ==
+  { ok := false, diagnostics := [.emptyStep 0] }
+#guard coreCheck { HumanModel.default with hands := 1 } 200 coreE12TwoHands ==
+  { ok := false, diagnostics := [.tooManyHands 1, .unstable 1 1] }
+-- Hard to reach is a warning only (K3): the plan is still `ok`.
+#guard coreCheck .default 200 coreBoxedIn == { ok := true, diagnostics := [.unreachable 9] }
+
+-- Where the mock is too kind: it ignores placement error and lets two blocks of a step hold
+-- each other up.
+#guard (physicsMock.check .default 200 coreE7).ok
+#guard (physicsMock.check .default 200 coreE12TwoHands).ok
+
+end Core
 
 end KaplaPhysics.Examples
