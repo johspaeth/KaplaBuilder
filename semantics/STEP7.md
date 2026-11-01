@@ -1,5 +1,8 @@
 # Step 7: the website. Start here.
 
+> **Team working notes**, kept for history. Not needed to understand or judge the project.
+> What is built and proven: [README.md](../README.md).
+
 Rulings from 1 Nov 2026. Read this first in a new chat, then `semantics/CLAUDE.md`. Do not reopen
 what is ruled here. The person wants short answers without jargon, and decisions listed and ruled
 on before anything new is written.

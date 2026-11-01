@@ -92,7 +92,7 @@ stays at height 1; `height` only sets the numbers on the axes and the sizes in t
 The page never rescales a model to fit. A broken model shows an error and no picture; the rules are
 the same as `decode` in `semantics/KaplaSemantics/Json.lean`, and Lean stays the final authority.
 
-The chat (step 7) shows a new model with one call, and the picture changes at once:
+The chat shows a new model with one call, and the picture changes at once:
 
 ```js
 KaplaViewer.show(model, 30)   // model is the parsed bubble JSON, 30 is the height

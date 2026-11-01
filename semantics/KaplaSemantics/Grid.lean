@@ -60,6 +60,12 @@ def ballModel : BubbleModel :=
 /-- Example: a flat block filling cubes 0-14 along x, 0-2 along y and level 0. -/
 def flatBlock : Pose := ⟨.flat, .id, ⟨15 / 2, 3 / 2, 1 / 2⟩⟩
 
+/-- Example: a block far from the ball. -/
+def farBlock : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
+
+/-- Example: a block whose end is in the ball but whose middle is not. -/
+def endBlock : Pose := ⟨.flat, .id, ⟨7, 0, 1 / 2⟩⟩
+
 #guard intsBetween 2 4 == [2, 3, 4]
 #guard intsBetween 4 2 == []
 #guard dedupe [(1, 0, 0), (2, 0, 0), (1, 0, 0)] == [(1, 0, 0), (2, 0, 0)]

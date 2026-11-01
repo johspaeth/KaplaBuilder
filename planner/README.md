@@ -36,7 +36,11 @@ Measured on 2026-11-01 (one call, and how many designs passed the checks):
 |---|---|---|
 | `low` | 4–17 s, 1 of 3 | 25–47 s, 0 of 6 |
 | `medium` | 49–80 s, 2 of 3 | 86–110 s, 1 of 3 |
-| `high` | 70–111 s, 4 of 4 | 249–469 s, 2 of 3 | Claude also chooses the height, and may turn blocks by 0, 30, 45, 60 or 90 degrees (rule B6). Each
+| `high` | 70–111 s, 4 of 4 | 249–469 s, 2 of 3 |
+
+Claude also chooses the height, and may turn blocks by 0, 30, 45, 60 or 90 degrees
+(`allowedTurns`, a subset the planner chose). The physics engine accepts every 15° step
+(rule B6); turns other than 0 and 90 are checked at the planned positions only. Each
 design is logged to stderr. The prompts are `systemPrompt`, `userPrompt` and `repairPrompt` in
 `KaplaPlanner/AiStrategy.lean`. `judge_checked_passed` proves that with the physics check on, a
 passing design is physics-ok and within the block budget.
