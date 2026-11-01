@@ -14,7 +14,8 @@ Owner: D. The only place where the real engines meet. May import every component
   (`web/README.md`), with the physics result in its notes.
 - `kapla serve [--port N]`: starts the website on this computer only, at
   `http://localhost:8000`. Run it from the top folder of the repo. It reads the API key from `semantics/dev/.env` when it
-  starts; with no key the chat says so and the rest still works. See `web/README.md`.
+  starts; with no key there it uses `ANTHROPIC_API_KEY` from the shell. The file wins when both are
+  set. With no key at all the chat says so and the rest still works. See `web/README.md`.
 
 The blueprint is read twice: as `Float`s for drawing (KaplaWeb), and with exact fractions for
 the physics engine. By default it also refuses a plan when a 3.9 mm error could close a gap

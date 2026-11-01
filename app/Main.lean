@@ -436,7 +436,7 @@ null). The answer is `reply` and `model`; `model` is null when Claude only answe
 def postChat (key : Option String) (body : String) : IO Reply := do
   let some key := key
     | return errorReply .serviceUnavailable
-        "The API key is missing. Put it in semantics/dev/.env and start kapla serve again."
+        "The API key is missing. Put it in semantics/dev/.env or set ANTHROPIC_API_KEY, then start kapla serve again."
   let parsed : Except String (String × List KaplaSemantics.ChatMessage × Option KaplaCore.BubbleModel) := do
     let j ← KaplaSemantics.parseJson body
     let text ← (← j.getObjVal? "text").getStr?
@@ -623,7 +623,10 @@ def serve (port : Nat) : IO UInt32 := do
   unless ← modelsDir.isDir do
     IO.eprintln "No models/ folder here. Run this from the top folder of the repo."
     return 1
-  let key ← KaplaSemantics.loadApiKey keyFile
+  -- The key in semantics/dev/.env wins. Without one, use ANTHROPIC_API_KEY from the shell, so a
+  -- fresh checkout or worktree needs no .env file.
+  let shellKey := (← IO.getEnv "ANTHROPIC_API_KEY").filter (!·.trimAscii.isEmpty)
+  let key := (← KaplaSemantics.loadApiKey keyFile) <|> shellKey
   -- The AI planners read the key from the environment, and Lean cannot change the environment of a
   -- running program. So start this program again once, with the key set.
   if let some k := key then
@@ -633,7 +636,7 @@ def serve (port : Nat) : IO UInt32 := do
           env := #[("ANTHROPIC_API_KEY", some k)] }
       return ← child.wait
   if key.isNone then
-    IO.println "No API key in semantics/dev/.env, so the chat will not work. The rest of the site does."
+    IO.println "No API key in semantics/dev/.env or in ANTHROPIC_API_KEY, so the chat will not work. The rest of the site does."
   try
     Async.block do
       let addr : Net.SocketAddress := .v4 ⟨.ofParts 127 0 0 1, port.toUInt16⟩
