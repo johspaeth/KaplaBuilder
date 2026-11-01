@@ -7,6 +7,43 @@ Owner: D. Scope: see [docs/WORKSPLIT.md](../docs/WORKSPLIT.md).
 - May import: `KaplaCore` only. (Today it needs only Lean core.)
 - Rules and CI: see the [README](../README.md).
 
+## The website
+
+```sh
+lake exe kapla serve        # then open http://localhost:8000
+```
+
+Run it from the top folder of the repo. `--port N` picks another port. Only this computer can reach
+it. The page needs internet once, to load three.js. The page is `KaplaWeb/Site.lean`, the server is
+in `app/Main.lean`. CI does not run browser code, so test a change to the page in a browser.
+
+Saved models are plain files in `models/`, always at height 1. The website does not use git: commit
+a file to share it. A file name uses only small letters, digits, `-` and `_`; other files in the
+folder are not listed. Saving keeps only the fields of the format, so a `comment` is lost.
+
+Requests between the page and the server. Every answer is JSON, and a failure has `{"error": text}`.
+
+| Request | Sends | Answer |
+|---|---|---|
+| `GET /` | | The page (HTML) |
+| `GET /models` | | `{"models": ["bunny", "egg"]}` |
+| `GET /models/NAME` | | The model. 404 if there is none, 422 if the file is not a good model |
+| `GET /status` | | `{"key": true or false}`: does the server have an API key? |
+| `POST /chat` | `{"text": newest message, "messages": [{"role": "user" or "assistant", "text": text}], "model": model on screen or null}` | `{"reply": text, "model": new model, or null if Claude only answered}`. 503 with no key, 502 if Claude failed |
+| `GET /planners` | | `{"planners": [names]}`, from `KaplaPlanner.strategies` |
+| `POST /plan` | `{"planner": name, "blocks": block limit, "model": model on screen}` | `{"proposal": ...}`, or null if the planner made none. A proposal has `view` (blocks and steps for the viewer), `score` (the score report), `stands` and `physics` (lines of text). 504 if the planner takes over 15 minutes |
+| `POST /models` | `{"name": text, "model": model, "overwrite": true or false}` | `{"name": clean name, "model": saved model}`. 409 with `{"name": clean name}` if the name exists and `overwrite` is not true. 400 if the name or the model is bad |
+
+A planner gives one plan. The server runs physics and the scorer on it again, so "Stands" and "Accepted"
+do not depend on what a planner says about itself. A new model on screen clears the proposal.
+
+The conversation lives only in the page. It is gone when the page closes. `kapla serve` reads the key
+from `semantics/dev/.env` when it starts, and never sends it to the page.
+
+The server cleans the name ("My Bunny!" becomes `my-bunny`) and checks the model with `decode`. It
+answers 403 to a request that does not come from its own page, such as one from another website open
+in the same browser.
+
 ## Show a blueprint
 
 ```sh
@@ -35,6 +72,8 @@ The chat (step 7) shows a new model with one call, and the picture changes at on
 
 ```js
 KaplaViewer.show(model, 30)   // model is the parsed bubble JSON, 30 is the height
+KaplaViewer.showPlan(model, 30, plan)   // also the blocks and the slider; plan has blocks and steps
+KaplaViewer.clearPlan()
 ```
 
 The served folder holds `semantics/fixtures/targets/` and `web/examples/bubbles/` (`foot.json` is a
