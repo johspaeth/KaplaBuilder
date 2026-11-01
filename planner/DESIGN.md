@@ -93,9 +93,12 @@ TargetSpec, N, HumanModel
    │      ├─ 3. Motifs       fill each region with a motif (pure, cost known up front)
    │      ├─ 4. Budget       split N blocks over the regions (knapsack)
    │      ├─ 5. Assemble     place regions in world coordinates; stack roof on walls
-   │      ├─ 6. Sequence     build order, steps of 1..hands blocks, grip, approach, phase
-   │      ├─ 7. Pre-check    cheap local checks (overlap, one-block gaps, block count)
-   │      ├─ 8. Physics      physics.check; on diagnostics → 9. Repair → back to 6
+   │      ├─ 6. Sequence     backward search: take the design apart, reverse it (§3.5)
+   │      │                  → steps of 1..hands blocks, grip, approach, phase
+   │      │                  → verified validator: steps rebuild exactly the design
+   │      ├─ 7. Pre-check    cheap local checks (block count, one-block gaps)
+   │      ├─ 8. Physics      physics.check; on unstable step k → back to 6 with a hint;
+   │      │                  if sequencing fails → 9. Repair (change the design) → back to 5
    │      └─ 10. Score       semantics.score
    └─ 11. Rank          by score, then by difficulty; return the top k
 ```
@@ -136,52 +139,76 @@ gain, is a small knapsack. Small dynamic programming over N is fast enough for N
 hundred. The estimate is "volume of the region covered". The real score comes from the
 semantic engine later.
 
-### 3.5 Sequence
-The sequencer turns a set of blocks into build steps. Every step must stand, so this is a
-**search, not just a sort**.
+### 3.5 Sequence: backward ("assembly by disassembly")
+The sequencer gets the designed structure **D** (a list of blocks) and finds an order in
+which a person can build it, so that every intermediate state stands. It finds it
+**backward**: start with all of D, repeatedly take blocks away, then reverse the list.
 
-- Start order: sort blocks by bottom z, then by distance from the centre. A block's
-  supports then always come before it. This is enough for simple cases such as a tower.
-- Bottom-up is not always enough. Cases where the order must change:
-  - **Counterweight first** (H3): an overhang stands only once the block that holds its
-    back end down is in place. The two blocks can be at the same height.
-  - **Press while placing** (H4): the hand presses on the new block. A block that stands
-    can still tip the overhang below it while it is pressed.
-  - **Hand access** (H5): if a higher block is placed first, a lower block next to it may
-    no longer be reachable. Sometimes a lower block must wait.
-  - **Pairs** (H7): two leaning blocks (A-frame) stand only together. They go into one
-    two-hand step.
-- When physics rejects step k, the repair loop (§3.7) first tries a new order.
-- Steps: one block per step by default. Use a two-block step only where a motif says so
-  (A-frame pairs) or repair needs it. Never more than `HumanModel.hands`.
+**Why backward.**
+- **Hand access becomes easy.** If a block can be taken out of the current state, it can be
+  put in as the last step onto the rest. Taking blocks away only frees space, so a block that
+  can come out now can still come out later. Searching forward, every placed block is a new
+  obstacle, and a choice made early can trap a block many steps later (an inner block of a
+  pocket, after the walls are up).
+- **Counterweights come out right.** The counterweight cannot be taken away while the
+  overhang still depends on it, so the search takes the overhang away first. Reversed, the
+  counterweight goes in first (H3).
+- **Pairs.** When no single block can come out, try two at once. That becomes one two-hand
+  step (H7), never more than `HumanModel.hands`.
+
+**The search.**
+1. State = blocks still standing (starts as D).
+2. Candidates to take away next, in this order: blocks with nothing resting on them; higher
+   first; outer first. Then pairs.
+3. A candidate is allowed if the rest still stands (planner's own cheap stability estimate on
+   the grid, see below) and it can be lifted out (later: hand access, H5).
+4. Depth-first with backtracking: if nothing is allowed, undo the last removal and try the
+   next candidate. A fuel limit bounds the work.
+5. Out of fuel → the sequencer reports failure. It **never drops blocks**; changing the
+   design is the repair loop's job (§3.7).
+
+**Two layers of stability checking.**
+- *Inside the search*: a cheap, unverified estimate on the grid (load over support, like the
+  physics mock). It is called many times.
+- *After the search*: one real `physics.check` on the whole plan. If it reports
+  `unstable k …`, the sequencer runs again, told that step k must not be the state it was.
+
+**Verified validator.** The search is untrusted and may change often. Its output goes
+through `validateSequence D steps : Bool`, which checks: every step has 1 to `hands`
+blocks, and all steps together are a reordering of D. A sequence that fails is not used.
+Theorem (§5): if the validator says yes, the build grows step by step from nothing to
+exactly D. So the theorem holds for every search we write, without proving the search.
+
+**Per step, also:**
 - Grip: long sides for flat blocks, the top end for upright blocks.
-- Approach: lower from above. Slide in sideways only when something blocks the path from
-  above (later).
+- Approach: lower from above (the reverse of lifting out). Slide in sideways later.
 - Phase: the region name ("left tower", "roof").
 
 ### 3.6 Pre-check (before we call physics)
 - block count ≤ N
-- no two blocks overlap
 - no gap of exactly one block width between blocks (rule H6)
-- every block rests on the ground or on an earlier block
 
-These checks are cheap and catch most planner bugs. The real physics check may be slow
-(an exact LP in `Rat`), so we call it as rarely as we can.
+Whether blocks overlap and whether every block is held up (no block in mid-air) is decided
+by the physics engine. The planner may keep cheap grid versions of these as shortcuts, to
+save physics calls, but they are not verified and not part of any promise.
 
 ### 3.7 Repair
 `physics.check` returns `Diagnostic`s. Each one maps to an edit:
 
 | Diagnostic | Edit, in order of preference |
 |---|---|
-| `Unstable(step, block)` / `PressTips` | **reorder first**: place the counterweight earlier, or join two blocks into one two-hand step; then shorten the overhang; add a counterweight block; drop the block |
+| `Unstable(step, block)` / `PressTips` | **sequence again first**, with step k marked bad (the backward search finds another order or a two-hand step); then change the design: shorten the overhang, add a counterweight block, drop the block |
 | `Slides(step, contact)` | steeper pitch; add a stopper block (roofs, later) |
 | `Unreachable(step)` | move the step earlier; change the approach |
 | `TooManyHands(step)` | split the step |
 | `Overlap` / `Clearance` | move by one cell; drop the block |
 | `UnevenSupports(block)` | make both supports the same motif |
 
-After each edit we sequence and check again. The loop has fixed fuel (default 8 rounds) and
-a global limit on physics calls. If fuel runs out, we drop the candidate.
+Two kinds of edits: a new **order** (sequencer only, D unchanged) and a new **design**
+(D → D′, then sequence D′ from scratch). Only the repair loop changes the design; the
+sequencer never adds or drops blocks. After each edit we check again. The loop has fixed
+fuel (default 8 rounds) and a global limit on physics calls. If fuel runs out, we drop the
+candidate.
 
 ### 3.8 Tiny N (N ≤ 4)
 A fixed catalog of small layouts (upright trunk, two-block T, small arch, …). We check and
@@ -205,7 +232,9 @@ planner/KaplaPlanner/
   Motifs/Single.lean  Motifs/Tower.lean  Motifs/Wall.lean  Motifs/Slab.lean  Motifs/SteppedRoof.lean
   Decompose.lean   TargetSpec → regions
   Budget.lean      knapsack
-  Sequencer.lean   order, steps, grip, approach, phase
+  Sequencer.lean   backward search, steps, grip, approach, phase (untrusted)
+  Validate.lean    validateSequence (verified, §5)
+  Stability.lean   cheap grid stability estimate used inside the search (untrusted)
   PreCheck.lean    local checks of §3.6
   Repair.lean      Diagnostic → edit
   Search.lean      scale search, tiny-N catalog, rank, difficulty
@@ -215,26 +244,37 @@ planner/KaplaPlanner/
 
 ---
 
-## 5. What we prove (optional, cheap, useful)
+## 5. What we prove
 
-The planner does not need proofs for safety. But a few short theorems make it more
-reliable and count for the "verification" judging axis. Each would go in
-`specs/KaplaSpecs/Planner.lean` with a comparator config:
+Most safety rules belong to the physics engine: every step stands, no block is in mid-air,
+no blocks overlap (`certify_sound`). The planner proves what only the planner knows: **how
+the build steps relate to the structure it designed.**
 
-1. **Budget**: every candidate the planner returns uses at most N blocks.
-2. **No lost blocks**: the sequencer's output, flattened, is a reordering of its input.
-   No block is lost or duplicated.
-3. **Hands**: every step has at least 1 and at most `hands` blocks.
-4. **Motif cost**: `(m.blocks p).length = m.cost p` for every motif, so the budget step is
-   correct by construction.
-5. **Supports first** (grid blocks): in the sequenced order, each block rests on the ground
-   or on a block placed earlier. This catches the "skyscraper built top-down" mistake
-   before physics runs.
+Let D be the designed structure and **state k** the blocks standing after step k (the
+blocks of the first k steps; core defines a plan this way).
 
-That every step *stands* is not a planner theorem. It is the physics guarantee
-(`certify_sound`), because only the physics engine knows forces and balance.
+1. **(a) The structure only grows.** Every step adds at least one block (at most `hands`)
+   and removes none: state k is a strict prefix of state k+1. No empty steps.
+2. **(b) Every state is part of the design.** State k contains only blocks of D, each at
+   most as often as in D (a sub-multiset). Before the last step it is a proper part of D.
+   After the last step it is exactly D: nothing lost, added or doubled.
 
-Each gets a satisfiable `example` and a rejected bad output, as `CLAUDE.md` §4 asks.
+Both are stated for `validateSequence` (§3.5): "if the validator accepts, (a) and (b)
+hold". The planner only uses validated sequences, so they hold for every plan it returns,
+whatever the search does. Together they say the build is a strictly growing chain from
+nothing to exactly D. Physics then checks each state in that chain, and each one is a real
+stage on the way to the figure the user is shown.
+
+Also kept:
+3. **Budget and physics** (`planPure_sound`, already in `specs/`): every returned plan
+   passed the physics check and uses at most N blocks.
+4. **Motif cost** (internal lemma): `(m.blocks p).length = m.cost p`.
+
+Today `sequence_perm` (in `specs/`) proves the end of (b) for the simple bottom-up
+sequencer. It will be replaced by the validator theorem.
+
+Each statement gets a satisfiable `example` and rejected bad outputs, as `CLAUDE.md` §4
+asks.
 
 ---
 
@@ -248,7 +288,7 @@ Each gets a satisfiable `example` and a rejected bad output, as `CLAUDE.md` §4 
 
 ---
 
-## 7. Mocks (proposed for `KaplaCore.Mocks`)
+## 7. Mocks (in `KaplaCore.Mocks`)
 
 The planner develops against these. They are *not* trusted and are deliberately simple.
 
@@ -256,17 +296,15 @@ The planner develops against these. They are *not* trusted and are deliberately 
   every block, its centre of mass must lie over the bounding box of the blocks it rests on
   (or the ground). Also checks block count ≤ N and steps ≤ hands. It returns the matching
   `Diagnostic`s. Without the per-step check the planner would learn bad orders on mocks.
-- **SemanticMock.score**: IoU on a coarse voxel grid (cell = one block thickness) between
-  the blocks and the union of the target part boxes. Per-part scores come from the same
-  grid.
-- **SemanticMock.bound**: `min(45 · N, |target cells|) / |target cells|` (a block covers
-  15 × 3 × 1 = 45 cells).
+- **SemanticMock.score**: volume IoU between the blocks and the target part boxes, best of
+  three scales (target as high, as wide or as deep as the blocks).
+- **SemanticMock.bound**: `min(1, N · block volume / target volume)`.
 
 ---
 
 ## 8. What the planner needs from `KaplaCore` v0.1
 
-`KaplaCore` is still empty, so this is the planner's request for the contract PR. The names
+This was the planner's request for the contract; it is now in `KaplaCore` v0.1. The names
 follow WORKSPLIT §3.
 
 | Type | Fields the planner uses |
@@ -301,9 +339,9 @@ kind**. Then the planner never needs to evaluate the shape DSL itself.
 | # | Deliverable | Done when |
 |---|---|---|
 | P0 | `KaplaCore` v0.1 contract + mocks (team PR) | builds; all four review it |
-| P1 | Grid, single + tower motifs, sequencer, pre-check, planner on mocks | `kapla build` runs end to end on mocks (I1) |
+| P1 ✅ | Grid, single + tower + column motifs, bottom-up sequencer, pre-check, planner on mocks | merged |
+| P1.5 | Backward sequencer with backtracking and pairs; `validateSequence` + theorem (a)(b) in `specs/` | counterweight and "only stand as a pair" examples sequenced correctly on mocks; comparator green |
 | P2 | Wall, slab, decompose, budget, scale search, repair loop, tiny-N catalog | a candidate for every fixture target at N = 1, 4, 20, 200 |
-| P3 | Theorems 1–4 of §5 in `specs/` and passing comparator | CI green |
 | P4 | Roof motifs (stepped first; leaning ones after physics M3), knapsack tuning | Neuschwanstein@200 on real engines (I3) |
 
 ## 10. Open questions for the team
@@ -311,6 +349,6 @@ kind**. Then the planner never needs to evaluate the shape DSL itself.
 1. Does `TargetSpec.parts` carry a bounding box per part (§8)? This is B's call.
 2. Block index in `Diagnostic`: position in the flattened plan, or (step, index in step)?
    This is A's call.
-3. Can `PhysicsEngine` also offer a cheaper `checkPrefix` (only the newest step)? It would
-   make the repair loop much faster. This is an additive change.
+3. Can `PhysicsEngine` also offer a cheap `checkState` (does this set of blocks stand)? The
+   backward search asks this many times; today it uses its own rough estimate. Additive.
 4. Should the mocks live in `KaplaCore.Mocks` (D needs them too for I1)? Proposed: yes.
