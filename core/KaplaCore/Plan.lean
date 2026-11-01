@@ -73,25 +73,10 @@ structure HumanModel where
   muSafe : Q
   deriving Repr, BEq, Inhabited
 
-/-- A child: less precise, one hand. -/
-def HumanModel.child : HumanModel :=
-  { epsRel := 25 / 39, eAbs := 25 / 13, press := 1, hands := 1, clear := 25 / 39, muSafe := 1 / 4 }
-
-/-- An adult (the default). -/
-def HumanModel.adult : HumanModel :=
+/-- The builder we assume. `epsRel = 10/39` is the 2 mm of the physics rules (R1). -/
+def HumanModel.default : HumanModel :=
   { epsRel := 10 / 39, eAbs := 50 / 39, press := 1 / 2, hands := 2, clear := 25 / 39, muSafe := 3 / 10 }
 
-/-- An expert builder. -/
-def HumanModel.expert : HumanModel :=
-  { epsRel := 5 / 26, eAbs := 25 / 39, press := 3 / 10, hands := 2, clear := 5 / 13, muSafe := 7 / 20 }
-
-/-- Find a profile by name: "child", "adult" or "expert". -/
-def HumanModel.ofName? : String → Option HumanModel
-  | "child"  => some .child
-  | "adult"  => some .adult
-  | "expert" => some .expert
-  | _        => none
-
-#guard HumanModel.adult.hands == 2 && HumanModel.child.hands == 1
+#guard HumanModel.default.hands == 2
 
 end KaplaCore

@@ -29,7 +29,7 @@ structure PlanRequest where
   target        : TargetSpec
   /-- Use at most this many blocks. -/
   blocks        : Nat
-  human         : HumanModel := .adult
+  human         : HumanModel := .default
   /-- Return at most this many candidates. -/
   maxCandidates : Nat := 3
   /-- Call `PhysicsEngine.check` at most this many times. -/
