@@ -38,13 +38,17 @@ A point is inside a bubble when
     ((x − cx) / a)² + ((y − cy) / b)² + ((z − cz) / c)² ≤ 1.
 
 This is one line of exact `Rat` arithmetic, so `Bubble.contains` is a decidable `Bool`
-with no rounding anywhere. A bubble with a semi-axis of 0 or less contains nothing. Lean
+with no rounding anywhere. Points below the ground (z < 0) are never inside. A bubble with a semi-axis of 0 or less contains nothing. Lean
 computes x / 0 as 0, so without this rule it would contain every point.
 
-**The unit frame.** The model is scale-free. Up is +z. The lowest point of the model is at
-z = 0 (it stands on the ground). The highest point is at z = 1. x and y are free; the frame
-in §3 centres them later. `normalize` makes any model follow this convention by shifting z
-and scaling, exactly in `Rat`; `interpret` applies it to everything Claude returns, and
+**The unit frame.** The model is scale-free. Up is +z. The ground is at z = 0, and the highest
+point of the model is at z = 1. At least one bubble must reach the ground: a model that floats
+is rejected, because its blocks would have to fly. A bubble may go below the ground (a half
+sphere with its middle at z = 0 makes a foot), but only the part above counts: `contains` says
+no below z = 0, so those cells are in no score. A bubble entirely underground is rejected. x
+and y are free; the frame in §3 centres them later. `normalize` only scales, so that the top is
+at z = 1 and the ground stays where it is, exactly in `Rat`; `interpret` applies it to
+everything Claude returns, and
 fixtures are stored normalised. There is no minimum bubble size in the unit model: whether a
 bubble is worth having is the person's judgement in the chat (§2); the one mechanical size
 rule lives in the scaled model (§4, `CoversTarget`).
@@ -88,7 +92,7 @@ sees the model, never the conversation that made it.
 
 - **Call.** Prompt or image → Claude Messages API through `curl` (`IO.Process.output`), key
   from `ANTHROPIC_API_KEY`, as DESIGN.md §6 says. The system prompt asks for JSON only in
-  the format above, with the unit-frame convention spelled out. The Claude model id is one
+  the format above, with the unit-frame convention spelled out, including the ground at z = 0. The Claude model id is one
   constant in `Claude.lean`. Images (B3) go in as base64 image content blocks. *Note for the
   image path:* run the picture through an image segmenter first (Segment Anything, version
   3.1 was recommended to us) and hand Claude the segments, so that each segment becomes a
@@ -293,6 +297,9 @@ shortcut makes it cheaper still: if all 8 corners of a block are inside one bubb
 centres are (lemma `corners_in_bubble`), no enumeration needed; only blocks straddling a
 surface need the 45 points. The reference definitions in `Score.lean` are written from the
 block side too, so the code that runs is the definition a reviewer reads.
+
+A bubble cut by the ground has no dents either, so the fill still stays inside it: a straight
+line between two points above the ground stays above the ground.
 
 **Why not a convex hull of the plan.** Targets are not convex (ears, towers), so the hull
 would reward empty space; and an exact 3D hull in `Rat` is heavy to write and heavier to

@@ -72,7 +72,7 @@ def decode (text : String) : Except String BubbleModel := do
   let bubbles ← (← (← j.getObjVal? "bubbles").getArr?).toList.mapM bubbleFromJson
   let m : BubbleModel := { name, bubbles }
   if m.wellFormed then return m
-  else throw "bad model: every bubble needs a label and half-widths above 0, at most 32 bubbles"
+  else throw "bad model: every bubble needs a label, half-widths above 0 and some part above the ground (z = 0); at least one bubble must reach the ground; at most 32 bubbles"
 
 /-- Does `text` decode to exactly this model? -/
 def decodesTo (text : String) (m : BubbleModel) : Bool :=
