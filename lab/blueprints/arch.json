@@ -1,0 +1,248 @@
+{
+ "title": "Papa, make a rainbow arch.",
+ "subtitle": "13 planks (shape)",
+ "notes": [
+  "Two 6-step corbel piles (2-unit steps), keystone on top. Real arches need tilted blocks (B4).",
+  "Height 5.5 cm. Stands at exact positions after 13 of 13 steps; solid at 2 mm after 13.",
+  "Finished build: solid at 2 mm, solid at 1.95 mm, solid at 1 mm.",
+  "Whole plan passes at 2 mm."
+ ],
+ "plan": {
+  "steps": [
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "19/2",
+       "3/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "23/2",
+       "3/2",
+       "5/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "27/2",
+       "3/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "31/2",
+       "3/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "35/2",
+       "3/2",
+       "11/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "97/2",
+       "3/2",
+       "1/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "93/2",
+       "3/2",
+       "3/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "89/2",
+       "3/2",
+       "5/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "85/2",
+       "3/2",
+       "7/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "81/2",
+       "3/2",
+       "9/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "77/2",
+       "3/2",
+       "11/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       28,
+       "3/2",
+       "13/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   }
+  ]
+ }
+}

@@ -1,0 +1,248 @@
+{
+ "title": "Papa, build me a puppy.",
+ "subtitle": "13 planks (animal)",
+ "notes": [
+  "Four standing-plank legs, two cross beams, 5-plank back, head and tail sticking out.",
+  "Height 14.0 cm. Stands at exact positions after 13 of 13 steps; solid at 2 mm after 4.",
+  "Finished build: risky at 2 mm, solid at 1.95 mm, solid at 1 mm.",
+  "Whole plan fails at 2 mm: first at step 5 (risky)."
+ ],
+ "plan": {
+  "steps": [
+   {
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "3/2",
+       "1/2",
+       "15/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "27/2",
+       "1/2",
+       "15/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "3/2",
+       "29/2",
+       "15/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "27/2",
+       "29/2",
+       "15/2"
+      ]
+     }
+    ],
+    "phase": "solid at 2 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "3/2",
+       "15/2",
+       "31/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       "27/2",
+       "15/2",
+       "31/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "3/2",
+       "33/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "9/2",
+       "33/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "15/2",
+       "33/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "21/2",
+       "33/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "15/2",
+       "27/2",
+       "33/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "27/2",
+       "15/2",
+       "35/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   },
+   {
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "3/2",
+       "21/2",
+       "35/2"
+      ]
+     }
+    ],
+    "phase": "risky at 2 mm, solid at 1 mm",
+    "approach": "fromAbove"
+   }
+  ]
+ }
+}

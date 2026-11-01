@@ -51,3 +51,10 @@ globs = ["KaplaSpecs.+"]
 name = "kapla"
 srcDir = "app"
 root = "Main"
+
+# Rule lab: kid requests as builds of up to 200 planks, run through the physics checker.
+# Not a component and not in defaultTargets: `lake build kaplalab`, see lab/README.md.
+[[lean_exe]]
+name = "kaplalab"
+srcDir = "lab"
+root = "KaplaLab"
