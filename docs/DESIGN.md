@@ -18,7 +18,7 @@ Lean 4.
                                                    │
                           [Checker]        ──► { bp // Valid H N bp }       (VERIFIED)
                                                    │
-                          [Scorer]         ──► score + proven upper bound   (VERIFIED)
+                          [Scorer]         ──► score + fits the target      (VERIFIED)
                                                    │
                           [Render]         ──► Lean-generated webpage
 ```
@@ -250,9 +250,10 @@ use. Claude's shape output already distinguishes roofs from walls.
 - **Score**: volumetric IoU, the share of grid points shared by the blocks and the target
   `|V(bp) ∩ T_s| / |V(bp) ∪ T_s|`. For image input it is combined with **silhouette IoU**
   against the input mask. The score is maximized over the scale s.
-- **Verified upper bound**: a block in any pose contains at most `K_h` grid centres (proof:
-  disjoint unit cells inside the block grown by half a cell). Therefore
-  `iou ≤ min(K_h·N, |T|)/|T|`.
+- **No upper bound**: there is no proven limit on the score. The score credits hollow insides,
+  so counting a block's cells says nothing about it (`semantics/APPROACH.md` §5). Instead, an
+  accepted plan has at least one block, no block fully outside the target, and a block in every
+  part of the target that is big enough to hold one.
 - **Verdict bands**: ≥ 0.7 good likeness, 0.4–0.7 coarse, 0.15–0.4 abstract, < 0.15
   symbolic only. For example, 1 block → "stand it upright as a tree trunk". This is still a
   valid, buildable blueprint.
@@ -273,7 +274,7 @@ use. Claude's shape output already distinguishes roofs from walls.
 | `Kapla.Human` | ✅ verified | `HumanModel`, `Admissible` perturbations, `Reachable` (grip and approach), `Clearance`, `ParallelSupportsOK` |
 | `Kapla.Blueprint` | ✅ verified | `Step`, `Valid`, `certify`, `certify_sound` |
 | `Kapla.Target` | ✅ core / untrusted JSON | Shape DSL, its meaning, voxelizer and correctness proof |
-| `Kapla.Score` | ✅ verified | IoU, silhouette, upper bound, verdict |
+| `Kapla.Score` | ✅ verified | IoU, silhouette, acceptance checks, verdict |
 | `Kapla.LP` | untrusted | Float solve → rationalize → exact check, with an exact rational simplex as fallback. Warm-started across steps. Also produces margins and shift budgets. |
 | `Kapla.Planner` | untrusted | scale search; motifs (log-cabin tower, round-tower ring, spiral, wall, slab, arch, tree, **roofs §4**); layer planner; budget knapsack; repair loop driven by diagnostics; exhaustive search for N ≤ 4 |
 | `Kapla.Sequencer` | untrusted | build order, grouping into steps (1–2 blocks), grip and approach choice, grouping steps into phases |
@@ -302,7 +303,7 @@ proven.
 | M1 | Yaw-only geometry, nominal equilibrium checker with `checkEquilibrium_sound`; examples include a stack, a rotated stack and a rejected overhang | ✅ |
 | M2 | **Human Model I**: robust certificates (relative error, drift cap, shift budgets) with `robust_sound`; press load cases; build steps; hand access; clearance; parallel supports | ✅ |
 | M3 | **Tilted blocks + friction** in the nominal checker; roof motifs (stepped, leaning-rafter gable, tipi); two-hand steps | ✅ (nominal + margins enforced) |
-| M4 | Shape DSL, voxelizer, IoU, upper bound, verdict, difficulty rating | ✅ |
+| M4 | Shape DSL, voxelizer, IoU, acceptance checks, verdict, difficulty rating | ✅ |
 | M5 | Planner v1 (exhaustive search for small N, towers, walls, layers, scale search) + LP certificate generation | output ✅ |
 | M6 | Lean-generated webpage + `kapla check` + perturbation test | — |
 | M7 | Claude frontend (text, then image + silhouette); `kapla serve` | — |
