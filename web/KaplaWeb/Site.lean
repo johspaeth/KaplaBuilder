@@ -186,7 +186,7 @@ def siteJs : String := "
     r.body.planners.forEach(name => { const o = document.createElement('option'); o.textContent = name; plannerBox.append(o); });
     showEffort(); }).catch(() => {});
   send('/status').then(r => { if (r.ok && !r.body.key)
-    addMsg('The API key is missing, so the chat cannot work. Put it in semantics/dev/.env or set ANTHROPIC_API_KEY, then start kapla serve again.', 'bad'); }).catch(() => {});
+    addMsg('The API key is missing, so the chat cannot work. Put it in .env in the top folder of the repo, or set ANTHROPIC_API_KEY, then start kapla serve again.', 'bad'); }).catch(() => {});
 })();
 "
 
