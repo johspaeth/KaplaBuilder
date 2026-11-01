@@ -37,10 +37,11 @@ lake env lean --run semantics/dev/Score.lean MODEL.json BLOCKS.json HEIGHT
 
 ## What is proven
 
-Six theorems, in `KaplaSemantics/Proofs/Semantics.lean`. They are about the definitions the
-app runs, not about a copy. The statements are drafted for `specs/KaplaSpecs/Semantics.lean`
-and `comparator/semantics.json` in [SPEC_DRAFT.md](SPEC_DRAFT.md), **not yet checked by
-Comparator**.
+Six theorems. Statements: `specs/KaplaSpecs/Semantics.lean`. Proofs, under the same names:
+`KaplaSemantics/Proofs/Semantics.lean`. `comparator/semantics.json` checks that the proofs prove
+exactly the statements, with only the standard axioms. The theorems are about the definitions
+the app runs, not about a copy. Next to the proofs: an example for each where every condition
+holds, and wrong answers each one rules out.
 
 | Theorem | In plain words |
 |---|---|
@@ -79,7 +80,6 @@ to compare it with. Build-time tests show what it computes:
 
 ## Known gaps
 
-- Not yet checked by Comparator (above).
 - `blockCells_correct`, `checkWithin_correct` and `checkCovers_correct` need real turns.
   `decodeBlocks` refuses other turns, but the blueprint readers in `app/` and `web/` do not
   check them.

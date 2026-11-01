@@ -1,0 +1,13 @@
+{
+  "challenge_module": "KaplaSpecs.Semantics",
+  "solution_module": "KaplaSemantics.Proofs.Semantics",
+  "theorem_names": [
+    "KaplaSemantics.targetCells_correct",
+    "KaplaSemantics.blockCells_correct",
+    "KaplaSemantics.checkWithin_correct",
+    "KaplaSemantics.checkCovers_correct",
+    "KaplaSemantics.score_in_unit_interval",
+    "KaplaSemantics.perBubble_in_unit_interval"
+  ],
+  "permitted_axioms": ["propext", "Quot.sound", "Classical.choice"]
+}
