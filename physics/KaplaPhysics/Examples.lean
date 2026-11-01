@@ -42,10 +42,10 @@ namespace KaplaPhysics.Examples
 #guard verdict placementError e11 == .falls
 
 -- Buildability, every step (K4, K5).
-#guard checkPlan placementError 200 (squareTower 8)
-#guard !checkPlan placementError 200 e7     -- stands on paper, but risky
-#guard !checkPlan placementError 200 e12    -- B falls before C can hold it down
-#guard !checkPlan placementError 1 e2       -- more planks than allowed
+#guard checkPlan {} placementError 200 (squareTower 8)
+#guard !checkPlan {} placementError 200 e7     -- stands on paper, but risky
+#guard !checkPlan {} placementError 200 e12    -- B falls before C can hold it down
+#guard !checkPlan {} placementError 1 e2       -- more planks than allowed
 #guard stabilityAnswer (e12.take 2) == .falls
 
 -- The simple rule for columns (section 7): the engine agrees with it on E2, E3, E4, E7.
@@ -75,7 +75,7 @@ example : ¬ Stable e4 := stabilityAnswer_falls_sound e4 (by decide +kernel)
 example : ¬ Stable e10 := stabilityAnswer_falls_sound e10 (by decide +kernel)
 example : ¬ Stable (e12.take 2) := stabilityAnswer_falls_sound _ (by decide +kernel)
 example : Solid e1 := verdict_solid_sound placementError e1 (by decide +kernel)
-example : SafePlan placementError 200 e1 := checkPlan_sound placementError 200 e1 (by decide +kernel)
+example : SafePlan {} placementError 200 e1 := checkPlan_sound {} placementError 200 e1 (by decide +kernel)
 
 /-! Running the robust solver inside the kernel is slow for more than one plank, so for E2
 and E6 we write out the certificate the solver finds (the `#guard`s above run the solver
@@ -107,8 +107,8 @@ example : StableWithFriction (2 / 5) e2 :=
 
 /-- E8 for every height, with the default 2 mm error: a 100-level tower (200 planks, a full
 Kapla box) is safe to build level by level. -/
-example : SafePlan placementError 200 (squareTower 100) :=
-  squareTower_safe placementError (by decide +kernel) 100
+example : SafePlan {} placementError 200 (squareTower 100) :=
+  squareTower_safe {} placementError (by decide +kernel) (by decide +kernel) 100
 
 /-! ## The rules reject bad answers -/
 
@@ -138,30 +138,88 @@ example : ¬ SolidCertificate placementError e3
 example : stabilityAnswer e4 ≠ .stable := by decide +kernel
 
 /-- A plan whose middle step falls is not safe. -/
-example : ¬ SafePlan placementError 200 e12 := fun h =>
+example : ¬ SafePlan {} placementError 200 e12 := fun h =>
   stabilityAnswer_falls_sound (e12.take 2) (by decide +kernel)
-    (solid_stable _ _ (by decide +kernel) (h.2 2 (by decide) (by decide)).2)
+    (solid_stable _ _ (h.2 2 (by decide) (by decide)).2.2)
 
 /-- E12 cannot be built in any order (K4). Orders that start with B or C, or that put C
 right after A, leave a plank in the air after step 1 or 2 (P3). The order A, B, C falls
 after step 2, as above. -/
 example : ∀ plan ∈ [[e12A, e12B, e12C], [e12A, e12C, e12B], [e12B, e12A, e12C],
     [e12B, e12C, e12A], [e12C, e12A, e12B], [e12C, e12B, e12A]],
-    ¬ SafePlan placementError 200 plan := by
+    ¬ SafePlan {} placementError 200 plan := by
   intro plan hplan
   simp only [List.mem_cons, List.not_mem_nil, or_false] at hplan
   rcases hplan with rfl | rfl | rfl | rfl | rfl | rfl
   · exact fun h => stabilityAnswer_falls_sound _ (by decide +kernel)
-      (solid_stable _ _ (by decide +kernel) (h.2 2 (by decide) (by decide)).2)
+      (solid_stable _ _ (h.2 2 (by decide) (by decide)).2.2)
   all_goals first
     | exact fun h => absurd (h.2 1 (by decide) (by decide)).1 (by decide +kernel)
     | exact fun h => absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
 
 /-- Coming straight down into the slot is not a valid path: the plank above is in the way. -/
 example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
-  intro ⟨_, _, _, hdrop⟩
+  intro ⟨_, _, _, _, hdrop⟩
   exact hdrop 1 (by decide +kernel) (by decide +kernel) ⟨.flatX, 0, 0, 1⟩ (by simp [slotPlaced])
     (by decide +kernel)
+
+/-! ## Review regressions (PR #14) -/
+
+/-- Two planks side by side with a gap of 1/4. Each is stable and well-formed where it is
+planned, but moving them 1/4 towards each other (within the 10/39 error) makes them share
+a strip of inside space. -/
+def nearlyTouching : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩]
+
+/-- The errors that push the two planks of `nearlyTouching` into each other. -/
+def towardsEachOther (i : Nat) : Rat × Rat := if i = 0 then (0, 1 / 4) else (0, -1 / 4)
+
+#guard decide (WellFormed nearlyTouching)
+#guard !checkPlan {} placementError 200 nearlyTouching
+#guard !decide (WellFormed (nearlyTouching.shift towardsEachOther))
+
+/-- The plan is not safe: the errors `towardsEachOther` are allowed and break P1. -/
+example : ¬ SafePlan {} placementError 200 nearlyTouching := fun h =>
+  absurd ((h.2 2 (by decide) (by decide)).2.1 rfl towardsEachOther
+    (by unfold SmallShift; decide +kernel))
+    (by decide +kernel)
+
+-- With the clearance check switched off, the plan is accepted: each step is well-formed
+-- at the planned positions and solid.
+#guard checkPlan { clearance := false } placementError 200 nearlyTouching
+
+-- Switching the check off never lets through a plan that falls or is risky.
+#guard !checkPlan { clearance := false } placementError 200 e7
+#guard !checkPlan { clearance := false } placementError 200 e12
+
+-- With a gap of 1 (more than twice the error) the same plan is accepted.
+#guard checkPlan {} placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 4, 0⟩]
+
+-- A negative error is never "solid": E4 falls at the exact positions.
+#guard verdict (-1) e4 == .falls
+#guard verdict (-1) e1 == .risky
+#guard !checkPlan {} (-1) 200 e4
+#guard !checkPlan {} (-1) 200 e1
+
+/-- "Solid" with a negative error does not hold, whatever the build. -/
+example : ¬ SolidWithin (-1) e4 := fun h => absurd h.1 (by decide)
+
+/-- E4 is not solid for any error: it already falls with none. -/
+example (ε : Rat) : ¬ SolidWithin ε e4 := fun h =>
+  stabilityAnswer_falls_sound e4 (by decide +kernel) (solid_stable ε e4 h)
+
+-- A drop gap of zero or below gives no path (K2, K3 ask for a real drop).
+#guard reachDir? slotPlaced slotPlank 0 == none
+#guard reachDir? [⟨.flatX, 0, 0, 0⟩] ⟨.flatX, 0, 0, 0⟩ (-2) == none
+#guard hardToReach 0 e1 == [0]
+
+/-- No straight path has a gap of zero. -/
+example (v : Rat × Rat × Rat) : ¬ StraightPath slotPlaced slotPlank 0 v :=
+  fun h => absurd h.1 (by decide)
+
+/-- No straight path has a negative gap, even for a plank put exactly onto itself. -/
+example (v : Rat × Rat × Rat) :
+    ¬ StraightPath [⟨.flatX, 0, 0, 0⟩] ⟨.flatX, 0, 0, 0⟩ (-2) v :=
+  fun h => absurd h.1 (by decide)
 
 /-- A sideways push bigger than `μ` times the up-push is not allowed. -/
 example : ¬ (FrictionPush.mk ⟨1, .plank 0, 5, 0, 1⟩ 1 0).Allowed (2 / 5) e2 :=

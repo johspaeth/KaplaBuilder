@@ -188,7 +188,7 @@ theorem solid_allowed (ε : Rat) (b : Build) (ls : List Load) (d : Nat → Rat �
   intro p hp
   simp only [solidPushes, List.mem_flatMap] at hp
   obtain ⟨l, hl, hp⟩ := hp
-  have hv := hc.1 l hl
+  have hv := hc.2.1 l hl
   obtain ⟨r, hr, hx, hy, hx0, hx1, hy0, hy1⟩ := load_patch ε b l d hv hd
   rw [hr] at hp
   exact spread_allowed (b.shift d) r (l.at b.length d) hv.1 (by simpa [Load.at] using hv.2.1)
@@ -251,10 +251,10 @@ theorem mix_total (b : Build) (ls : List Load) (i : Nat) (hi : i < b.length) (e 
 theorem solid_balanced (ε : Rat) (b : Build) (ls : List Load) (d : Nat → Rat × Rat)
     (hc : SolidCertificate ε b ls) (hd : SmallShift ε b.length d) (i : Nat)
     (hi : i < b.length) : Balanced (b.shift d) (solidPushes b ls d) i := by
-  have hb := hc.2 i hi
+  have hb := hc.2.2 i hi
   have patch : ∀ l ∈ ls, ∃ r, restPatch (b.shift d) l.upper l.lower = some r ∧
       r.x0 < r.x1 ∧ r.y0 < r.y1 := fun l hl => by
-    obtain ⟨r, hr, hx, hy, _⟩ := load_patch ε b l d (hc.1 l hl) hd
+    obtain ⟨r, hr, hx, hy, _⟩ := load_patch ε b l d (hc.2.1 l hl) hd
     exact ⟨r, hr, hx, hy⟩
   have mx := mix_total b ls i hi (fun m => (d m).1) hb
   have my := mix_total b ls i hi (fun m => (d m).2) hb
@@ -289,7 +289,7 @@ theorem solid_balanced (ε : Rat) (b : Build) (ls : List Load) (d : Nat → Rat 
 /-- A passing solidity certificate makes the build solid (R3). -/
 theorem solidCertificate_sound (ε : Rat) (b : Build) (ls : List Load)
     (hc : SolidCertificate ε b ls) : SolidWithin ε b := by
-  intro d hd
+  refine ⟨hc.1, fun d hd => ?_⟩
   refine ⟨solidPushes b ls d, solid_allowed ε b ls d hc hd, ?_⟩
   intro i hi
   rw [shift_length] at hi
@@ -303,8 +303,9 @@ theorem shift_zero (b : Build) : b.shift (fun _ => (0, 0)) = b := by
     rw [Rat.add_zero, Rat.add_zero]
 
 /-- A solid build is stable at the exact positions. -/
-theorem solid_stable (ε : Rat) (b : Build) (hε : 0 ≤ ε) (h : SolidWithin ε b) : Stable b := by
-  have := h (fun _ => (0, 0)) (fun _ _ => by simp only; grind)
+theorem solid_stable (ε : Rat) (b : Build) (h : SolidWithin ε b) : Stable b := by
+  have hε := h.1
+  have := h.2 (fun _ => (0, 0)) (fun _ _ => by simp only; grind)
   rwa [shift_zero] at this
 
 end KaplaPhysics

@@ -20,7 +20,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | File in `specs/KaplaSpecs/PhysicsRules/` | What it says | Trusted? |
 |---|---|---|
 | `Geometry.lean` | planks, the six poses, rectangles (W1–W3, B1–B5) | yes: read it |
-| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors and `SolidWithin` (R1–R3), `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
+| `Rules.lean` | `WellFormed` (P1–P3), `restPatch` (C1–C4), `Push`, `Balanced`, `Stable` (F1–F4, S1–S4), placement errors, `SolidWithin` and `LegalWithin` (R1–R3), `PlanOptions` and `SafePlan` (K1, K4, K5), `StraightPath` and `Reachable` (K2, K3), `StableWithFriction` (F3) | yes: read it |
 | `Tower.lean` | the square tower of example E8 | yes: read it |
 | `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `Examples.lean` | builds E1–E12; proofs from the rules alone that E1 stands, that E4 falls, that E3 is not solid, and a few more | checked by Lean |
@@ -44,14 +44,24 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `verdict_solid_sound`: verdict "solid" ⇒ stable for **every** combination of placement
   errors up to ε (property 3). The certificate gives each contact a fixed load at a point
   that moves with the errors; the proof spreads each load over the corners of the real
-  contact patch (F4) and shows balance for every error.
+  contact patch (F4) and shows balance for every error. "Solid" includes `0 ≤ ε`: the
+  engine never answers "solid" for a negative error, and `verdict_solid_stable` shows a
+  solid build also stands at the exact positions.
 - `verdict_risky_sound`, `verdict_falls_sound`: "risky" ⇒ stable at the exact positions;
   "falls" ⇒ not stable.
-- `checkPlan_sound`: an accepted plan has at most N planks and is well-formed and
-  **solid** after every step (property 4, K4).
+- `checkPlan_sound`: an accepted plan has at most N planks, and after every step it is
+  well-formed, **stays well-formed** wherever errors up to ε put the planks
+  (`LegalWithin`), and is **solid** (property 4, K4). The checker asks that any two planks
+  that share some height are at least 2ε apart along `x` or `y` (`Clear`). This rejects
+  planks placed side by side and touching: R5 is not modelled, so an error is allowed to
+  push one into the other. This check can be switched off with
+  `PlanOptions.clearance := false` (on by default), for the app to offer as a setting.
+  When it is off, `SafePlan` drops the `LegalWithin` part and the theorem says only that
+  each step is well-formed at the planned positions and solid.
 - `reachDir_sound`, `hardToReach_nil_sound`: a step the checker does not flag can be put
-  in place along a straight path from far away plus a drop of `h`, never sharing inside
-  space with a placed plank (property 5, K3). Flagged steps are warnings only.
+  in place along a straight path from far away plus a drop of `h > 0`, never sharing inside
+  space with a placed plank (property 5, K3). A gap `h ≤ 0` flags every step. Flagged
+  steps are warnings only.
 - `column_stable_iff`: for a single column, `Stable` holds exactly when at every level the
   combined centre of mass of everything from that level up is over the patch below it
   (property 6). Both directions are proven, so the definition of `Stable` is checked
@@ -60,8 +70,8 @@ what a theorem means, you must change `specs/`, which needs a spec review.
   friction coefficient μ ≥ 0, in a model with sideways contact pushes and all six balance
   conditions (property 8, F3).
 - `squareTower_safe`: building the square tower (E8) level by level is safe at **every**
-  height `n`: well-formed and solid after every step for placement errors up to any
-  ε ≤ 1/2 (3.9 mm) (property 9). The proof gives explicit pushes for every error: each
+  height `n`: well-formed, still well-formed with errors, and solid after every step, for
+  placement errors up to any ε from 0 to 1/2 (3.9 mm) (property 9). The proof gives explicit pushes for every error: each
   corner of the tower carries its loads straight down, and every load point stays in a
   small core square at its corner that every contact patch there contains.
 - `checkPushes_sound`, `fallCertificate_sound`, `solidCertificate_sound`: the checkers are

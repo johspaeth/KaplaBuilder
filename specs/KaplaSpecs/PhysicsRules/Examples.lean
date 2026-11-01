@@ -145,10 +145,10 @@ theorem e4_not_stable : ¬ Stable e4 := overhang_not_stable 8 (by decide +kernel
 theorem shift_zero (b : Build) : b.shift (fun _ => (0, 0)) = b := by
   apply List.ext_getElem <;> simp [Build.shift, Rat.add_zero]
 
-/-- A build that is not stable is not solid either, for any error `ε ≥ 0`: "no error" is
-one of the errors allowed. -/
-theorem not_solid_of_not_stable (ε : Rat) (hε : 0 ≤ ε) (b : Build) (h : ¬ Stable b) :
-    ¬ SolidWithin ε b := fun hs =>
+/-- A build that is not stable is not solid either, for any error `ε`: "solid" asks
+`ε ≥ 0`, so "no error" is one of the errors allowed. -/
+theorem not_solid_of_not_stable (ε : Rat) (b : Build) (h : ¬ Stable b) :
+    ¬ SolidWithin ε b := fun ⟨hε, hs⟩ =>
   h (shift_zero b ▸ hs _ fun _ _ => ⟨by grind, hε, by grind, hε⟩)
 
 /-- E3 is not solid: moving its top plank 2 mm towards the open end makes it fall (R3). -/
@@ -158,7 +158,7 @@ theorem e3_not_solid : ¬ SolidWithin placementError e3 := fun h => by
   have hsmall : SmallShift placementError e3.length
       (fun i => if i = 1 then (placementError, 0) else (0, 0)) := by
     intro i _; dsimp only; split <;> simp [placementError] <;> grind
-  exact overhang_not_stable _ (by decide +kernel) (hshift ▸ h _ hsmall)
+  exact overhang_not_stable _ (by decide +kernel) (hshift ▸ h.2 _ hsmall)
 
 /-! ## A plank in the air does not stand, even with friction -/
 
@@ -192,7 +192,7 @@ theorem floating_not_stableWithFriction (μ : Rat) : ¬ StableWithFriction μ fl
 first point of every path, `dropGap` above the spot, is where the placed plank already is. -/
 theorem slot_not_reachable : ¬ EveryStepReachable dropGap (slotPlaced ++ [slotPlank]) := by
   intro h
-  obtain ⟨v, -, -, hpath, -⟩ := h 1 (by decide)
+  obtain ⟨v, -, -, -, hpath, -⟩ := h 1 (by decide)
   apply hpath 0 (by decide) ⟨.flatX, 0, 0, 1⟩ (by decide)
   simp only [Rat.zero_mul, Rat.add_zero]
   decide +kernel
