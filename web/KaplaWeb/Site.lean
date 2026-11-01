@@ -183,7 +183,8 @@ def siteJs : String := "
     } catch (_) { planStatus.className = 'bad'; planStatus.textContent = noServer; }
     finally { setBusy(false); } };
   send('/planners').then(r => { if (!r.ok) return; claudePlanners = r.body.claude || [];
-    r.body.planners.forEach(name => { const o = document.createElement('option'); o.textContent = name; plannerBox.append(o); });
+    const labels = r.body.labels || {};
+    r.body.planners.forEach(name => { const o = document.createElement('option'); o.value = name; o.textContent = labels[name] || name; plannerBox.append(o); });
     showEffort(); }).catch(() => {});
   send('/status').then(r => { if (r.ok && !r.body.key)
     addMsg('The API key is missing, so the chat cannot work. Put it in .env in the top folder of the repo, or set ANTHROPIC_API_KEY, then start kapla serve again.', 'bad'); }).catch(() => {});

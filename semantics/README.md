@@ -27,8 +27,8 @@ It answers two questions:
 make run      # open http://localhost:8000, type "an egg" in the chat (needs an API key)
 ```
 
-Without a key: open **Gallery → egg**, choose the planner "stand-in tower (test only)", and
-press **Generate proposal**. The page shows the score and "Accepted". The score report, from the command line:
+With a key, you can also open **Gallery → egg**, choose a planner, and press **Generate
+proposal**. The page shows the score and "Accepted". The score report, from the command line:
 
 ```sh
 lake build KaplaSemantics
