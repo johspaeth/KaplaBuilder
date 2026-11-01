@@ -18,7 +18,8 @@ leaves open; never resolve a design choice on your own.
   manifest, ask first). Imports: `KaplaCore` and `KaplaSemantics.*` only, never Physics,
   Planner, Web. `Rat` everywhere, never `Float`. `autoImplicit` is off: name every variable.
 - Block units everywhere: 1 unit = block thickness, a block is 15 × 3 × 1. No other unit exists
-  in the project. `Engine.lean` is the only file that uses `KaplaCore` types.
+  in the project. Only `Engine.lean` uses the engine and report types (`SemanticEngine`,
+  `TargetSpec`, `ScoreReport`). Any file may use `Q3`, `Bubble`, `BubbleModel`, `Frame` and `Pose`.
 - Forbidden words, also inside comments and docstrings: sorry, admit, axiom, native_decide,
   implemented_by, extern, unsafe, maxHeartbeats 0, debug.skipKernelTC. Rephrase. Warnings fail
   CI: no unused variables, no deprecated names, no unfinished proofs in a PR (WIP commits may).
@@ -31,10 +32,11 @@ leaves open; never resolve a design choice on your own.
   `lake build KaplaSemantics`. CI builds `Dev/*.lean` too: zero warnings there as well.
 
 ## File map (APPROACH.md §7)
-`Bubble.lean` types · `Frame.lean` frame, place, canonicalFrame · `Json.lean` codec · `Grid.lean`
+`Bubble.lean` normalize · `Frame.lean` canonicalFrame · `Json.lean` codec · `Grid.lean`
 cells, targetCells, blockCells · `Score.lean` covered (per-bubble fill), extra, missing, score,
-solid, perBubble, verdict · `Check.lean` WithinTarget, CoversTarget, checkers · `Engine.lean`
-SemanticEngine, `componentName` · `Claude.lean` API client · `Dev/*.lean` CLI tools
+solid, perBubble · `Check.lean` WithinTarget, CoversTarget, checkers, too-small list · `Engine.lean`
+SemanticEngine, `componentName` · In `KaplaCore.Bubble`: `Bubble`, `BubbleModel`,
+`contains`, `wellFormed`, `Frame`, `place` · `Claude.lean` API client · `Dev/*.lean` CLI tools
 (the chat page's backend) · `Proofs/*.lean` one per spec file, same theorem names ·
 `semantics/fixtures/{targets,plans,score_expected}/` · `semantics/dev/` Docker, shell helpers,
 chat page. The frame is always an argument; nothing picks one silently.

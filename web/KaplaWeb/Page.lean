@@ -65,7 +65,10 @@ def pageData (p : ViewPlan) : Json :=
   let steps := p.steps.map fun s => Json.mkObj [
     ("phase", s.phase), ("n", s.blocks.length),
     ("grip", gripText s.grip), ("approach", approachText s.approach)]
-  Json.mkObj [("blocks", Json.arr blocks.toArray), ("steps", Json.arr steps.toArray)]
+  let bubbles := p.bubbles.map fun b => Json.mkObj [("label", b.label),
+    ("c", Json.arr #[fnum b.x, fnum b.y, fnum b.z]), ("r", Json.arr #[fnum b.rx, fnum b.ry, fnum b.rz])]
+  Json.mkObj [("blocks", Json.arr blocks.toArray), ("steps", Json.arr steps.toArray),
+    ("bubbles", Json.arr bubbles.toArray)]
 
 /-- Page style (light and dark). -/
 def css : String := "
@@ -101,7 +104,7 @@ table{border-collapse:collapse}td,th{border-bottom:1px solid var(--line);padding
 "
 
 def js : String := "
-const D = DATA, B = D.blocks, S = D.steps;
+const D = DATA, B = D.blocks, S = D.steps, U = D.bubbles || [];
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 // ---------- step cards (top-down plan of the current layer) ----------
 function card(k){
@@ -139,7 +142,20 @@ if (window.THREE) {
   const meshes = B.map(b => { const g = new THREE.BoxGeometry(b.size[0], b.size[1], b.size[2]);
     const m = new THREE.Mesh(g, wood); m.position.set(b.c[0], b.c[1], b.c[2]); m.rotation.z = b.yaw*Math.PI/180;
     m.add(new THREE.LineSegments(new THREE.EdgesGeometry(g), edges)); scene.add(m); return m; });
+  // the target's bubbles: see-through ellipsoids, cut off at the ground (z = 0)
+  ren.localClippingEnabled = true;
+  const clip = [new THREE.Plane(new THREE.Vector3(0,0,1), 0)];
+  const skin = new THREE.MeshLambertMaterial({color:0x5b8fd9, transparent:true, opacity:.18, depthWrite:false, side:THREE.DoubleSide, clippingPlanes:clip});
+  const wire = new THREE.LineBasicMaterial({color:0x3f6fb5, transparent:true, opacity:.35, clippingPlanes:clip});
+  const bubbles = U.map(u => { const g = new THREE.SphereGeometry(1, 40, 24);
+    const m = new THREE.Mesh(g, skin); m.position.set(u.c[0], u.c[1], u.c[2]); m.scale.set(u.r[0], u.r[1], u.r[2]);
+    m.renderOrder = 1; m.add(new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(1, 16, 10)), wire));
+    scene.add(m); return m; });
+  const tog = document.getElementById('bubbles');
+  if (U.length) { tog.hidden = false; tog.onclick = () => { const on = !bubbles[0].visible;
+    bubbles.forEach(m => m.visible = on); tog.textContent = on ? 'Hide bubbles' : 'Show bubbles'; render(); }; }
   let xs=B.map(b=>b.c[0]), ys=B.map(b=>b.c[1]), zs=B.map(b=>b.c[2]+b.size[2]/2);
+  U.forEach(u => { xs.push(u.c[0]-u.r[0], u.c[0]+u.r[0]); ys.push(u.c[1]-u.r[1], u.c[1]+u.r[1]); zs.push(u.c[2]+u.r[2]); });
   const cx=(Math.min(...xs)+Math.max(...xs))/2||0, cy=(Math.min(...ys)+Math.max(...ys))/2||0, top=Math.max(...zs,15);
   const span=Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys), top, 20);
   cam.up.set(0,0,1);
@@ -177,6 +193,7 @@ def render (p : ViewPlan) : String :=
 <div id=\"view\"></div>
 <div class=\"controls\"><button id=\"prev\">◀</button><input id=\"slider\" type=\"range\" min=\"0\" step=\"1\">
 <button id=\"next\">▶</button><span id=\"label\"></span>
+<button id=\"bubbles\" class=\"noprint\" hidden>Hide bubbles</button>
 <button class=\"noprint\" onclick=\"window.print()\">Print booklet</button></div>
 <h3>Steps</h3><div id=\"cards\"></div>
 </main>

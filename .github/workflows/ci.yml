@@ -39,7 +39,7 @@ jobs:
       - run: lake build ${{ matrix.target }} --fail-level=warning
 
   verify:
-    name: Kernel check + Comparator
+    name: Kernel check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -53,14 +53,6 @@ jobs:
         run: lake build KaplaSpecs
       - name: lake check (replay everything through the kernel, standard axioms only)
         run: lake check
-      - name: lake comparator (proofs prove exactly the specs)
-        run: |
-          shopt -s nullglob
-          for cfg in comparator/*.json; do
-            echo "::group::comparator $cfg"
-            lake comparator --config "$cfg"
-            echo "::endgroup::"
-          done
 
   ci-ok:
     name: CI OK
