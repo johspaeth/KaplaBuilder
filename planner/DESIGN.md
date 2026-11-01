@@ -1,6 +1,8 @@
 # KaplaPlanner: Design
 
-Owner: C. Status: **draft for review**.
+Owner: C. Status: **draft for review; v1 is implemented.** Sections 1–9 are the plan. Section
+10 says what v1 actually does and where it differs from the plan; where the two disagree, §10
+is right.
 Context: [docs/DESIGN.md](../docs/DESIGN.md), [docs/WORKSPLIT.md](../docs/WORKSPLIT.md),
 [semantics/APPROACH.md](../semantics/APPROACH.md) §3–4 (the score).
 
@@ -262,3 +264,57 @@ true, and one bad output it rejects.
    Physics (A) should measure that.
 4. **Candidates for the user.** Different heights, different block counts, or different
    styles (log cabin or palisade)? We can do all three. Which ones does the web page show?
+
+## 10. v1 as built
+
+### Files
+
+| File | What it does |
+|---|---|
+| `Grid.lean` | grid blocks (flat, along x or y), their 45 cells, `toPose` |
+| `Table.lean` | the cell table at one height (§4.2): bubble bit mask per cell, target count, per column the top cell and each bubble's lowest cell |
+| `FastScore.lean` | the fast score (§4.2) and `refCounts`, the same definition computed directly, for tests |
+| `Support.lean` | the local stability rule (§4.4) |
+| `Build.lean` | one build: courses from the ground up, greedy by value (§4.3) |
+| `Search.lean` | heights and settings, physics check and repair, choosing candidates; `planner` |
+| `Blueprint.lean` | a candidate as a blueprint file for `kapla view` |
+| `Proofs.lean`, `Tests.lean` | §7 and tests with the mock engines |
+
+### Where v1 differs from the plan
+
+| Plan | v1 | Why |
+|---|---|---|
+| Candidates near the slice edges only (§4.3) | every flat block of the course with a cell in a bubble | simpler, and fast enough; only one candidate per pick is checked for stability |
+| Edge and standing blocks, motifs, beam (§4.3) | flat blocks only; no motifs, no beam | not needed for the first results; later work |
+| Stability: centre of mass over the supports (§4.4) | a load model: loads go straight down where they can, else are shared between two contacts by the lever rule; every block's load must be 1 inside its contacts along it and 1/2 inside its sides; the whole stack is checked after every block | the simple rule let structures through that the physics engine rejects, and rejected log cabins that it accepts |
+| Budget by a value cut-off `λ` (§4.5) | a limit on blocks per course (an even share of `N`, one more, or none), plus the hard limit `N` | a high `λ` also drops the low-value bottom blocks that everything rests on, and the build collapses |
+| Value = score gain | covered cells − ½ × outside cells, plus: outside cells under a higher bubble cell cost 0 or are worth +¼ (foundation); +45 for the first block in a bubble; +45 for one block per course under a bubble with no block yet (a pillar) | without these, a ball (which touches the ground at one point) is never started, and small parts such as ears are never reached, so the scorer would not accept the plan |
+| Golden-section search over heights (§4.1) | a coarse sweep (½ to 2 × a first guess, 6 settings), then a fine sweep near the two best heights (18 settings); builds run in parallel | which setting is best changes from model to model and height to height |
+| Improve step (§4.6) | not done | |
+| Repair: rebuild with a stricter rule | remove the blamed block and everything that no longer stands; give up when a quarter of the blocks are gone | simple; the local rule makes physics failures rare |
+| Score differential test against `SemanticEngine.score` | `#guard`s against `refCounts` in the library; against the real scorer by hand (below) | the planner may not import the scorer |
+
+The stored value of a candidate can go stale: placing a block fills cells along lines that
+cross other candidates' lines. So the chosen candidate's change is always worked out again
+before it is applied, and the fast score stays exact.
+
+### Measured (real physics engine and real scorer, compiled, 8 cores)
+
+Run by hand from a scratch executable that imports `KaplaPlanner`, `KaplaPhysics` and
+`KaplaSemantics` (the planner itself may not import them). The fast score equalled the real
+score on every plan compared.
+
+| Model | N | Best candidate | Score | Accepted | Physics | Time |
+|---|---|---|---|---|---|---|
+| egg | 40 | height 24, 40 blocks | 0.711 | yes | ok | 4.5 s |
+| bunny | 40 | height 21, 35 blocks | 0.471 | yes | ok | 2.8 s |
+| ball | 40 | height 16, 40 blocks | 0.702 | yes | ok | 6.0 s |
+
+All 3 candidates of each model were accepted by the scorer and the physics engine.
+
+### Known limits
+
+- Parts with nothing under them in the target (a tail sticking out sideways) are reached only
+  by the pillar bonus or by corbelling; there is no separate support search.
+- Only flat blocks with quarter turns.
+- The physics engine is the slow part for large plans (see §9 question 3).
