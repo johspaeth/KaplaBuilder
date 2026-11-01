@@ -100,689 +100,570 @@
   ]
  },
  "proposal": {
-  "planner": "hand-designed",
   "blocks": 40,
-  "height": 24,
+  "height": 30,
+  "planner": "ai",
   "steps": [
    {
-    "phase": "step 1",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       -3.3,
+       1.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "1/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 2",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       -1.1,
+       1.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "3/2",
-       "1/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 3",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       1.1,
+       1.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "3/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 4",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       3.3,
+       1.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "3/2",
-       "3/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 5",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "-3/2",
-       "5/2"
-      ]
+       -3.5,
+       0,
+       4.5
+      ],
+      "rot": {
+       "c": "120/241",
+       "s": "209/241"
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 6",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "3/2",
-       "5/2"
-      ]
+       -0.5,
+       0,
+       4.5
+      ],
+      "rot": {
+       "c": "120/241",
+       "s": "209/241"
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 7",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "-3/2",
-       "7/2"
-      ]
+       2.5,
+       0,
+       4.5
+      ],
+      "rot": {
+       "c": "120/241",
+       "s": "209/241"
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 8",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "3/2",
-       "7/2"
-      ]
+       5.5,
+       0,
+       4.5
+      ],
+      "rot": {
+       "c": "120/241",
+       "s": "209/241"
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 9",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       0,
+       -5,
+       7.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "9/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 10",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       0,
+       -2.5,
+       7.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "3/2",
-       "9/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 11",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       -3,
+       0,
+       7.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "11/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 12",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       0.5,
+       2.5,
+       7.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "3/2",
-       "11/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 13",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       1.5,
+       5,
+       7.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "13/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 14",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "3/2",
-       "13/2"
-      ]
+       -6,
+       0,
+       10.5
+      ],
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 15",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "-3/2",
-       "15/2"
-      ]
+       -3,
+       0,
+       10.5
+      ],
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 16",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "3/2",
-       "15/2"
-      ]
+       0,
+       0,
+       10.5
+      ],
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 17",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "-3/2",
-       "17/2"
-      ]
+       3,
+       0,
+       10.5
+      ],
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 18",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "1/2",
-       "3/2",
-       "17/2"
-      ]
+       6,
+       0,
+       10.5
+      ],
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 19",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       -4.2,
+       13.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "19/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 20",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       -2.1,
+       13.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "3/2",
-       "19/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 21",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       0,
+       13.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "21/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 22",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       2.1,
+       13.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "3/2",
-       "21/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 23",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       2,
+       4.2,
+       13.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "-3/2",
-       "23/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 24",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       4,
+       -3,
+       15.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "1/2",
-       "3/2",
-       "23/2"
-      ]
+      "up": "flat"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 25",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       4,
+       0,
+       15.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "7/2",
-       "-3/2",
-       "25/2"
-      ]
+      "up": "flat"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 26",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       4,
+       3,
+       15.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "7/2",
-       "3/2",
-       "25/2"
-      ]
+      "up": "flat"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 27",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       6,
+       -2.1,
+       23.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "7/2",
-       "-3/2",
-       "27/2"
-      ]
+      "up": "upright"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 28",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       6,
+       2.1,
+       23.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "7/2",
-       "3/2",
-       "27/2"
-      ]
+      "up": "upright"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 29",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       6,
+       -3.3,
+       17.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "7/2",
-       "-3/2",
-       "29/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 30",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       6,
+       0,
+       17.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "7/2",
-       "3/2",
-       "29/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 31",
     "blocks": [
      {
-      "up": "flat",
+      "center": [
+       6,
+       3.3,
+       17.5
+      ],
       "rot": {
        "c": 1,
        "s": 0
       },
-      "center": [
-       "7/2",
-       "-3/2",
-       "31/2"
-      ]
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 32",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "7/2",
-       "3/2",
-       "31/2"
-      ]
+       3.8,
+       0,
+       20.5
+      ],
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "up": "edge"
      }
-    ]
+    ],
+    "phase": ""
    },
    {
-    "phase": "step 33",
     "blocks": [
      {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
       "center": [
-       "7/2",
-       "-3/2",
-       "33/2"
-      ]
-     }
-    ]
-   },
-   {
-    "phase": "step 34",
-    "blocks": [
-     {
-      "up": "flat",
+       8.2,
+       0,
+       20.5
+      ],
       "rot": {
-       "c": 1,
-       "s": 0
+       "c": 0,
+       "s": 1
       },
-      "center": [
-       "7/2",
-       "3/2",
-       "33/2"
-      ]
+      "up": "edge"
      }
-    ]
-   },
-   {
-    "phase": "step 35",
-    "blocks": [
-     {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
-      "center": [
-       "7/2",
-       "-3/2",
-       "35/2"
-      ]
-     }
-    ]
-   },
-   {
-    "phase": "step 36",
-    "blocks": [
-     {
-      "up": "flat",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
-      "center": [
-       "7/2",
-       "3/2",
-       "35/2"
-      ]
-     }
-    ]
-   },
-   {
-    "phase": "step 37",
-    "blocks": [
-     {
-      "up": "upright",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
-      "center": [
-       "-1/2",
-       "-9/2",
-       "15/2"
-      ]
-     }
-    ]
-   },
-   {
-    "phase": "step 38",
-    "blocks": [
-     {
-      "up": "upright",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
-      "center": [
-       "-1/2",
-       "9/2",
-       "15/2"
-      ]
-     }
-    ]
-   },
-   {
-    "phase": "step 39",
-    "blocks": [
-     {
-      "up": "upright",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
-      "center": [
-       "5/2",
-       "-9/2",
-       "15/2"
-      ]
-     }
-    ]
-   },
-   {
-    "phase": "step 40",
-    "blocks": [
-     {
-      "up": "upright",
-      "rot": {
-       "c": 1,
-       "s": 0
-      },
-      "center": [
-       "5/2",
-       "9/2",
-       "15/2"
-      ]
-     }
-    ]
+    ],
+    "phase": ""
    }
   ]
  }
