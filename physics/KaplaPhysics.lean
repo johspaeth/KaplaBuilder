@@ -9,6 +9,8 @@ import KaplaPhysics.RobustProofs
 import KaplaPhysics.Reach
 import KaplaPhysics.Column
 import KaplaPhysics.ColumnProofs
+import KaplaPhysics.Tower
+import KaplaPhysics.TowerProofs
 import KaplaPhysics.Engine
 import KaplaPhysics.Proofs
 import KaplaPhysics.Examples

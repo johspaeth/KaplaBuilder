@@ -67,6 +67,13 @@ theorem stable_withFriction (μ : Rat) (hμ : 0 ≤ μ) (b : Build) (h : Stable 
     StableWithFriction μ b := by
   sorry
 
+/-- Property 9 (square towers are safe to build, at any height): building the square tower
+(example E8) level by level is a safe plan for every height `n`: after every step it is
+well-formed and solid for placement errors up to any `ε ≤ 1/2` (3.9 mm). -/
+theorem squareTower_safe (ε : Rat) (hε : ε ≤ 1 / 2) (n : Nat) :
+    SafePlan ε (2 * n) (squareTower n) := by
+  sorry
+
 /-- Property 7 (contacts are right): the overlap of two rectangles holds exactly the points
 that lie in both. -/
 theorem Rect.inter_contains (r s : Rect) (x y : Rat) :

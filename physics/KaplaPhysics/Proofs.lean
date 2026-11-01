@@ -2,6 +2,7 @@ import KaplaPhysics.Engine
 import KaplaPhysics.Sums
 import KaplaPhysics.RobustProofs
 import KaplaPhysics.ColumnProofs
+import KaplaPhysics.TowerProofs
 
 /-! # Proofs of the physics theorems
 
@@ -308,6 +309,18 @@ theorem stable_withFriction (μ : Rat) (hμ : 0 ≤ μ) (b : Build) (h : Stable 
     · rw [sum_map_congr _ _ (fun p => -(p.upOn i * (p.x - (b.get i).centerX)))
         (fun p _ => by rw [upOn_eq_side]; grind), sum_map_neg, h2]; grind
     · rw [sum_map_congr _ _ (fun _ => 0) (fun _ _ => by grind), sum_map_zero]
+
+/-! ## Square towers, at any height (property 9) -/
+
+/-- Property 9: building the square tower level by level is a safe plan, at any height
+`n`: after every step it is well-formed and solid for placement errors up to `ε`, for any
+`ε ≤ 1/2` (3.9 mm; the default is 2 mm). -/
+theorem squareTower_safe (ε : Rat) (hε : ε ≤ 1 / 2) (n : Nat) :
+    SafePlan ε (2 * n) (squareTower n) := by
+  have hlen : (squareTower n).length = 2 * n := by simp [squareTower]
+  refine ⟨by omega, fun k _ hk => ?_⟩
+  rw [squareTower_take n k (by omega)]
+  exact ⟨tower_wellFormed k, tower_solid ε hε k⟩
 
 /-! ## Reaching the spot (property 5, K3) -/
 

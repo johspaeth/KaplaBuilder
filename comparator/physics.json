@@ -10,6 +10,7 @@
     "KaplaPhysics.checkPlan_sound",
     "KaplaPhysics.column_stable_iff",
     "KaplaPhysics.stable_withFriction",
+    "KaplaPhysics.squareTower_safe",
     "KaplaPhysics.reachDir_sound",
     "KaplaPhysics.hardToReach_nil_sound",
     "KaplaPhysics.Rect.inter_contains",

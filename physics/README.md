@@ -19,10 +19,11 @@ appear in the docstrings.
 | `Solver.lean` | exact-fraction simplex; proposes pushes or a fall motion | no: every proposal is checked |
 | `Robust.lean` | `SolidCertificate`: loads whose points move with the errors | checked by the proofs |
 | `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
+| `Tower.lean` | the square tower of example E8 | yes: read it |
 | `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `Reach.lean` | K3 checker: tries five straight paths (from above, from each side) plus the drop | checked by the proofs |
 | `Engine.lean` | `stabilityAnswer`, `verdict` (solid / risky / falls), `checkPlan` | checked by the proofs |
-| `Sums.lean`, `RobustProofs.lean`, `ColumnProofs.lean`, `Proofs.lean` | the proofs (main statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
+| `Sums.lean`, `RobustProofs.lean`, `ColumnProofs.lean`, `TowerProofs.lean`, `Proofs.lean` | the proofs (main statements in `specs/KaplaSpecs/Physics.lean`) | checked by Lean |
 | `Examples.lean` | worked examples E1–E12 as `#guard`s; concrete instances of the theorems; bad answers the rules reject | tests |
 
 ## Main theorems
@@ -49,6 +50,11 @@ appear in the docstrings.
 - `stable_withFriction`: a build that is stable without friction is stable with any
   friction coefficient μ ≥ 0, in a model with sideways contact pushes and all six balance
   conditions (property 8, F3).
+- `squareTower_safe`: building the square tower (E8) level by level is safe at **every**
+  height `n`: well-formed and solid after every step for placement errors up to any
+  ε ≤ 1/2 (3.9 mm) (property 9). The proof gives explicit pushes for every error: each
+  corner of the tower carries its loads straight down, and every load point stays in a
+  small core square at its corner that every contact patch there contains.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 
@@ -67,7 +73,6 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 
 ## Not done yet
 
-- Square tower for every `n` (property 9; today checked for 8 levels).
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
 - Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses
   the global LPs only for builds of at most 40 planks. Measured with the interpreter on a

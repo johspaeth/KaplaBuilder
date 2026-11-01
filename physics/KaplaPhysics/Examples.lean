@@ -22,13 +22,8 @@ def e6 : Build := [⟨.standFacingY, 0, 0, 0⟩]
 /-- E7. Staircase: middle shifted 3.75, top shifted 7.5 from the middle. -/
 def e7 : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15 / 4, 0, 1⟩, ⟨.flatX, 45 / 4, 0, 2⟩]
 
-/-- One level of the square tower (E8): level `k` sits at height `k`. -/
-def towerLevel (k : Nat) : Build :=
-  if k % 2 = 0 then [⟨.flatX, 0, 0, k⟩, ⟨.flatX, 0, 12, k⟩]
-  else [⟨.flatY, 0, 0, k⟩, ⟨.flatY, 12, 0, k⟩]
-
-/-- E8. Square tower with `n` levels, built level by level. -/
-def squareTower (n : Nat) : Build := (List.range n).flatMap towerLevel
+/-- E8 is `squareTower n` (in `Tower.lean`). -/
+example : squareTower 1 = [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 12, 0⟩] := by decide +kernel
 
 /-- E9. Bridge on two standing planks at `y = 1`. -/
 def e9 : Build := [⟨.standFacingY, 0, 1, 0⟩, ⟨.standFacingY, 12, 1, 0⟩, ⟨.flatX, 0, 0, 15⟩]
@@ -141,6 +136,11 @@ example : ¬ Stable e4 := fun h =>
 /-- E2 stands with wood-on-wood friction too (μ = 0.4). -/
 example : StableWithFriction (2 / 5) e2 :=
   stable_withFriction _ (by decide +kernel) e2 (stabilityAnswer_stable_sound e2 (by decide +kernel))
+
+/-- E8 for every height, with the default 2 mm error: a 100-level tower (200 planks, a full
+Kapla box) is safe to build level by level. -/
+example : SafePlan placementError 200 (squareTower 100) :=
+  squareTower_safe placementError (by decide +kernel) 100
 
 /-! ## The rules reject bad answers -/
 
