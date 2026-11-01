@@ -93,6 +93,41 @@ A "solid" verdict is always right.
 Placement errors are taken over the whole R1 box (every plank within ε along `x` and `y`).
 R5 only removes some of these errors, so "solid" here implies solid under R5.
 
+## Differences from KaplaCore (to settle in the Core adapter)
+
+The engine does not read KaplaCore's plans yet. An adapter (`KaplaCore.PhysicsEngine`
+inside `physics/`) must handle these differences. Until it does, no Core report may call
+a plan "safe" on the strength of these theorems.
+
+- **Steps.** Core places 1–2 blocks per step (`hands`); K1 places one plank per step.
+- **Rotations.** Core's `Rot` allows any exact turn; physics has only the six axis-aligned
+  poses (B4).
+- **Reference point.** Core places a block by its centre, physics by its lowest corner.
+  This one is an easy conversion.
+- **Placement error.** The two models measure error differently, even though both
+  defaults are 10/39 (2 mm):
+  - physics (R1, `SmallShift ε`): every plank lands within ε of its own planned spot,
+    along `x` and along `y`;
+  - Core (`HumanModel`): `epsRel` is the error against the block(s) a block rests on, and
+    `eAbs` (default 50/39 = 5ε) caps the total drift from the plan. Errors can add up from
+    level to level (docs/DESIGN.md §2.2).
+
+  So setting ε to `epsRel` does **not** cover all of Core's errors. Example: three planks
+  stacked straight up, shifted along `x` by 0, ε and 2ε. Each one is within ε of the plank
+  below it, and all are within 5ε of the plan, so Core allows this. But the top plank is
+  2ε from its own spot, so `SmallShift ε` excludes it. "Solid", `LegalWithin` and
+  `squareTower_safe` do not speak about such builds.
+
+  The adapter must choose one of these, explicitly:
+  1. **convert**: run physics with ε = `eAbs`, which covers every Core error but is often
+     too cautious (and 50/39 is above the 1/2 that `squareTower_safe` covers), or prove a
+     theorem for Core's relative error model; or
+  2. **reject**: report "not checked" for any Core build whose errors can exceed what
+     `SmallShift ε` covers.
+- **Clearance.** Core's `clear` (smallest gap between blocks that do not touch by design)
+  and the physics `Clear` check (2ε) are separate numbers. The adapter should use one rule
+  for both.
+
 ## Not done yet
 
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
