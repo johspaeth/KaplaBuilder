@@ -468,7 +468,8 @@ Proposals to write up for D before the freeze:
   proposed text, flag it, let the team review.
 - `lake build KaplaSemantics` after every module edit. `make check` before every commit
   (imports, forbidden words, `lake build --fail-level=warning`, `lake build KaplaSpecs`).
-  `lake check` and `lake comparator` are Linux-only and run in CI.
+  `lake check` and `lake comparator` are Linux-only: they run in CI, and locally in the
+  Docker container through `semantics/dev/ci.sh`.
 - One `lake` process at a time. No parallel builds, no lake next to a REPL.
 - The forbidden words apply to comments and docstrings too. Write "unfinished proof", not
   the tactic's name, when you talk about one.
