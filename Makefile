@@ -1,5 +1,5 @@
 # `make install && make run` must just work (rules.md).
-.PHONY: install run build check clean
+.PHONY: install run build check smoke clean
 
 install:
 	@command -v elan >/dev/null || { echo "Install elan first: https://github.com/leanprover/elan"; exit 1; }
@@ -21,6 +21,11 @@ check:
 	lake build --fail-level=warning
 	lake build KaplaSpecs
 	lake exe kapla gallery-check
+
+# What a judge does after `make install`: example commands and the website, no API key.
+# Uses port 8000 like `make run`; set KAPLA_SMOKE_PORT=N to use another port.
+smoke:
+	scripts/smoke_test.sh
 
 clean:
 	lake clean
