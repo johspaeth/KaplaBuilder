@@ -535,17 +535,53 @@ theorem stepDiagnostics_nil (h : KaplaCore.HumanModel) (plan : KaplaCore.BuildPl
     · simp at h2
     · omega
 
-/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
-block has a physics pose, and the blocks, one per step, are a safe plan (K4, K5). -/
+/-! ## Turned plans (B6) -/
+
+/-- The push checker for turned builds is right: pushes that pass it show the build stands
+(S2). -/
+theorem checkTPushes_sound (b : TBuild) (ps : List Push) (h : checkTPushes b ps = true) :
+    TStable b := by
+  simp only [checkTPushes, Bool.and_eq_true, decide_eq_true_eq] at h
+  exact ⟨ps, h.1, h.2⟩
+
+theorem tStands_sound (b : TBuild) (h : tStands b = true) : TStable b := by
+  unfold tStands at h
+  split at h
+  · exact checkTPushes_sound b _ h
+  · cases h
+
+/-- An accepted turned plan uses at most `maxPlanks` planks, and after every step the
+build so far is well-formed and stable at the planned positions (B6, K4, K5). -/
+theorem checkTurnedPlan_sound (maxPlanks : Nat) (steps : TBuild)
+    (h : checkTurnedPlan maxPlanks steps = true) : TSafePlan maxPlanks steps := by
+  simp only [checkTurnedPlan, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
+    List.mem_range] at h
+  refine ⟨h.1, fun k hk1 hk2 => ?_⟩
+  obtain ⟨hw, hs⟩ := h.2 (k - 1) (by omega)
+  rw [show k - 1 + 1 = k by omega] at hw hs
+  exact ⟨hw, tStands_sound _ hs⟩
+
+/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, and
+either every block has a physics pose and the blocks, one per step, are a safe plan
+(K4, K5), or some block is turned by a 15° step and the blocks are a safe turned plan:
+well-formed and stable at the planned positions after every block (B6). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b := by
+      ((∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
+        (buildOf plan.blocks = none ∧
+          ∃ tb, turnedBuildOf plan.blocks = some tb ∧ TSafePlan maxBlocks tb)) := by
   unfold coreCheck at hok
   split at hok
-  · simp at hok
+  · rename_i hnone
+    split at hok
+    · rename_i tb htb
+      simp only [Bool.and_eq_true] at hok
+      exact ⟨stepDiagnostics_nil h plan hok.1,
+        Or.inr ⟨hnone, tb, htb, checkTurnedPlan_sound _ _ hok.2⟩⟩
+    · simp at hok
   · rename_i b hb
     simp only [Bool.and_eq_true] at hok
-    exact ⟨stepDiagnostics_nil h plan hok.1, b, hb, checkPlan_sound _ _ _ _ hok.2⟩
+    exact ⟨stepDiagnostics_nil h plan hok.1, Or.inl ⟨b, hb, checkPlan_sound _ _ _ _ hok.2⟩⟩
 
 end KaplaPhysics

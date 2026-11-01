@@ -15,15 +15,19 @@ Details: [docs/DESIGN.md](docs/DESIGN.md). Who does what: [docs/WORKSPLIT.md](do
 - **Blocks fit where they go**: no gaps that a 3.9 mm error could close, no block dropped
   into a slot exactly its own width, and one block per step (the `hands` setting, default 1).
 
+- **Every block is part of the target, and every part of the target is built.**
+- Its **likeness score** to the target is computed correctly. There is no minimum score: a
+  person approves the design.
+
 Not guaranteed (yet):
 
 - Errors that **add up from level to level** (each block lined up against a block that is
   itself off). The 3.9 mm is measured from the plan, not from the block below.
 - **Reaching** every block by hand: a block in a closed pocket only gets a warning
   ("may be hard to reach").
-- **Every block is part of the target, and every part of the target is built.**
-- Its **likeness score** to the target is computed correctly. There is no minimum score: a
-  person approves the design.
+- **Turned blocks** (15°, 30°, 45°, 60°, 75°, ...): a plan with one is checked only at the
+  planned positions. It is well-formed and stands after every step, but placement errors,
+  gaps and reach are not checked.
 
 The full list of real-world failure modes (H1–H9) and how each one is ruled out is in
 [DESIGN.md §2](docs/DESIGN.md#2-physical-feasibility-is-not-enough-the-human-model).

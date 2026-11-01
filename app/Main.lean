@@ -55,8 +55,9 @@ def readQ (j : Json) : Except String Q :=
 #guard (readQ (.str "-169/10")).toOption == some (-169 / 10)
 #guard (readQ (.num ⟨25, 1⟩)).toOption == some (5 / 2)
 
-/-- Read one block: `up` (`"flat"`, `"edge"` or `"upright"`), `rot` (`c`, `s`) and
-`center`. -/
+/-- Read one block: `up` (`"flat"`, `"edge"` or `"upright"`), `rot` and `center`. The turn
+is either `{"deg": d}` with `d` a multiple of 15 (B6), or the exact cosine and sine
+`{"c": c, "s": s}`. -/
 def readPose (j : Json) : Except String KaplaCore.Pose := do
   let up ← match (j.getObjValAs? String "up").toOption.getD "flat" with
     | "flat" => pure Upright.flat
@@ -66,13 +67,20 @@ def readPose (j : Json) : Except String KaplaCore.Pose := do
   let center ← j.getObjValAs? (Array Json) "center"
   unless center.size == 3 do throw "\"center\" needs three numbers"
   let rot := (j.getObjVal? "rot").toOption
-  let c ← match rot.bind (·.getObjVal? "c" |>.toOption) with
-    | some v => readQ v
-    | none => pure 1
-  let s ← match rot.bind (·.getObjVal? "s" |>.toOption) with
-    | some v => readQ v
-    | none => pure 0
-  return ⟨up, ⟨c, s⟩, ⟨← readQ center[0]!, ← readQ center[1]!, ← readQ center[2]!⟩⟩
+  let r ← match rot.bind (·.getObjVal? "deg" |>.toOption) with
+    | some d => do
+      let k := (← readQ d) / 15
+      unless k.den == 1 do throw s!"\"deg\" must be a multiple of 15, got {d.compress}"
+      pure (Rot.step15 (k.num % 24).toNat)
+    | none => do
+      let c ← match rot.bind (·.getObjVal? "c" |>.toOption) with
+        | some v => readQ v
+        | none => pure 1
+      let s ← match rot.bind (·.getObjVal? "s" |>.toOption) with
+        | some v => readQ v
+        | none => pure 0
+      pure ⟨c, s⟩
+  return ⟨up, r, ⟨← readQ center[0]!, ← readQ center[1]!, ← readQ center[2]!⟩⟩
 
 /-- Read the steps of a blueprint (`{"steps": ...}` or `{"plan": {"steps": ...}}`). Only the
 blocks and the phase are kept: grip and approach do not change the physics check. -/
@@ -104,11 +112,23 @@ def describe : Diagnostic → String
   | .emptyStep s => s!"step {s + 1}: places no block"
   | .tooManyBlocks used limit => s!"uses {used} blocks, at most {limit} allowed"
 
+/-- The plan has a block turned by a 15° step that is not a quarter turn (B6). Such plans
+are checked at the planned positions only. -/
+def hasTurnedBlocks (plan : BuildPlan) : Bool :=
+  (KaplaPhysics.buildOf plan.blocks).isNone && (KaplaPhysics.turnedBuildOf plan.blocks).isSome
+
 /-- Short lines for the page notes and the terminal. -/
-def physicsLines (opts : KaplaPhysics.PlanOptions) (r : PhysicsReport) : List String :=
-  let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
-  (if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
-   else s!"Physics (verified): not shown to be safe to build{clearance}") :: r.diagnostics.map describe
+def physicsLines (opts : KaplaPhysics.PlanOptions) (plan : BuildPlan) (r : PhysicsReport) :
+    List String :=
+  let first :=
+    if hasTurnedBlocks plan then
+      if r.ok then "Physics (verified): well-formed and stands after every block, at the planned positions (turned blocks: placement errors, gaps and reach not checked)"
+      else "Physics (verified): not shown to stand at the planned positions (turned blocks)"
+    else
+      let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
+      if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
+      else s!"Physics (verified): not shown to be safe to build{clearance}"
+  first :: r.diagnostics.map describe
 
 /-- Run the verified physics engine (`physicsEngine` when clearance is on). -/
 def runPhysics (opts : KaplaPhysics.PlanOptions) (maxBlocks : Nat) (plan : BuildPlan) :
@@ -124,7 +144,7 @@ def check (opts : KaplaPhysics.PlanOptions) (file : String) (maxBlocks : Nat) : 
   | .ok plan =>
     let r := runPhysics opts maxBlocks plan
     IO.println s!"{file}: {plan.steps.length} steps, {plan.blockCount} blocks"
-    for line in physicsLines opts r do IO.println s!"  {line}"
+    for line in physicsLines opts plan r do IO.println s!"  {line}"
     return if r.ok then 0 else 1
 
 /-- Write the page for a blueprint file, with the physics result in the notes. -/
@@ -136,7 +156,7 @@ def view (opts : KaplaPhysics.PlanOptions) (file : String) (out : String) : IO U
     return 1
   | .ok p, .ok plan =>
     let r := runPhysics opts defaultMaxBlocks plan
-    let p := { p with notes := p.notes ++ physicsLines opts r }
+    let p := { p with notes := p.notes ++ physicsLines opts plan r }
     IO.FS.createDirAll out
     let path := System.FilePath.mk out / "index.html"
     IO.FS.writeFile path (KaplaWeb.render p)

@@ -1,5 +1,6 @@
 import KaplaCore
 import KaplaPhysics.Engine
+import KaplaPhysics.Turned
 import KaplaSpecs.PhysicsRules.FromCore
 
 /-! # The physics engine behind KaplaCore's interface
@@ -25,8 +26,10 @@ How core's plan is read:
   Pairs with a smaller gap get a `clearance` diagnostic. A block that goes into a slot
   exactly its own width, between two blocks placed before it, gets a `tightSlot`
   diagnostic.
-* **Turns.** Only quarter turns have a physics pose. A plan with any other turn is not
-  `ok`.
+* **Turns.** A plan with only quarter turns gets the full check below. A plan with some
+  other turn in steps of 15° (B6) is checked at the planned positions only: well-formed
+  and stable after every block (`checkTurnedPlan`), without placement errors, gaps or
+  reach. A plan with any other turn is not `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
   plan not `ok`.
 * **Not modelled:** `eAbs`, `clear` and `muSafe` are not used, and the engine never gives
@@ -67,6 +70,17 @@ def clearancePairs (ε : Rat) (b : Build) : List Diagnostic :=
 def tightSlots (b : Build) : List Nat :=
   (List.range b.length).filter fun k => decide (InTightSlot (b.take k) (b.get k))
 
+/-- Every pair of turned blocks `i < j` that share inside space (P1). -/
+def tOverlapPairs (b : TBuild) : List Diagnostic :=
+  (List.range b.length).flatMap fun i =>
+    ((List.range b.length).filter fun j => i < j && decide (TOverlap (b.get i) (b.get j))).map
+      fun j => .overlap i j
+
+/-- The first block after which a turned build is not shown to be well-formed and to stand. -/
+def firstUnsafeTurned (b : TBuild) : Option Nat :=
+  (List.range b.length).find? fun k =>
+    !(decide (TWellFormed (b.take (k + 1))) && tStands (b.take (k + 1)))
+
 /-- The first block after which the build is not shown to be well-formed and solid.
 (Near misses get their own `clearance` diagnostic.) -/
 def firstUnsafeBlock (ε : Rat) (b : Build) : Option Nat :=
@@ -89,8 +103,21 @@ def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : Bu
   let stepDiags := stepDiagnostics h plan
   match buildOf plan.blocks with
   | none =>
-      let bad := (plan.blocks.findIdx? fun p => (plankOf p).isNone).getD 0
-      { ok := false, diagnostics := countDiags ++ stepDiags ++ [.unstable (stepOf bad) bad] }
+      match turnedBuildOf plan.blocks with
+      | some tb =>
+          -- Some block is turned by a 15° step that is not a quarter turn (B6): check at the
+          -- planned positions only.
+          let safe := checkTurnedPlan maxBlocks tb
+          let unsafeDiags : List Diagnostic :=
+            if safe then [] else
+              match firstUnsafeTurned tb with
+              | some k => [.unstable (stepOf k) k]
+              | none => []
+          { ok := stepDiags.isEmpty && safe,
+            diagnostics := countDiags ++ stepDiags ++ tOverlapPairs tb ++ unsafeDiags }
+      | none =>
+          let bad := (plan.blocks.findIdx? fun p => (turnedOf p).isNone).getD 0
+          { ok := false, diagnostics := countDiags ++ stepDiags ++ [.unstable (stepOf bad) bad] }
   | some b =>
       let safe := checkPlan opts h.epsRel maxBlocks b
       let unsafeDiags : List Diagnostic :=

@@ -24,6 +24,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | `Tower.lean` | the square tower of example E8 | yes: read it |
 | `Column.lean` | the simple centre-of-mass rule for a single column (section 7) | yes: read it |
 | `FromCore.lean` | `plankOf`, `buildOf`: a core block (centre, quarter turn) as a physics plank (lowest corner, one of six poses) | yes: read it |
+| `Turned.lean` | B6: planks turned in steps of 15°: `TOverlap`, `TRestsOn`, `TWellFormed`, `TStable`, `TSafePlan`, `turnedBuildOf` | yes: read it |
 | `Examples.lean` | builds E1–E12; proofs from the rules alone that E1 stands, that E4 falls, that E3 is not solid, and a few more | checked by Lean |
 
 | File in this folder | What it does | Trusted? |
@@ -31,6 +32,7 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 | `Solver.lean` | exact-fraction simplex; proposes pushes or a fall motion | no: every proposal is checked |
 | `Robust.lean` | `SolidCertificate`: loads whose points move with the errors | checked by the proofs |
 | `RobustSolver.lean` | proposes a solidity certificate (an LP, then a top-down pass) | no: checked |
+| `Turned.lean` | B6: patch corners by clipping, the simplex for turned builds (untrusted), `checkTPushes`, `checkTurnedPlan` | the checkers are proven |
 | `Reach.lean` | K3 checker: tries five straight paths (from above, from each side) plus the drop | checked by the proofs |
 | `Engine.lean` | `stabilityAnswer`, `verdict` (solid / risky / falls), `checkPlan` | checked by the proofs |
 | `CoreAdapter.lean` | `coreCheck` and `physicsEngine`: the engine behind `KaplaCore.PhysicsEngine` | checked by the proofs |
@@ -85,9 +87,13 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 - `plankOf_box`: a core block and the plank it becomes fill the same box.
+- `checkTPushes_sound`, `checkTurnedPlan_sound` (B6): for planks turned in steps of 15°, an
+  accepted plan has at most N planks and after every step is well-formed and stable at the
+  planned positions. Placement errors, gaps and reach are not checked for turned plans yet.
 - `coreCheck_ok_sound`: when `coreCheck opts` says a core plan is `ok`, every step places 1 to
-  `hands` blocks, every block has a physics pose, and the blocks, one after the other, are a
-  safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5). With the planner's
+  `hands` blocks, and either every block has a physics pose and the blocks, one after the
+  other, are a safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5), or some
+  block is turned by a 15° step and the blocks are a safe turned plan (B6). With the planner's
   `planPure_sound` (its candidates are `ok`), every candidate is a safe plan.
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.

@@ -60,6 +60,13 @@ and is not part of what we verify.
 - **B5. Position.** A plank's position is the corner with the smallest
   `x`, `y` and `z`. Any fraction is allowed. (The app may snap to a grid; the
   engine does not need one.)
+- **B6. Turned planks.** A plank may also be turned about the vertical axis in steps of
+  15° (15°, 30°, 45°, 60°, 75°, and so on all the way round). It is still never tilted:
+  its top and bottom faces stay horizontal, so every contact is still a flat, horizontal
+  patch and F3 still holds. 15° and its multiples have no exact fraction for their cosine,
+  so the engine uses the closest exact turns (15.19°, 29.86°, 45.24°, 60.14°, 74.81°).
+  For now a plan with a turned plank is checked only at the planned positions (P1–P3 and
+  S2 after every step); R1, R5, gaps and K3 are not checked for it.
 
 *Why B4:* if every plank is parallel to the axes, every contact between planks
 is a flat, horizontal patch. That makes the physics much simpler (see F3).
