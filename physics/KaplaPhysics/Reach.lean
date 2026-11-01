@@ -55,10 +55,13 @@ instance : (d : Dir) → (p : Plank) → (h : Rat) → (q : Plank) → Decidable
 instance (p : Plank) (h : Rat) (q : Plank) : Decidable (DropMisses p h q) := by
   unfold DropMisses OverlapXY; infer_instance
 
-/-- The first direction whose path and drop miss every placed plank, if any. -/
+/-- The first direction whose path and drop miss every placed plank, if any. A gap `h`
+that is not above zero gives no drop, so then no direction is accepted. -/
 def reachDir? (placed : Build) (p : Plank) (h : Rat) : Option Dir :=
-  [Dir.fromAbove, .fromPlusX, .fromMinusX, .fromPlusY, .fromMinusY].find? fun d =>
-    decide (∀ q ∈ placed, DropMisses p h q ∧ RayMisses d p h q)
+  if 0 < h then
+    [Dir.fromAbove, .fromPlusX, .fromMinusX, .fromPlusY, .fromMinusY].find? fun d =>
+      decide (∀ q ∈ placed, DropMisses p h q ∧ RayMisses d p h q)
+  else none
 
 /-- The steps of a plan (numbered from 0) for which the checker finds no straight path.
 The app shows a warning "this step may be hard to reach" for each. -/

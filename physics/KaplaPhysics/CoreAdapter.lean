@@ -14,15 +14,20 @@ How core's plan is read:
   place one plank per step. We check the build after **every block**, in list order, not
   only after every step. That is cautious: a step whose blocks only stand together (for
   example a counterweight put on at the same time) is refused.
-* **Placement error.** `epsRel` is used as `ε` of rule R1: every block may land up to
-  `epsRel` off its planned spot along `x` and along `y`. The default is 10/39 (2 mm), as
-  in the rules.
+* **Placement error: R1 is the model.** `epsRel` is used as `ε` of rule R1: every block
+  may land up to `epsRel` off its own planned spot along `x` and along `y`. The default is
+  10/39 (2 mm), as in the rules. Core's `HumanModel` also allows errors that add up from
+  level to level (up to `eAbs`); those are not covered. With `ε = eAbs`, no build taller
+  than one level would pass, so the team chose R1.
+* **Clearance.** The plan is checked with the default `PlanOptions` (clearance on): blocks
+  that share some height must be at least `2 * epsRel` apart, so no placement error can
+  push them into each other. Pairs that are closer get a `clearance` diagnostic.
 * **Turns.** Only quarter turns have a physics pose. A plan with any other turn is not
   `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
   plan not `ok`.
 * **Not modelled:** `eAbs`, `press`, `clear` and `muSafe` are not used, and the engine never
-  gives `slides`, `pressTips`, `clearance` or `unevenSupports`.
+  gives `slides`, `pressTips` or `unevenSupports`.
 
 `coreCheck_ok_sound` (statement in `specs/KaplaSpecs/Physics.lean`) says what `ok` means. -/
 
@@ -47,15 +52,26 @@ def overlapPairs (b : Build) : List Diagnostic :=
     ((List.range b.length).filter fun j => i < j && decide (Overlap (b.get i) (b.get j))).map
       fun j => .overlap i j
 
-/-- The first block after which the build is not shown to be well-formed and solid. -/
+/-- Every pair of blocks `i < j` that do not share inside space but are too close: a
+placement error up to `ε` could push them into each other (`ClearPair`). -/
+def clearancePairs (ε : Rat) (b : Build) : List Diagnostic :=
+  (List.range b.length).flatMap fun i =>
+    ((List.range b.length).filter fun j =>
+      i < j && !decide (Overlap (b.get i) (b.get j)) &&
+        !decide (ClearPair ε (b.get i) (b.get j))).map fun j => .clearance i j
+
+/-- The first block after which the build is not shown to be well-formed, clear and
+solid. -/
 def firstUnsafeBlock (ε : Rat) (b : Build) : Option Nat :=
   (List.range b.length).find? fun k =>
-    !(decide (WellFormed (b.take (k + 1))) && solidAnswer ε (b.take (k + 1)))
+    !(decide (WellFormed (b.take (k + 1))) && decide (Clear ε (b.take (k + 1))) &&
+      solidAnswer ε (b.take (k + 1)))
 
 /-- `KaplaCore.PhysicsEngine.check`, done by the verified engine.
 
 `ok` is true exactly when every step places 1 to `hands` blocks, every block has a physics
-pose, and `checkPlan` accepts the blocks as a plan of at most `maxBlocks` planks.
+pose, and `checkPlan` (default options) accepts the blocks as a plan of at most `maxBlocks`
+planks.
 
 If a block has no physics pose, or the build after a block is not shown to stand, the
 report has `unstable step block` for the first such block. The engine does not say which
@@ -70,7 +86,7 @@ def coreCheck (h : HumanModel) (maxBlocks : Nat) (plan : BuildPlan) : PhysicsRep
       let bad := (plan.blocks.findIdx? fun p => (plankOf p).isNone).getD 0
       { ok := false, diagnostics := countDiags ++ stepDiags ++ [.unstable (stepOf bad) bad] }
   | some b =>
-      let safe := checkPlan h.epsRel maxBlocks b
+      let safe := checkPlan {} h.epsRel maxBlocks b
       let unsafeDiags : List Diagnostic :=
         if safe then [] else
           match firstUnsafeBlock h.epsRel b with
@@ -79,7 +95,8 @@ def coreCheck (h : HumanModel) (maxBlocks : Nat) (plan : BuildPlan) : PhysicsRep
       let reachDiags : List Diagnostic :=
         ((hardToReach dropGap b).map stepOf).eraseDups.map .unreachable
       { ok := stepDiags.isEmpty && safe,
-        diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++ unsafeDiags ++ reachDiags }
+        diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++ clearancePairs h.epsRel b ++
+          unsafeDiags ++ reachDiags }
 
 /-- The verified physics engine, for `app/Main.lean` to pass to the planner. -/
 def physicsEngine : KaplaCore.PhysicsEngine := ⟨coreCheck⟩

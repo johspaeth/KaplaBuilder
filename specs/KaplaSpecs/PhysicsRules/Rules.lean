@@ -143,24 +143,50 @@ example : Build.shift [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 5, 0, 1⟩] (fun i => i
 def SmallShift (ε : Rat) (n : Nat) (d : Nat → Rat × Rat) : Prop :=
   ∀ i < n, -ε ≤ (d i).1 ∧ (d i).1 ≤ ε ∧ -ε ≤ (d i).2 ∧ (d i).2 ≤ ε
 
-/-- R3. The build is solid: it is stable for every combination of placement errors of
-at most `ε`.
+/-- R3. The build is solid: the error `ε` is not below zero, and the build is stable for
+every combination of placement errors of at most `ε`.
+
+A negative `ε` allows no errors at all, so "stable for every error" would then say
+nothing; that is why `0 ≤ ε` is part of this rule.
 
 R5 (a plank pushed against its neighbour moves with it) only removes some of these
 combinations, so a build that is solid here is also solid under R5. -/
 def SolidWithin (ε : Rat) (b : Build) : Prop :=
-  ∀ d, SmallShift ε b.length d → Stable (b.shift d)
+  0 ≤ ε ∧ ∀ d, SmallShift ε b.length d → Stable (b.shift d)
 
 /-- R3 with the default error of 2 mm. -/
 def Solid (b : Build) : Prop := SolidWithin placementError b
 
 /-! ## Build plans (K1, K4, K5) -/
 
+/-- R1 with P1–P3. The build stays well-formed for every combination of placement errors
+of at most `ε`: wherever the planks land, no two share inside space and each one rests on
+something.
+
+Two planks placed side by side and touching do not meet this rule: an error could push
+one into the other. (R5 says the neighbour would move with it; this rule does not model
+that, so it errs on the safe side.) -/
+def LegalWithin (ε : Rat) (b : Build) : Prop :=
+  ∀ d, SmallShift ε b.length d → WellFormed (b.shift d)
+
+/-- Which checks a plan must pass. The user can switch them in the app. -/
+structure PlanOptions where
+  /-- Ask that placement errors can never push two planks into each other
+  (`LegalWithin`). On by default. Off allows planks placed side by side and touching, but
+  then overlaps are checked only at the planned positions. -/
+  clearance : Bool := true
+  deriving Repr, DecidableEq, Inhabited
+
 /-- K1, K4, K5: the plan places one plank per step, uses at most `maxPlanks` planks, and
-after every step the build so far is well-formed and solid (placement error up to `ε`). -/
-def SafePlan (ε : Rat) (maxPlanks : Nat) (steps : Build) : Prop :=
+after every step the build so far is
+1. well-formed at the planned positions,
+2. if `opts.clearance` is on: still well-formed with placement errors up to `ε`, and
+3. solid with placement errors up to `ε`. -/
+def SafePlan (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build) : Prop :=
   steps.length ≤ maxPlanks ∧
-    ∀ k, 1 ≤ k → k ≤ steps.length → WellFormed (steps.take k) ∧ SolidWithin ε (steps.take k)
+    ∀ k, 1 ≤ k → k ≤ steps.length →
+      WellFormed (steps.take k) ∧ (opts.clearance → LegalWithin ε (steps.take k)) ∧
+        SolidWithin ε (steps.take k)
 
 end KaplaPhysics
 
@@ -178,6 +204,7 @@ def dropGap : Rat := 1
 /-- K2, K3. A straight path that places `p` among the planks already `placed`: the plank,
 in its final pose, comes in a straight line from far away along direction `v` to a point
 `h` above its spot, then drops `h` straight down.
+0. the gap `h` is above zero (there is a real drop at the end);
 1. `v` is not zero (so the path starts far away) and never points down (it stays above
    the table);
 2. on the straight line, at every distance `t ≥ 0` back along `v`, the plank shares no
@@ -185,7 +212,7 @@ in its final pose, comes in a straight line from far away along direction `v` to
 3. during the drop, at every height `s` between `0` and `h`, the same holds.
 Touching a placed plank at a face, edge or corner is allowed. -/
 def StraightPath (placed : Build) (p : Plank) (h : Rat) (v : Rat × Rat × Rat) : Prop :=
-  v ≠ (0, 0, 0) ∧ 0 ≤ v.2.2 ∧
+  0 < h ∧ v ≠ (0, 0, 0) ∧ 0 ≤ v.2.2 ∧
   (∀ t, 0 ≤ t → ∀ q ∈ placed, ¬ Overlap (p.moveBy (t * v.1) (t * v.2.1) (h + t * v.2.2)) q) ∧
   (∀ s, 0 ≤ s → s ≤ h → ∀ q ∈ placed, ¬ Overlap (p.moveBy 0 0 s) q)
 

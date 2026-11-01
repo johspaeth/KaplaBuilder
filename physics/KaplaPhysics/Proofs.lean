@@ -237,7 +237,7 @@ theorem passes_sound (ε : Rat) (b : Build) (o : Option (List Load))
 theorem solidAnswer_sound (ε : Rat) (b : Build) (h : solidAnswer ε b = true) :
     SolidWithin ε b := by
   simp only [solidAnswer, Bool.or_eq_true, Bool.and_eq_true] at h
-  rcases h with h | ⟨_, h⟩ <;> exact passes_sound ε b _ h
+  rcases h.2 with h | ⟨_, h⟩ <;> exact passes_sound ε b _ h
 
 /-- Property 3: when the engine's verdict is "solid", the build is stable for every
 combination of placement errors up to `ε` (R3). -/
@@ -247,6 +247,12 @@ theorem verdict_solid_sound (ε : Rat) (b : Build) (h : verdict ε b = .solid) :
   split at h
   · exact solidAnswer_sound ε b (by assumption)
   · split at h <;> cases h
+
+/-- A "solid" verdict is only given for an error `ε` not below zero, and the build then
+stands at the exact positions too. -/
+theorem verdict_solid_stable (ε : Rat) (b : Build) (h : verdict ε b = .solid) :
+    0 ≤ ε ∧ Stable b :=
+  ⟨(verdict_solid_sound ε b h).1, solid_stable ε b (verdict_solid_sound ε b h)⟩
 
 /-- When the verdict is "risky", the build is stable at the exact positions (S2). -/
 theorem verdict_risky_sound (ε : Rat) (b : Build) (h : verdict ε b = .risky) : Stable b := by
@@ -269,16 +275,82 @@ theorem verdict_falls_sound (ε : Rat) (b : Build) (h : verdict ε b = .falls) :
 
 /-! ## Accepted plans are safe at every step -/
 
+/-- In a stable build every plank rests on the ground or on a plank of the build: some
+allowed push must hold it up, and a push needs a contact patch. -/
+theorem stable_resting (b : Build) (hs : Stable b) (i : Nat) (hi : i < b.length) :
+    (restPatch b i .ground).isSome ∨ ∃ j < b.length, (restPatch b i (.plank j)).isSome := by
+  obtain ⟨ps, hall, hbal⟩ := hs
+  -- Some push has plank `i` as its upper plank; otherwise the net push up is at most 0.
+  have ⟨p, hp, hpi⟩ : ∃ p ∈ ps, p.upper = i := by
+    apply Classical.byContradiction
+    intro hno
+    have hle : 0 ≤ (ps.map fun p => -(p.upOn i)).sum :=
+      sum_map_nonneg _ _ fun p hp' => by
+        have hf := (hall p hp').1
+        have : p.upper ≠ i := fun e => hno ⟨p, hp', e⟩
+        simp only [Push.upOn, this, ite_false]; split <;> grind
+    rw [sum_map_neg, (hbal i hi).1] at hle
+    grind
+  obtain ⟨_, _, hin, hr⟩ := hall p hp
+  subst hpi
+  revert hin hr
+  cases p.lower with
+  | ground =>
+    intro _ hr; left
+    cases e : restPatch b p.upper .ground with
+    | none => rw [e] at hr; exact hr.elim
+    | some _ => rfl
+  | plank j =>
+    intro hj hr; right
+    refine ⟨j, hj, ?_⟩
+    cases e : restPatch b p.upper (.plank j) with
+    | none => rw [e] at hr; exact hr.elim
+    | some _ => rfl
+
+/-- Two planks that are clear of each other (`ClearPair`) do not overlap after moves of at
+most `ε` along `x` and `y`. -/
+theorem clearPair_moved (ε : Rat) (p q : Plank) (hc : ClearPair ε p q) (a b c e : Rat)
+    (ha : -ε ≤ a ∧ a ≤ ε) (hb : -ε ≤ b ∧ b ≤ ε) (hc' : -ε ≤ c ∧ c ≤ ε) (he : -ε ≤ e ∧ e ≤ ε) :
+    ¬ Overlap { p with x := p.x + a, y := p.y + b } { q with x := q.x + c, y := q.y + e } := by
+  simp only [ClearPair, Plank.x1, Plank.y1, Plank.top] at hc
+  simp only [Overlap, Plank.x1, Plank.y1, Plank.top]
+  grind
+
+/-- A build that is well-formed, clear of overlaps under errors (`Clear`), and solid stays
+well-formed for every placement error up to `ε`. -/
+theorem legalWithin_of_clear (ε : Rat) (b : Build) (hw : WellFormed b) (hc : Clear ε b)
+    (hs : SolidWithin ε b) : LegalWithin ε b := by
+  intro d hd
+  refine ⟨?_, ?_, ?_⟩
+  · intro i hi j hj hij
+    rw [shift_length] at hi hj
+    rw [shift_get b d i hi, shift_get b d j hj]
+    have hi' := hd i hi
+    have hj' := hd j hj
+    exact clearPair_moved ε _ _ (hc i hi j hj hij) _ _ _ _
+      ⟨hi'.1, hi'.2.1⟩ ⟨hi'.2.2.1, hi'.2.2.2⟩ ⟨hj'.1, hj'.2.1⟩ ⟨hj'.2.2.1, hj'.2.2.2⟩
+  · intro i hi
+    rw [shift_length] at hi
+    rw [shift_get b d i hi]
+    exact hw.aboveGround i hi
+  · intro i hi
+    exact stable_resting _ (hs.2 d hd) i hi
+
 /-- Property 4: an accepted plan uses at most `maxPlanks` planks, and after every step the
-build so far is well-formed and solid for placement errors up to `ε` (K4, K5). -/
-theorem checkPlan_sound (ε : Rat) (maxPlanks : Nat) (steps : Build)
-    (h : checkPlan ε maxPlanks steps = true) : SafePlan ε maxPlanks steps := by
-  simp only [checkPlan, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
-    List.mem_range] at h
+build so far is well-formed, stays well-formed with placement errors up to `ε` (when
+`opts.clearance` is on), and is solid for those errors (K4, K5). -/
+theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
+    (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
+  simp only [checkPlan, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true',
+    decide_eq_true_eq, List.all_eq_true, List.mem_range] at h
   refine ⟨h.1, fun k hk1 hk2 => ?_⟩
-  obtain ⟨hw, hs⟩ := h.2 (k - 1) (by omega)
-  rw [show k - 1 + 1 = k by omega] at hw hs
-  exact ⟨hw, solidAnswer_sound ε _ hs⟩
+  obtain ⟨⟨hw, hc⟩, hs⟩ := h.2 (k - 1) (by omega)
+  rw [show k - 1 + 1 = k by omega] at hw hc hs
+  have hs := solidAnswer_sound ε _ hs
+  refine ⟨hw, fun ho => ?_, hs⟩
+  rcases hc with hc | hc
+  · rw [hc] at ho; cases ho
+  · exact legalWithin_of_clear ε _ hw hc hs
 
 /-! ## The simple rule for a column (property 6) -/
 
@@ -319,15 +391,51 @@ theorem stable_withFriction (μ : Rat) (hμ : 0 ≤ μ) (b : Build) (h : Stable 
 
 /-! ## Square towers, at any height (property 9) -/
 
+/-- Two planks of the square tower are clear of each other for errors up to `ε ≤ 1/2`:
+planks on different levels share no height, and the two planks of one level are 9 apart. -/
+theorem tower_clearPair (ε : Rat) (hε : ε ≤ 1 / 2) (i j : Nat) (hij : i ≠ j) :
+    ClearPair ε (towerPlank i) (towerPlank j) := by
+  by_cases hl : i / 2 = j / 2
+  · -- Same level: the two planks are on opposite sides, 9 apart.
+    have hp : i % 2 ≠ j % 2 := by omega
+    right
+    rcases towerPlank_cases i with ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ <;>
+    (try omega) <;>
+    · rw [ei, ej]
+      simp only [Plank.x1, Plank.y1, Pose.size]
+      grind
+  · -- Different levels: one is at least a full thickness above the other.
+    have hc : ((i / 2 : Nat) : Rat) + 1 ≤ ((j / 2 : Nat) : Rat) ∨
+        ((j / 2 : Nat) : Rat) + 1 ≤ ((i / 2 : Nat) : Rat) := by
+      rcases Nat.lt_or_gt_of_ne hl with h' | h'
+      · left; exact_mod_cast h'
+      · right; exact_mod_cast h'
+    left
+    rcases towerPlank_cases i with ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ <;>
+    · rw [ei, ej]
+      simp only [Plank.top, Pose.size]
+      grind
+
+theorem tower_clear (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : Clear ε (towerBuild k) := by
+  intro i hi j hj hij
+  simp only [towerBuild_length] at hi hj
+  rw [towerBuild_get k i hi, towerBuild_get k j hj]
+  exact tower_clearPair ε hε i j hij
+
 /-- Property 9: building the square tower level by level is a safe plan, at any height
-`n`: after every step it is well-formed and solid for placement errors up to `ε`, for any
-`ε ≤ 1/2` (3.9 mm; the default is 2 mm). -/
-theorem squareTower_safe (ε : Rat) (hε : ε ≤ 1 / 2) (n : Nat) :
-    SafePlan ε (2 * n) (squareTower n) := by
+`n`: after every step it is well-formed, stays well-formed with placement errors up to `ε`,
+and is solid for those errors, for any `ε` from 0 to 1/2 (3.9 mm; the default is 2 mm).
+This holds with the clearance check on or off. -/
+theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε : ε ≤ 1 / 2)
+    (n : Nat) : SafePlan opts ε (2 * n) (squareTower n) := by
   have hlen : (squareTower n).length = 2 * n := by simp [squareTower]
   refine ⟨by omega, fun k _ hk => ?_⟩
   rw [squareTower_take n k (by omega)]
-  exact ⟨tower_wellFormed k, tower_solid ε hε k⟩
+  have hs := tower_solid ε hε0 hε k
+  exact ⟨tower_wellFormed k,
+    fun _ => legalWithin_of_clear ε _ (tower_wellFormed k) (tower_clear ε hε k) hs, hs⟩
 
 /-! ## Reaching the spot (property 5, K3) -/
 
@@ -349,9 +457,13 @@ theorem rayMisses_sound (d : Dir) (p q : Plank) (h : Rat) (hm : RayMisses d p h 
 path and a drop that touch no placed plank (K3). -/
 theorem reachDir_sound (placed : Build) (p : Plank) (h : Rat) (d : Dir)
     (hd : reachDir? placed p h = some d) : StraightPath placed p h d.vec := by
+  unfold reachDir? at hd
+  split at hd
+  case isFalse => cases hd
+  rename_i hh
   have hm := List.find?_some hd
   simp only [decide_eq_true_eq] at hm
-  refine ⟨by cases d <;> decide, by cases d <;> decide +kernel, ?_, ?_⟩
+  refine ⟨hh, by cases d <;> decide, by cases d <;> decide +kernel, ?_, ?_⟩
   · intro t ht q hq; exact rayMisses_sound d p q h (hm q hq).2 t ht
   · intro s hs0 hsh q hq; exact dropMisses_sound p q h (hm q hq).1 s hs0 hsh
 
@@ -419,12 +531,12 @@ block has a physics pose, and the blocks, one per step, are a safe plan (K4, K5)
 theorem coreCheck_ok_sound (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan h.epsRel maxBlocks b := by
+      ∃ b, buildOf plan.blocks = some b ∧ SafePlan {} h.epsRel maxBlocks b := by
   unfold coreCheck at hok
   split at hok
   · simp at hok
   · rename_i b hb
     simp only [Bool.and_eq_true] at hok
-    exact ⟨stepDiagnostics_nil h plan hok.1, b, hb, checkPlan_sound _ _ _ hok.2⟩
+    exact ⟨stepDiagnostics_nil h plan hok.1, b, hb, checkPlan_sound _ _ _ _ hok.2⟩
 
 end KaplaPhysics

@@ -54,6 +54,17 @@ example : verdict placementError e1 = .solid := by decide +kernel
 -- Ruled out: "solid" for E3, which falls if its top plank lands 2 mm too far.
 example : ¬ SolidWithin placementError e3 := e3_not_solid
 
+/-- A "solid" verdict is only given for an error `ε` not below zero, and then the build
+also stands at the exact positions. -/
+theorem verdict_solid_stable (ε : Rat) (b : Build) (h : verdict ε b = .solid) :
+    0 ≤ ε ∧ Stable b := by
+  sorry
+
+-- The verdict for E1 with 2 mm of error is "solid".
+example : verdict placementError e1 = .solid := by decide +kernel
+-- Ruled out: "solid" for E4 with a negative error. E4 falls at the exact positions.
+example : ¬ (0 ≤ (-1 : Rat) ∧ Stable e4) := fun h => e4_not_stable h.2
+
 /-- When the verdict is "risky", the build is stable at the exact positions (R4). -/
 theorem verdict_risky_sound (ε : Rat) (b : Build) (h : verdict ε b = .risky) : Stable b := by
   sorry
@@ -73,29 +84,36 @@ example : verdict placementError e4 = .falls := by decide +kernel
 example : ¬ ¬ Stable e1 := fun h => h e1_stable
 
 /-- Property 4 ("the plan is safe"): when the engine accepts a plan, it uses at most
-`maxPlanks` planks, and after every step the build so far is well-formed and solid for
-placement errors up to `ε` (K4, K5). -/
-theorem checkPlan_sound (ε : Rat) (maxPlanks : Nat) (steps : Build)
-    (h : checkPlan ε maxPlanks steps = true) : SafePlan ε maxPlanks steps := by
+`maxPlanks` planks, and after every step the build so far is well-formed, stays
+well-formed with placement errors up to `ε` (only when `opts.clearance` is on), and is
+solid for those errors (K4, K5). -/
+theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
+    (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   sorry
 
 -- The engine accepts the one-step plan E1.
-example : checkPlan placementError 200 e1 = true := by decide +kernel
+example : checkPlan {} placementError 200 e1 = true := by decide +kernel
 -- Ruled out: accepting E12 in its given order. After step 2, plank B sticks out past A's
 -- end with nothing on it yet, and falls.
-example : ¬ SafePlan placementError 200 e12 := fun h =>
-  not_solid_of_not_stable _ (by decide +kernel) _
+example : ¬ SafePlan {} placementError 200 e12 := fun h =>
+  not_solid_of_not_stable _ _
     (show ¬ Stable (e12.take 2) from overhang_not_stable 9 (by decide +kernel))
-    (h.2 2 (by decide) (by decide)).2
+    (h.2 2 (by decide) (by decide)).2.2
 -- Ruled out: accepting a plan with more planks than allowed.
-example : ¬ SafePlan placementError 1 e2 := fun h => absurd h.1 (by decide)
+example : ¬ SafePlan {} placementError 1 e2 := fun h => absurd h.1 (by decide)
 -- Ruled out: accepting a plan with a plank that rests on nothing (E5: an edge touch, P3).
-example : ¬ SafePlan placementError 200 e5 := fun h =>
+example : ¬ SafePlan {} placementError 200 e5 := fun h =>
   absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
+-- Ruled out (clearance on): two planks 1/4 apart. Moving each 1/4 towards the other is
+-- within the 2 mm error and makes them share inside space (P1).
+example : ¬ SafePlan {} placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] :=
+  fun h => absurd ((h.2 2 (by decide) (by decide)).2.1 rfl
+      (fun i => if i = 0 then (0, 1 / 4) else (0, -1 / 4)) (by unfold SmallShift; decide +kernel))
+    (by decide +kernel)
 
-/-- Property 5 ("reachable" is right): when the checker finds a direction, the plank can
-come in along it in a straight line from far away and drop into place without sharing
-inside space with any plank already placed (K3). -/
+/-- Property 5 ("reachable" is right): when the checker finds a direction, the drop gap
+`h` is above zero, and the plank can come in along it in a straight line from far away and
+drop into place without sharing inside space with any plank already placed (K3). -/
 theorem reachDir_sound (placed : Build) (p : Plank) (h : Rat) (d : Dir)
     (hd : reachDir? placed p h = some d) : StraightPath placed p h d.vec := by
   sorry
@@ -104,9 +122,12 @@ theorem reachDir_sound (placed : Build) (p : Plank) (h : Rat) (d : Dir)
 example : reachDir? underRoof ⟨.flatY, 6, 0, 0⟩ dropGap = some .fromPlusY := by decide +kernel
 -- Ruled out: coming straight down into a slot that has a plank right above it.
 example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
-  intro ⟨_, _, hpath, _⟩
+  intro ⟨_, _, _, hpath, _⟩
   apply hpath 0 (by decide) ⟨.flatX, 0, 0, 1⟩ (by decide)
   decide +kernel
+-- Ruled out: a path whose final drop has a gap of zero.
+example (v : Rat × Rat × Rat) : ¬ StraightPath slotPlaced slotPlank 0 v :=
+  fun h => absurd h.1 (by decide)
 
 /-- Property 5 for a plan: when no step is listed as hard to reach, every step can be put
 in place by a straight path and a drop. -/
@@ -145,15 +166,16 @@ example : ¬ StableWithFriction (2 / 5) floating := floating_not_stableWithFrict
 
 /-- Property 9 (square towers are safe to build, at any height): building the square tower
 (example E8) level by level is a safe plan for every height `n`: after every step it is
-well-formed and solid for placement errors up to any `ε ≤ 1/2` (3.9 mm). -/
-theorem squareTower_safe (ε : Rat) (hε : ε ≤ 1 / 2) (n : Nat) :
-    SafePlan ε (2 * n) (squareTower n) := by
+well-formed, stays well-formed with placement errors up to `ε`, and is solid for those
+errors, for any `ε` from 0 to 1/2 (3.9 mm), with the clearance check on or off. -/
+theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε : ε ≤ 1 / 2)
+    (n : Nat) : SafePlan opts ε (2 * n) (squareTower n) := by
   sorry
 
--- The default error, 2 mm, is within the limit.
-example : placementError ≤ 1 / 2 := by decide +kernel
+-- The default error, 2 mm, is within the limits.
+example : 0 ≤ placementError ∧ placementError ≤ 1 / 2 := by decide +kernel
 -- Ruled out: building a tower of `n` levels with fewer than `2 * n` planks.
-example : ¬ SafePlan placementError 1 (squareTower 1) := fun h => absurd h.1 (by decide +kernel)
+example : ¬ SafePlan {} placementError 1 (squareTower 1) := fun h => absurd h.1 (by decide +kernel)
 
 /-- Property 7 (contacts are right): the overlap of two rectangles holds exactly the points
 that lie in both. -/
@@ -280,12 +302,13 @@ example : KaplaCore.Pose.example.box ≠ (⟨.flatX, 0, 0, 1 / 2⟩ : Plank).toB
 
 /-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
 block has a physics pose, and the blocks, placed one after the other in plan order, are a
-safe plan: at most `maxBlocks` of them, and well-formed and solid for placement errors up to
-`epsRel` after every block (K4, K5). -/
+safe plan with the default options: at most `maxBlocks` of them, and after every block
+well-formed, still well-formed and solid for every placement error up to `epsRel` (R1, K4,
+K5). Core's errors that add up from level to level are not covered (R1 is the model). -/
 theorem coreCheck_ok_sound (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan h.epsRel maxBlocks b := by
+      ∃ b, buildOf plan.blocks = some b ∧ SafePlan {} h.epsRel maxBlocks b := by
   sorry
 
 -- One flat block on the ground, with the default builder: the engine says `ok`.

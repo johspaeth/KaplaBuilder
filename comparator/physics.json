@@ -5,6 +5,7 @@
     "KaplaPhysics.stabilityAnswer_stable_sound",
     "KaplaPhysics.stabilityAnswer_falls_sound",
     "KaplaPhysics.verdict_solid_sound",
+    "KaplaPhysics.verdict_solid_stable",
     "KaplaPhysics.verdict_risky_sound",
     "KaplaPhysics.verdict_falls_sound",
     "KaplaPhysics.checkPlan_sound",

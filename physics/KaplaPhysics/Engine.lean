@@ -99,8 +99,9 @@ def stabilityAnswer (b : Build) : Answer :=
 certificate, then check it. "No" can mean "not solid" or "the cautious check could not
 show it". -/
 def solidAnswer (ε : Rat) (b : Build) : Bool :=
-  passes (RobustSolver.proposeLoadsLocal ε b) ||
-    (b.length ≤ globalLimit && passes (RobustSolver.proposeLoads ε b))
+  decide (0 ≤ ε) &&
+    (passes (RobustSolver.proposeLoadsLocal ε b) ||
+      (b.length ≤ globalLimit && passes (RobustSolver.proposeLoads ε b)))
 where
   /-- The proposed certificate exists and passes the check. -/
   passes : Option (List Load) → Bool
@@ -126,12 +127,32 @@ def verdict (ε : Rat) (b : Build) : Verdict :=
     | .falls => .falls
     | .unknown => .unknown
 
+/-- Planks `p` and `q` stay apart for placement errors up to `ε`: they do not share
+any height, or there is a gap of at least `2 * ε` between them along `x` or along `y`. -/
+def ClearPair (ε : Rat) (p q : Plank) : Prop :=
+  (p.top ≤ q.z ∨ q.top ≤ p.z) ∨
+    (p.x1 + 2 * ε ≤ q.x ∨ q.x1 + 2 * ε ≤ p.x) ∨
+    (p.y1 + 2 * ε ≤ q.y ∨ q.y1 + 2 * ε ≤ p.y)
+
+instance (ε : Rat) (p q : Plank) : Decidable (ClearPair ε p q) := by
+  unfold ClearPair; infer_instance
+
+/-- No placement errors up to `ε` can push two planks of the build into each other. -/
+def Clear (ε : Rat) (b : Build) : Prop :=
+  ∀ i < b.length, ∀ j < b.length, i ≠ j → ClearPair ε (b.get i) (b.get j)
+
+instance (ε : Rat) (b : Build) : Decidable (Clear ε b) := by
+  unfold Clear; infer_instance
+
 /-- Check a build plan (K4, K5): at most `maxPlanks` planks, and after every step the
-build so far is well-formed and solid for placement errors up to `ε`. -/
-def checkPlan (ε : Rat) (maxPlanks : Nat) (steps : Build) : Bool :=
+build so far is well-formed, stays clear of overlaps for placement errors up to `ε` (only
+if `opts.clearance` is on), and is solid for those errors. -/
+def checkPlan (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build) : Bool :=
   decide (steps.length ≤ maxPlanks) &&
     (List.range steps.length).all fun k =>
-      decide (WellFormed (steps.take (k + 1))) && solidAnswer ε (steps.take (k + 1))
+      decide (WellFormed (steps.take (k + 1))) &&
+        (!opts.clearance || decide (Clear ε (steps.take (k + 1)))) &&
+        solidAnswer ε (steps.take (k + 1))
 
 /-- What the engine says about one step of a plan, for the planner and the web page. -/
 structure StepReport where

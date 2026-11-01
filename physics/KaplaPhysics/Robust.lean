@@ -107,9 +107,10 @@ def BalancedLoads (b : Build) (ls : List Load) (i : Nat) : Prop :=
 instance (b : Build) (ls : List Load) (i : Nat) : Decidable (BalancedLoads b ls i) := by
   unfold BalancedLoads; infer_instance
 
-/-- A certificate that the build is solid for errors of at most `ε`. -/
+/-- A certificate that the build is solid for errors of at most `ε` (with `ε` not below
+zero). -/
 def SolidCertificate (ε : Rat) (b : Build) (ls : List Load) : Prop :=
-  (∀ l ∈ ls, l.Valid ε b) ∧ ∀ i < b.length, BalancedLoads b ls i
+  0 ≤ ε ∧ (∀ l ∈ ls, l.Valid ε b) ∧ ∀ i < b.length, BalancedLoads b ls i
 
 instance (ε : Rat) (b : Build) (ls : List Load) : Decidable (SolidCertificate ε b ls) := by
   unfold SolidCertificate; infer_instance

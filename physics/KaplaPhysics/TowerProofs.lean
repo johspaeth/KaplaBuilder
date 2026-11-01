@@ -597,9 +597,10 @@ theorem tower_balanced (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) (hd : SmallShif
           (fun L => rfl)
       · rfl
 
-/-- After `k` steps, the square tower is solid for placement errors up to `ε ≤ 1/2`. -/
-theorem tower_solid (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : SolidWithin ε (towerBuild k) := by
-  intro d hd
+/-- After `k` steps, the square tower is solid for placement errors up to `ε`, from 0 to 1/2. -/
+theorem tower_solid (ε : Rat) (hε0 : 0 ≤ ε) (hε : ε ≤ 1 / 2) (k : Nat) :
+    SolidWithin ε (towerBuild k) := by
+  refine ⟨hε0, fun d hd => ?_⟩
   simp only [towerBuild_length] at hd
   refine ⟨towerPushes d k, tower_allowed d ε hε k hd, ?_⟩
   intro i hi
