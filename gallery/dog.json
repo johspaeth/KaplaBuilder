@@ -1,0 +1,703 @@
+{
+ "name": "dog",
+ "model": {
+  "name": "dog",
+  "bubbles": [
+   {
+    "label": "body",
+    "tags": [
+     "tower"
+    ],
+    "center": [
+     0,
+     0,
+     "35/100"
+    ],
+    "semi": [
+     "35/100",
+     "2/10",
+     "25/100"
+    ]
+   },
+   {
+    "label": "head",
+    "tags": [
+     "tower"
+    ],
+    "center": [
+     "45/100",
+     0,
+     "45/100"
+    ],
+    "semi": [
+     "15/100",
+     "15/100",
+     "15/100"
+    ]
+   },
+   {
+    "label": "front left leg",
+    "tags": [
+     "wall"
+    ],
+    "center": [
+     "2/10",
+     "-1/10",
+     "15/100"
+    ],
+    "semi": [
+     "5/100",
+     "5/100",
+     "15/100"
+    ]
+   },
+   {
+    "label": "front right leg",
+    "tags": [
+     "wall"
+    ],
+    "center": [
+     "2/10",
+     "1/10",
+     "15/100"
+    ],
+    "semi": [
+     "5/100",
+     "5/100",
+     "15/100"
+    ]
+   },
+   {
+    "label": "back left leg",
+    "tags": [
+     "wall"
+    ],
+    "center": [
+     "-2/10",
+     "-1/10",
+     "15/100"
+    ],
+    "semi": [
+     "5/100",
+     "5/100",
+     "15/100"
+    ]
+   },
+   {
+    "label": "back right leg",
+    "tags": [
+     "wall"
+    ],
+    "center": [
+     "-2/10",
+     "1/10",
+     "15/100"
+    ],
+    "semi": [
+     "5/100",
+     "5/100",
+     "15/100"
+    ]
+   },
+   {
+    "label": "tail",
+    "tags": [],
+    "center": [
+     "-4/10",
+     0,
+     "4/10"
+    ],
+    "semi": [
+     "5/100",
+     "5/100",
+     "1/10"
+    ]
+   }
+  ]
+ },
+ "proposal": {
+  "planner": "hand-designed",
+  "blocks": 40,
+  "height": "25",
+  "steps": [
+   {
+    "phase": "legs 1",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       "-5/2",
+       "1/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 1",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       "5/2",
+       "1/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 2",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       -5,
+       0,
+       "3/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 2",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       5,
+       0,
+       "3/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 3",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       "-5/2",
+       "5/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 3",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       "5/2",
+       "5/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 4",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       -5,
+       0,
+       "7/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 4",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       5,
+       0,
+       "7/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 5",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       "-5/2",
+       "9/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 5",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       "5/2",
+       "9/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 6",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       -5,
+       0,
+       "11/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "legs 6",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 0,
+       "s": 1
+      },
+      "center": [
+       5,
+       0,
+       "11/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 1",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       -3,
+       "13/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 1",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       0,
+       "13/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 1",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       3,
+       "13/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 2",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       -3,
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 2",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       0,
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 2",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       3,
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 3",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       2,
+       -3,
+       "17/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 3",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       0,
+       "17/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 3",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       2,
+       3,
+       "17/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 4",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       4,
+       -3,
+       "19/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 4",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       -2,
+       0,
+       "19/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 4",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       4,
+       3,
+       "19/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 5",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       5,
+       -3,
+       "21/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 5",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       -3,
+       0,
+       "21/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 5",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       5,
+       3,
+       "21/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 6",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       6,
+       -3,
+       "23/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 6",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       -3,
+       0,
+       "23/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 6",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       6,
+       3,
+       "23/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 7",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       6,
+       -3,
+       "25/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 7",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       -2,
+       0,
+       "25/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 7",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       6,
+       3,
+       "25/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "body 8",
+    "blocks": [
+     {
+      "up": "flat",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       0,
+       0,
+       "27/2"
+      ]
+     }
+    ]
+   }
+  ]
+ }
+}
