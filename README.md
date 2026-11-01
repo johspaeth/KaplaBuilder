@@ -21,8 +21,8 @@ notes, not needed to understand the project: [docs/WORKSPLIT.md](docs/WORKSPLIT.
 - Its **likeness score** is the score defined in `semantics/KaplaSemantics/Score.lean`, and is
   from 0 to 1. There is no minimum score: a person approves the design.
 
-These two are proven in `semantics/` (statements and proofs:
-[semantics/README.md](semantics/README.md)), but not yet checked by Comparator.
+These two are proven in `semantics/` and pass Comparator (statements and proofs:
+[semantics/README.md](semantics/README.md)).
 
 Not guaranteed (yet):
 
