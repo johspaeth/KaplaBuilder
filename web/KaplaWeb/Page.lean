@@ -126,10 +126,12 @@ function card(k){
    ${all.filter(b=>!below.includes(b)&&!same.includes(b)&&!nb.includes(b)).map(b=>poly(b,'f')).join('')}
    ${below.map(b=>poly(b,'b')).join('')}${same.map(b=>poly(b,'s')).join('')}${nb.map(b=>poly(b,'n')).join('')}
    <circle cx='0' cy='0' r='.35' fill='var(--muted)'/></svg>`;
-  const s=S[k], lines=nb.map(b=>`${b.up}, centre (${b.c[0].toFixed(1)}, ${b.c[1].toFixed(1)}), height ${b.bottom.toFixed(1)}, turned ${(((b.yaw%180)+180)%180).toFixed(1)}°`).join('<br>');
-  return `<div class='card' id='step${k}'><h4>Step ${k+1} <span class='hint'>· ${s.phase}</span>${s.n>1?\" <span class='two'>✋✋ two hands</span>\":''}</h4>
-   ${svg}<div>${lines}</div><div class='hint'>${s.grip}, ${s.approach}. Offsets are from the dot (origin).</div></div>`;
+  const s=S[k], lines=nb.map(b=>`${esc(b.up)}, centre (${b.c[0].toFixed(1)}, ${b.c[1].toFixed(1)}), height ${b.bottom.toFixed(1)}, turned ${(((b.yaw%180)+180)%180).toFixed(1)}°`).join('<br>');
+  return `<div class='card' id='step${k}'><h4>Step ${k+1}${s.phase?` <span class='hint'>· ${esc(s.phase)}</span>`:''}${s.n>1?\" <span class='two'>✋✋ two hands</span>\":''}</h4>
+   ${svg}<div>${lines}</div><div class='hint'>${esc(s.grip)}, ${esc(s.approach)}. Offsets are from the dot (origin).</div></div>`;
 }
+// Text from a plan goes into the cards as text, never as HTML.
+function esc(t){ return String(t).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'})[c]); }
 document.getElementById('cards').innerHTML = S.map((_,k)=>card(k)).join('');
 // ---------- 3D view ----------
 const el = document.getElementById('view'), slider = document.getElementById('slider'), label = document.getElementById('label');
@@ -205,7 +207,9 @@ if (window.THREE) {
     drawRuler(x0, x1, y0, y1, top);
     const R = Math.hypot(x1-x0, y1-y0, top)/2, dist = 1.15*R/Math.sin(cam.fov*Math.PI/360)/Math.min(1, cam.aspect);
     const tx = (x0+x1)/2, ty = (y0+y1)/2, tz = top/2;
-    if (fitted && ctl) turned = cam.position.clone().sub(ctl.target).normalize();
+    // keep the direction only if it is a real one: a NaN here would break every later picture
+    if (fitted && ctl) { const d = cam.position.clone().sub(ctl.target).normalize();
+      if ([d.x, d.y, d.z].every(Number.isFinite) && d.lengthSq() > 0.5) turned = d; }
     cam.position.set(tx+turned.x*dist, ty+turned.y*dist, tz+turned.z*dist);
     cam.near = R/50; cam.far = dist+R*30; cam.updateProjectionMatrix();
     if (ctl) { ctl.target.set(tx, ty, tz); ctl.update(); } else cam.lookAt(tx, ty, tz);
@@ -224,8 +228,11 @@ if (window.THREE) {
   render = () => { const k = +slider.value;
     meshes.forEach((m,i)=>{ m.visible = B[i].step < k; m.material = (B[i].step === k-1) ? hot : wood; });
     ren.render(scene, cam); };
-  const resize = () => { const w = el.clientWidth, h = el.clientHeight; ren.setSize(w, h); cam.aspect = w/h; cam.updateProjectionMatrix(); render(); };
-  window.addEventListener('resize', resize); resize();
+  // A hidden view has no size (in a background tab, for example). Then keep the last size: a size of
+  // 0 makes the camera NaN.
+  const resize = () => { const w = el.clientWidth, h = el.clientHeight; if (!(w > 0 && h > 0)) return;
+    ren.setSize(w, h); cam.aspect = w/h; cam.updateProjectionMatrix(); render(); };
+  window.addEventListener('resize', resize); if (window.ResizeObserver) new ResizeObserver(resize).observe(el); resize();
   drawBubbles([], 'blocks');
 } else { el.innerHTML = \"<p style='padding:1em'>3D view unavailable (three.js could not be loaded). The step cards below are complete.</p>\"; }
 const update = () => { const k=+slider.value; label.textContent = k===0 ? 'empty' : `after step ${k} of ${S.length}`; render(); };
@@ -284,7 +291,8 @@ const show = (model, height) => {
 // Replace the blocks and the slider. `plan` has `blocks` and `steps`, as in the page data.
 const setPlan = plan => { B = plan.blocks; S = plan.steps; drawBlocks();
   slider.max = S.length; slider.value = S.length;
-  document.getElementById('controls').style.display = S.length ? '' : 'none'; update(); };
+  document.getElementById('cards').innerHTML = S.map((_,k)=>card(k)).join('');
+  ['controls','stepsTitle'].forEach(id => document.getElementById(id).style.display = S.length ? '' : 'none'); update(); };
 // Show a plan with its model at the plan's height.
 const showPlan = (model, height, plan) => { setPlan(plan); return show(model, height); };
 const clearPlan = () => setPlan({blocks: [], steps: []});

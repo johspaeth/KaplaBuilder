@@ -92,8 +92,8 @@ in 3D, and run the "stand-in tower" planner. The chat and the `ai` planners ask 
 need a key, in one of two places (the file wins):
 
 ```sh
-cp semantics/dev/.env.example semantics/dev/.env   # then put your key in it
-export ANTHROPIC_API_KEY=...                       # or this
+cp .env.example .env            # then put your key in it (git ignores .env)
+export ANTHROPIC_API_KEY=...    # or this
 ```
 
 Also needed: `curl` (every call to Claude), and internet in the browser (the 3D view loads

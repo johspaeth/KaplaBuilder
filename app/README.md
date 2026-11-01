@@ -28,9 +28,16 @@ Flags for `check`, `view`, `plan` and `serve`:
 - `--robust-only`: refuses plans with turned blocks (15° steps that are not quarter turns).
   Without it, such a plan can be `ok`, but only at the planned positions: the notes say so.
 
-The API key for `serve` and the `ai` planners: `semantics/dev/.env` (copy
-`semantics/dev/.env.example`) or `ANTHROPIC_API_KEY` in the shell. The file wins when both
-are set. With no key, the chat says so and the rest of the site works.
+`serve` and the `ai` planners need an API key (below). With no key, the chat says so and the
+rest of the site works.
+
+## The API key
+
+The key lives in one file: `.env` in the top folder of the repo (copy `.env.example`; git ignores
+`.env`). Only `main` in `Main.lean` reads it. It puts the key into `ANTHROPIC_API_KEY` and starts
+`kapla` again once, so every command (`serve`, and `plan` with the `ai` strategies) gets it from the
+environment. With no `.env`, `ANTHROPIC_API_KEY` from the shell is used. The file wins when both are
+set.
 
 The blueprint is read twice: as `Float`s for drawing (KaplaWeb), and with exact fractions for
 the physics engine (`readBuildPlan`, listed as trusted in the top README).

@@ -35,7 +35,7 @@ def scoreReport (m : BubbleModel) (height : Q) (plan : List Pose) : ScoreReport 
 private def askClaude (key : Option String) (current : Option BubbleModel) (text : String) :
     IO TargetSpec := do
   let some key := key
-    | throw (IO.userError "no API key: put it in semantics/dev/.env")
+    | throw (IO.userError "no API key: put it in .env in the top folder of the repo")
   match ← chat key [] current text with
   | .error e => throw (IO.userError e)
   | .ok { model := some m, .. } => return .ofBubbles m
@@ -104,9 +104,6 @@ def runScore (modelText blocksText heightText : String) : Except String String :
   r.score == 1 / 52 && r.missing == 7 && r.extra == 44 && r.accepted && r.verdict == .symbolic &&
     r.perPart == [("ball", 1 / 8)]
 
-/-- Example: a block far from the ball. -/
-private def farBlock : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
-
 -- A block far away is rejected, and it is named.
 #guard
   let r := scoreReport ballModel 2 [flatBlock, farBlock]
@@ -155,5 +152,18 @@ def oneBlockText : String := include_str "../fixtures/plans/one-block.json"
 #guard (runScore "{}" oneBlockText "2") matches .error _
 #guard (runScore (encode ballModel) "{}" "2") matches .error _
 #guard (runScore (encode ballModel) oneBlockText "0") matches .error _
+
+/-- The tower fixture: a target, and 20 blocks in 10 layers with a hollow middle. -/
+def towerTargetText : String := include_str "../fixtures/targets/tower.json"
+def towerPlanText : String := include_str "../fixtures/plans/tower.json"
+
+-- The tower at height 10 is accepted. The filled middle counts: 1820 cubes are covered, of 3544 in
+-- the target, and 178 cubes stick out, so the score is 1820 / 3722.
+#guard
+  match decode towerTargetText, decodeBlocks towerPlanText with
+  | .ok m, .ok plan =>
+    let r := scoreReport m 10 plan
+    plan.length == 20 && r.accepted && r.score == 910 / 1861 && r.extra == 178 && r.missing == 1724
+  | _, _ => false
 
 end KaplaSemantics

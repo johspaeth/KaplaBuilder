@@ -37,7 +37,7 @@ lake env lean --run semantics/dev/Score.lean MODEL.json BLOCKS.json HEIGHT
 
 ## What is proven
 
-Five theorems, in `KaplaSemantics/Proofs/Semantics.lean`. They are about the definitions the
+Six theorems, in `KaplaSemantics/Proofs/Semantics.lean`. They are about the definitions the
 app runs, not about a copy. The statements are drafted for `specs/KaplaSpecs/Semantics.lean`
 and `comparator/semantics.json` in [SPEC_DRAFT.md](SPEC_DRAFT.md), **not yet checked by
 Comparator**.
@@ -46,9 +46,10 @@ Comparator**.
 |---|---|
 | `targetCells_correct` | The target's cubes are exactly the cubes whose middle is inside some bubble. |
 | `blockCells_correct` | The plan's cubes are exactly the cubes whose middle is inside some block, when every block's turn is a real rotation (cos² + sin² = 1). |
-| `checkWithin_correct` | The checker says yes exactly when every block has a cube inside some bubble (`WithinTarget`). |
-| `checkCovers_correct` | The checker says yes exactly when every bubble with cubes has a block cube (`CoversTarget`). |
+| `checkWithin_correct` | With real turns: the checker says yes exactly when every block shares a cube with some bubble (`WithinTarget`). |
+| `checkCovers_correct` | With real turns: the checker says yes exactly when every bubble with cubes shares a cube with some block (`CoversTarget`). |
 | `score_in_unit_interval` | The score is from 0 to 1. |
+| `perBubble_in_unit_interval` | The share of one bubble that is covered is from 0 to 1. |
 
 The score's formula is its definition (`score`, `Score.lean`): there is no separate reference
 to compare it with. Build-time tests show what it computes:
@@ -79,8 +80,9 @@ to compare it with. Build-time tests show what it computes:
 ## Known gaps
 
 - Not yet checked by Comparator (above).
-- `blockCells_correct` needs real turns. `decodeBlocks` refuses other turns, but the
-  blueprint readers in `app/` and `web/` do not check them.
+- `blockCells_correct`, `checkWithin_correct` and `checkCovers_correct` need real turns.
+  `decodeBlocks` refuses other turns, but the blueprint readers in `app/` and `web/` do not
+  check them.
 - "Within" and "covers" ask for **one** cube per block and per bubble, not more.
 - No image input yet; text only.
 

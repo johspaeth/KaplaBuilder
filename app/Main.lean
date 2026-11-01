@@ -19,7 +19,7 @@ import KaplaWeb
   runs a planner strategy (default `empty`) on a bubble model (default: the egg), with the
   verified physics engine and the verified scorer, and shows its plan. `--out` writes the
   plan as a blueprint for `kapla view`. The strategies `ai` and `ai-unchecked` call
-  Claude and need `ANTHROPIC_API_KEY`. `--effort` (`low`, `medium` or `high`, default `high`)
+  Claude and need `ANTHROPIC_API_KEY` (from `.env` in the top folder, or the shell). `--effort` (`low`, `medium` or `high`, default `high`)
   sets how much Claude thinks: lower is faster, and fewer designs pass.
 
 * `kapla serve [--port N]` starts the website on this computer only (default port 8000). Run it
@@ -608,9 +608,6 @@ def fromOurPage (port : Nat) (host origin : Option String) : Bool :=
 #guard !fromOurPage 8000 (some "example.com") none
 #guard !fromOurPage 8000 none none
 
-/-- The file that holds the API key, from the top folder of the repo. -/
-def keyFile : System.FilePath := "semantics" / "dev" / ".env"
-
 /-- `GET /status`: does the server have a key? The key itself never leaves the server. -/
 def getStatus (key : Option String) : Reply :=
   { json := (Json.mkObj [("key", Json.bool key.isSome)]).compress }
@@ -620,7 +617,7 @@ null). The answer is `reply` and `model`; `model` is null when Claude only answe
 def postChat (key : Option String) (body : String) : IO Reply := do
   let some key := key
     | return errorReply .serviceUnavailable
-        "The API key is missing. Put it in semantics/dev/.env or set ANTHROPIC_API_KEY, then start kapla serve again."
+        "The API key is missing. Put it in .env in the top folder of the repo, or set ANTHROPIC_API_KEY, then start kapla serve again."
   let parsed : Except String (String × List KaplaSemantics.ChatMessage × Option KaplaCore.BubbleModel) := do
     let j ← KaplaSemantics.parseJson body
     let text ← (← j.getObjVal? "text").getStr?
@@ -790,20 +787,10 @@ def serve (port : Nat) : IO UInt32 := do
   unless ← galleryDir.isDir do
     IO.eprintln "No gallery/ folder here. Run this from the top folder of the repo."
     return 1
-  -- The key in semantics/dev/.env wins. Without one, use ANTHROPIC_API_KEY from the shell, so a
-  -- fresh checkout or worktree needs no .env file.
-  let shellKey := (← IO.getEnv "ANTHROPIC_API_KEY").filter (!·.trimAscii.isEmpty)
-  let key := (← KaplaSemantics.loadApiKey keyFile) <|> shellKey
-  -- The AI planners read the key from the environment, and Lean cannot change the environment of a
-  -- running program. So start this program again once, with the key set.
-  if let some k := key then
-    if (← IO.getEnv "ANTHROPIC_API_KEY") != some k then
-      let child ← IO.Process.spawn
-        { cmd := ← IO.appPath |>.map toString, args := #["serve", "--port", toString port]
-          env := #[("ANTHROPIC_API_KEY", some k)] }
-      return ← child.wait
+  -- `main` has already put the key from .env here, if there is one.
+  let key := (← IO.getEnv "ANTHROPIC_API_KEY").filter (!·.trimAscii.isEmpty)
   if key.isNone then
-    IO.println "No API key in semantics/dev/.env or in ANTHROPIC_API_KEY, so the chat will not work. The rest of the site does."
+    IO.println "No API key in .env or in ANTHROPIC_API_KEY, so the chat will not work. The rest of the site does."
   try
     Async.block do
       let addr : Net.SocketAddress := .v4 ⟨.ofParts 127 0 0 1, port.toUInt16⟩
@@ -845,7 +832,22 @@ def usage : String :=
   "       kapla serve [--port N]\n" ++
   "       kapla gallery-check"
 
+/-- The one file that holds the API key: `.env` in the top folder of the repo. Only `main` reads it. -/
+def keyFile : System.FilePath := ".env"
+
+/-- Put the key from `.env` into `ANTHROPIC_API_KEY`, for every part of the program that calls
+Claude. Lean cannot change the environment of a running program, so when the key is not there yet,
+run this program again once, with the key set, and give back its exit code. `none`: go on, the
+environment is already right. The key in `.env` wins over one from the shell. -/
+def useKeyFile (args : List String) : IO (Option UInt32) := do
+  let some k ← KaplaSemantics.loadApiKey keyFile | return none
+  if (← IO.getEnv "ANTHROPIC_API_KEY") == some k then return none
+  let child ← IO.Process.spawn
+    { cmd := (← IO.appPath).toString, args := args.toArray, env := #[("ANTHROPIC_API_KEY", some k)] }
+  return some (← child.wait)
+
 def main (args : List String) : IO UInt32 := do
+  if let some code ← useKeyFile args then return code
   let opts : KaplaPhysics.PlanOptions :=
     { clearance := !args.contains "--no-clearance",
       allowNominal := !args.contains "--robust-only" }

@@ -244,8 +244,8 @@ round tower and the inside of a four-walled house fill, but the gap between the 
 ears does not (left-ear bubble, right-ear bubble), nor the courtyard between two castle
 towers. One pass, not iterated: in a Kapla structure an enclosed interior always has walls on
 a straight line through it. And because a bubble is convex, every cell on a straight line
-between two cells inside it is itself inside it: **covered cells never leave their bubble**
-(lemma `fill_subset_target`), which is what makes the score formula below clean.
+between two cells inside it is itself inside it: **covered cells never leave their bubble**.
+The code also keeps only the bubble's own cells, so this needs no proof.
 
 *Known limitation, accepted:* the rule credits any straight gap between two built cells of
 one bubble, however long. A bridge-deck bubble with one block at each end scores the hole
@@ -304,9 +304,8 @@ score := |covered| / (|T| + extra)
 
 `|T|` depends on the target and the frame, not the plan, so it is enumerated once per frame
 and reused (it is also what `missing` needs, once, for the final report). The convexity
-shortcut makes it cheaper still: if all 8 corners of a block are inside one bubble, all 45
-centres are (lemma `corners_in_bubble`), no enumeration needed; only blocks straddling a
-surface need the 45 points. The reference definitions in `Score.lean` are written from the
+shortcut could make it cheaper still: if all 8 corners of a block are inside one bubble, all 45
+centres are. The code does not use it. The reference definitions in `Score.lean` are written from the
 block side too, so the code that runs is the definition a reviewer reads.
 
 A bubble cut by the ground has no dents either, so the fill still stays inside it: a straight
@@ -342,20 +341,24 @@ they go in `specs/KaplaSpecs/Semantics.lean`:
 ```lean
 theorem targetCells_correct (m : BubbleModel) (height : Q) (g : GridPt) :
     g ∈ targetCells m height ↔ ∃ b ∈ m.bubbles, (placeAt height b).contains g.centre = true
-theorem blockCells_correct (plan : List Pose) (g : GridPt) :
+theorem blockCells_correct (plan : List Pose) (hrot : ∀ blk ∈ plan, blk.rot.valid = true) (g : GridPt) :
     g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre = true
-theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+theorem checkWithin_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
     checkWithin m height plan = true ↔ WithinTarget m height plan
-theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose) :
+theorem checkCovers_correct (m : BubbleModel) (height : Q) (plan : List Pose)
+    (hrot : ∀ blk ∈ plan, blk.rot.valid = true) :
     checkCovers m height plan = true ↔ CoversTarget m height plan
 theorem score_in_unit_interval (m : BubbleModel) (height : Q) (plan : List Pose) :
     0 ≤ score m height plan ∧ score m height plan ≤ 1
+theorem perBubble_in_unit_interval (built : List GridPt) (b : Bubble) :
+    0 ≤ perBubble built b ∧ perBubble built b ≤ 1
 ```
 
 The fill is computed on a bubble's own cells (`coveredOfBubble` filters `bubbleCells`), so covered
 cells are inside the bubble by definition and theorem 5 does not need `fill_subset_target`.
 
-Five main theorems. Each is stated once in `specs/KaplaSpecs/Semantics.lean` (unproven
+Six main theorems. Each is stated once in `specs/KaplaSpecs/Semantics.lean` (unproven
 there, human-reviewed) and proved under the same name in `semantics/KaplaSemantics/Proofs/`;
 `comparator/semantics.json` ties them together. For each: what it says in words, why it
 matters, its **surface** (the definitions a reviewer must read), a concrete **example** with
@@ -373,31 +376,38 @@ contains 136); `flat`, one block covering [0,15] × [0,3] × [0,1].
    Example: `#guard (targetCells ⟨2, 0, 0⟩ ball).length == 8`; `(-1, -1, 0)` is in the list.
    Rejects: the empty list; any list containing (5, 5, 5).
 2. **`blockCells_correct`**: `g ∈ blockCells plan ↔ ∃ blk ∈ plan, blk.contains g.centre`.
-   Same for blocks, against `Pose.contains` from `KaplaCore`.
-   Surface: `Pose.contains`, `GridPt.centre`.
+   Same for blocks, against `Pose.contains` from `KaplaCore`. It holds when every block has a real
+   turn (cos² + sin² = 1, ruled 1 Nov 2026). With made-up turn numbers it is false.
+   Surface: `Pose.contains`, `GridPt.centre`, `Rot.valid`, `blockCells`, `poseCells`, `Pose.box`,
+   `boxCells`, `dedupe`.
    Example: `#guard (blockCells [flat]).length == 45`.
-   Rejects: a list of 44 cells.
+   Rejects: the empty list.
 3. **`checkWithin_correct`**: `checkWithin F m plan = true ↔ WithinTarget F m plan`.
-   The checker says yes exactly when every block has a cell inside some bubble.
+   The checker says yes exactly when every block shares a cell with some bubble, tested with
+   `Pose.contains` and `Bubble.contains`, not with the checker's own cell lists. It holds when
+   every block has a real turn.
    Why: this is the rejection rule; a wrong `true` lets a floating block through, a wrong
    `false` throws away a good plan.
-   Surface: `WithinTarget`, `blockCells`, `Bubble.contains`, `place`.
+   Surface: `WithinTarget`, `Pose.contains`, `Rot.valid`, `Bubble.contains`, `placeAt`,
+   `checkWithin`, `blockOutside`, `poseCells`.
    Example: `flat` against `ball` at s = 2 passes (the cell (0, 0, 0) is inside); `flat`
    moved to x ∈ [20, 35] fails.
    Rejects: a checker that tests only block centres (it says no to a long block whose end is
    inside and whose centre is out).
 4. **`checkCovers_correct`**: `checkCovers F m plan = true ↔ CoversTarget F m plan`.
    The checker says yes exactly when every bubble with at least one grid centre at this
-   frame contains a block cell.
+   frame shares a cell with some block, tested the same way. It holds when every block has a
+   real turn.
    Why: this is the other rejection rule; it is also where "too small at this scale" is
    decided.
-   Surface: `CoversTarget`, `targetCells` per bubble, `blockCells`.
+   Surface: `CoversTarget`, `Pose.contains`, `Rot.valid`, `Bubble.contains`, `placeAt`,
+   `checkCovers`, `bubbleUncovered`, `bubbleCells`, `blockCells`.
    Example: the bunny at s = 30 with one block in each of its six bubbles passes; remove the
    tail's block and it fails.
    Rejects: a checker that looks only at the bubble's centre cell (a hollow tower has no
    block at its centre and would be wrongly rejected).
-5. **`score_in_unit_interval`**: `0 ≤ score F m plan ∧ score F m plan ≤ 1`, and the same
-   for every `perBubble` value.
+5. **`score_in_unit_interval`**: `0 ≤ score F m plan ∧ score F m plan ≤ 1`. The same bound
+   for every `perBubble` value is a sixth theorem, `perBubble_in_unit_interval`.
    Why: the verdict bands and the web badge assume a ratio.
    Surface: `score`, `covered`, `targetCells`, `blockCells`, `extra`.
    Example: `flat` against `ball` at s = 2: one block cell inside the ball, nothing to fill,
@@ -405,19 +415,11 @@ contains 136); `flat`, one block covering [0,15] × [0,3] × [0,1].
    pass: acceptance is not likeness).
    Rejects: block cells over target cells, `45 / 8` on this example.
 
-**The one geometric lemma.** Theorem 5 needs `fill_subset_target`: a cell between two cells
-of bubble b on an axis-parallel line is inside b. Theorem 3's fast path needs
-`corners_in_bubble`: if all 8 corners of an axis-aligned block are inside b, every point of
-the block is. Both are convexity, and both reduce to one one-axis fact, provable with the
-`Rat` lemmas core has or a short local lemma: for `lo ≤ t ≤ hi`,
-`(t − c)² ≤ max ((lo − c)², (hi − c)²)` (case split on the sign of `t − c`, then squaring is
-monotone on non-negatives). The membership expression is a sum of three such terms, one per
-axis, so its value anywhere between two inside points (or anywhere in a box whose corners
-are inside) is at most the value at an end point or a corner, which is ≤ 1. For yaw-rotated
-blocks the corner lemma needs convex-combination algebra instead; not needed for v1.
+**The convexity lemmas are dropped (ruled 1 Nov 2026).** `fill_subset_target` and
+`corners_in_bubble` are not proved, as no theorem needs them. The fill keeps only a bubble's own
+cells, and the code tests the cells one by one, with no shortcut from the corners.
 
-**Internal lemmas**, no spec entry: `fill_subset_target`, `corners_in_bubble`,
-`decode_wellFormed` (whatever decodes has positive semi-axes and at most 32 bubbles), and the
+**Internal lemmas**, no spec entry: `decode_wellFormed` (whatever decodes has positive semi-axes and at most 32 bubbles), and the
 `perBubble` bounds if they are not folded into theorem 5.
 
 **Tested, not proven.** JSON round trip `decode (encode m) = some m`: `#guard` on every
