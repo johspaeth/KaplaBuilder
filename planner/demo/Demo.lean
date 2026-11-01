@@ -6,18 +6,20 @@ import KaplaPlanner.Stability
     lake env lean --run planner/demo/Demo.lean [N] [target ...]
     lake exe kapla view out/planner-demo/sphere.json --out out/planner-demo/sphere
 
-Uses the mock physics engine (not the verified one). -/
+Physics is an oracle that always says "stands" until the physics engine is merged. -/
 
 open KaplaCore KaplaPlanner
 
 def runOne (name : String) (t : TargetSpec) (n : Nat) (scales : List Q) : IO Unit := do
-  -- inside the search: the planner's cheap estimate; at the end: the physics engine (mock)
-  match design standsNow t n scales with
+  -- The physics engine is not merged yet, so stability is an oracle that always says "stands".
+  -- Change this to the real physics engine once it is merged (`standsNow` is a cheap estimate
+  -- that can also go here).
+  let stands : List GridBlock → Bool := fun _ => true
+  match design stands t n scales with
   | none => IO.println s!"{name}: no design"
   | some d =>
     let steps := sequence name d.blocks
     let plan := toBuildPlan steps
-    let phys := physicsMock.check .adult n plan
     let inside := insideBubbles d.bubbles d.blocks
     let byEye := eyeballable (GridStep.allBlocks steps)
     let pct := (d.coverage * 100).floor
@@ -25,7 +27,7 @@ def runOne (name : String) (t : TargetSpec) (n : Nat) (scales : List Q) : IO Uni
       s!"covers {d.covered} of {d.total} surface cubes ({pct} %)",
       s!"strictly inside the target (proven check): {inside}",
       s!"every block placed by eye: {byEye}",
-      s!"mock physics, every step: {if phys.ok then "stands" else s!"fails {repr phys.diagnostics}"}"]
+      "physics: not checked yet (the physics engine is not merged; the oracle says it stands)"]
     let dir : System.FilePath := "out/planner-demo"
     IO.FS.createDirAll dir
     IO.FS.writeFile (dir / s!"{name}.json")
