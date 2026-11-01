@@ -174,6 +174,31 @@ example : ¬ SafePlan placementError 200 e12 := fun h =>
   stabilityAnswer_falls_sound (e12.take 2) (by decide +kernel)
     (solid_stable _ _ (by decide +kernel) (h.2 2 (by decide) (by decide)).2)
 
+/-- The three planks of E12: A on the ground, B sticking out over A's end, C across B as a
+counterweight. -/
+def e12A : Plank := ⟨.flatX, 0, 0, 0⟩
+/-- E12's plank B. -/
+def e12B : Plank := ⟨.flatX, 9, 0, 1⟩
+/-- E12's plank C. -/
+def e12C : Plank := ⟨.flatY, 9, -6, 2⟩
+
+#guard e12 == [e12A, e12B, e12C]
+
+/-- E12 cannot be built in any order (K4). Orders that start with B or C, or that put C
+right after A, leave a plank in the air after step 1 or 2 (P3). The order A, B, C falls
+after step 2, as above. -/
+example : ∀ plan ∈ [[e12A, e12B, e12C], [e12A, e12C, e12B], [e12B, e12A, e12C],
+    [e12B, e12C, e12A], [e12C, e12A, e12B], [e12C, e12B, e12A]],
+    ¬ SafePlan placementError 200 plan := by
+  intro plan hplan
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hplan
+  rcases hplan with rfl | rfl | rfl | rfl | rfl | rfl
+  · exact fun h => stabilityAnswer_falls_sound _ (by decide +kernel)
+      (solid_stable _ _ (by decide +kernel) (h.2 2 (by decide) (by decide)).2)
+  all_goals first
+    | exact fun h => absurd (h.2 1 (by decide) (by decide)).1 (by decide +kernel)
+    | exact fun h => absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
+
 /-- Coming straight down into the slot is not a valid path: the plank above is in the way. -/
 example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
   intro ⟨_, _, _, hdrop⟩
