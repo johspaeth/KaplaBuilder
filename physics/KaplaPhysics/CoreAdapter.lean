@@ -27,8 +27,8 @@ How core's plan is read:
   `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
   plan not `ok`.
-* **Not modelled:** `eAbs`, `press`, `clear` and `muSafe` are not used, and the engine never
-  gives `slides`, `pressTips` or `unevenSupports`.
+* **Not modelled:** `eAbs`, `clear` and `muSafe` are not used, and the engine never gives
+  `slides` or `unevenSupports`.
 
 `coreCheck_ok_sound` (statement in `specs/KaplaSpecs/Physics.lean`) says what `ok` means. -/
 

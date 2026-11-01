@@ -8,7 +8,7 @@ the real engines.
 
 - `physicsMock`: blocks must not overlap, and after **every step** each block must be held
   up: the load on it must act over its support. Loads are split equally between supports.
-  It ignores hand error, the press of placing, hand access and friction.
+  It ignores hand error, hand access and friction.
 - `semanticMock`: counts grid cells inside blocks and bubbles, without the real engine's credit
   for hollow insides. -/
 

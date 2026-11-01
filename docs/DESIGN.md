@@ -42,7 +42,7 @@ an explicit rule in the verified spec:
 | H1 | **Knife-edge balance**: works only when placed perfectly | an overhang exactly at the tipping point | robust equilibrium under placement error ε (§2.2) |
 | H2 | **Accumulated drift**: errors add up over many layers | a 60-layer tower whose top is more than one block thickness off, or a bridge between two tall pillars that no longer line up | per-contact relative error + absolute drift cap (§2.2) |
 | H3 | **Order-dependent stability** | a cantilever that only stands once its counterweight is on | every build step is checked, never only the final state |
-| H4 | **The press of placing** | the hand presses the new block down and the overhang below tips | an extra load case: press force P at any point of the new block (§2.3) |
+| H4 | **The press of placing** | the hand presses the new block down and the overhang below tips | not modelled: builders set blocks down without pressing (§2.3) |
 | H5 | **Unreachable placement** | a block that must go into a closed pocket, or under an overhang | hand access check: the block plus fingers can be lowered or slid into place (§2.4) |
 | H6 | **Tight fits** | a gap that is exactly one block wide | no near-misses: gaps are either 0 (blocks touch by design) or at least the clearance c |
 | H7 | **Needs more hands than a person has** | A-frame rafters that only stand as a pair | a step places at most `hands` blocks at once (default 2) |
@@ -56,16 +56,15 @@ structure HumanModel where
   εrel   : ℚ    -- max error of any corner of a block, measured against the block(s) it rests on
   eabs   : ℚ    -- max drift from the plan (the builder corrects anything larger by eye)
   θtilt  : ℚ    -- max angular error of a leaning block (as a rational tangent)
-  press  : ℚ    -- downward press while placing, in block weights
   hands  : Nat  -- max blocks placed in one step
   clear  : ℚ    -- minimum gap between blocks that don't touch by design
   μsafe  : ℚ    -- friction coefficient assumed (wood on wood is about 0.4–0.5 in reality)
   grip   : GripModel
 ```
 
-| εrel | eabs | press | hands | μsafe |
-|---|---|---|---|---|
-| 1/2 | 50/39 | 0.5 | 2 | 0.3 |
+| εrel | eabs | hands | μsafe |
+|---|---|---|---|
+| 1/2 | 50/39 | 2 | 0.3 |
 
 The defaults are educated guesses. Milestone M10 **calibrates them on real builds**: build
 test structures, measure the actual placement errors, and see what collapses.
@@ -126,13 +125,11 @@ careful builder can stack Kapla very high.
 perturbations and re-checks each one exactly. This test is not part of the proof. It catches
 mistakes in the spec and supports the calibration in M10.
 
-### 2.3 Placement press (H4)
+### 2.3 Placement press (H4): not modelled
 
-At each step k, the structure must stay robustly stable with an extra downward load
-`press` acting anywhere on the top of the newly placed block(s). For each prefix, the set
-of loads that still allow equilibrium is convex. Checking the **corners of the top face**
-therefore covers every point in between (a lemma: the loads that work form a convex set).
-That is about 4 extra certificates per step.
+We assume the builder sets each block down and lets go, without pressing on it. A press
+load case would reject many overhangs that real builders place without trouble, so we
+leave it out.
 
 ### 2.4 Hand access (H5, H6, H7)
 
@@ -204,7 +201,6 @@ def Valid (H : HumanModel) (N : Nat) (steps : List Step) : Prop :=
   ∀ k < steps.length,
     let pre := (steps.take (k+1)).join
     RobustStable H pre [] ∧
-    (∀ p ∈ topCorners steps[k], RobustStable H pre [press H p]) ∧
     Reachable H (steps.take k).join steps[k]
 
 theorem certify_sound : certify H N steps certs = some bp → Valid H N bp.val
@@ -235,7 +231,7 @@ How the motifs are used:
 - The planner chooses the pitch from a small table of rational angles near the target
   slope. It then solves exactly for the touching positions of the rafter ends, which are
   rational.
-- Every roof is passed through the full checker: robustness, press load cases, hand access,
+- Every roof is passed through the full checker: robustness, hand access,
   and friction with μsafe.
 - The checker's diagnostics feed back to the planner, for example "rafter 7 slides: add a
   stopper / steepen the pitch / add a collar block".
@@ -276,7 +272,7 @@ use. Claude's shape output already distinguishes roofs from walls.
 | Module | Trust | Contents |
 |---|---|---|
 | `Kapla.Geometry` | ✅ verified | rational unit vectors, Pythagorean rotations (2D yaw, then 3D), convex polygons, clipping, shrinking, 3D separating-axis test, swept prisms, contact detection, centre of mass, voxel cap K_h. Untrusted helper: Stern–Brocot search for the closest Pythagorean angle. |
-| `Kapla.Physics` | ✅ verified | contacts, friction pyramid, `Equilibrium`, `RobustStable`, the press load cases, and the robust-certificate checker with `robust_sound` |
+| `Kapla.Physics` | ✅ verified | contacts, friction pyramid, `Equilibrium`, `RobustStable`, and the robust-certificate checker with `robust_sound` |
 | `Kapla.Human` | ✅ verified | `HumanModel`, `Admissible` perturbations, `Reachable` (grip and approach), `Clearance`, `ParallelSupportsOK` |
 | `Kapla.Blueprint` | ✅ verified | `Step`, `Valid`, `certify`, `certify_sound` |
 | `Kapla.Target` | ✅ core / untrusted JSON | Shape DSL, its meaning, voxelizer and correctness proof |
@@ -307,7 +303,7 @@ proven.
 |---|---|---|
 | M0 | Lake project on Lean 4.35 (core only, **no Mathlib**), CI (`lake build`, axiom audit, no `sorry`) | — |
 | M1 | Yaw-only geometry, nominal equilibrium checker with `checkEquilibrium_sound`; examples include a stack, a rotated stack and a rejected overhang | ✅ |
-| M2 | **Human Model I**: robust certificates (relative error, drift cap, shift budgets) with `robust_sound`; press load cases; build steps; hand access; clearance; parallel supports | ✅ |
+| M2 | **Human Model I**: robust certificates (relative error, drift cap, shift budgets) with `robust_sound`; build steps; hand access; clearance; parallel supports | ✅ |
 | M3 | **Tilted blocks + friction** in the nominal checker; roof motifs (stepped, leaning-rafter gable, tipi); two-hand steps | ✅ (nominal + margins enforced) |
 | M4 | Shape DSL, voxelizer, IoU, acceptance checks, verdict, difficulty rating | ✅ |
 | M5 | Planner v1 (exhaustive search for small N, towers, walls, layers, scale search) + LP certificate generation | output ✅ |

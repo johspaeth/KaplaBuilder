@@ -138,8 +138,8 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
   the plan are fine, and blocks with a gap below 2ε get a `clearance` diagnostic. Core's
   `clear` is not used.
 - **Reach.** K3 gives `unreachable` warnings, which do not change `ok`.
-- **Not used:** `eAbs`, `press`, `clear`, `muSafe`. The engine never reports `slides`,
-  `pressTips` or `unevenSupports`, and `slackPerBlock` is `none`. Core has no diagnostic for
+- **Not used:** `eAbs`, `clear`, `muSafe`. The engine never reports `slides` or
+  `unevenSupports`, and `slackPerBlock` is `none`. Core has no diagnostic for
   "risky" or "this turn has no physics pose", so both are reported as `unstable step block`
   for the block where things first go wrong.
 

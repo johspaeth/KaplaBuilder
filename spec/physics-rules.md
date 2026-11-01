@@ -234,6 +234,7 @@ Say these out loud in the demo and the README:
 - No help from friction or side contacts (F3, C4). This can only make us
   cautious.
 - No bumps, shaking, or dropping a plank from a height (K2, W4).
+- No pressing: the builder sets each plank down and lets go, without pushing on it.
 - No hands or fingers: the reachability check (K3) looks at the plank only,
   and only at straight paths.
 - No tilted or leaning planks (B4).

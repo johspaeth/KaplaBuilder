@@ -93,7 +93,6 @@ def defaultMaxBlocks : Nat := 200
 def describe : Diagnostic → String
   | .unstable s b => s!"step {s + 1}: not shown to stand after block {b + 1} (falls, risky, or a turn the engine cannot check)"
   | .slides s c => s!"step {s + 1}: slides at contact {c + 1}"
-  | .pressTips s c => s!"step {s + 1}: pressing on corner {c + 1} tips something"
   | .unreachable s => s!"step {s + 1}: may be hard to reach (warning only)"
   | .overlap i j => s!"blocks {i + 1} and {j + 1} overlap"
   | .clearance i j => s!"blocks {i + 1} and {j + 1} have a small gap: a 3.9 mm error could close it"
