@@ -453,7 +453,7 @@ theorem rayMisses_sound (d : Dir) (p q : Plank) (h : Rat) (hm : RayMisses d p h 
     simp only [Plank.x1, Plank.y1, Plank.top] at hm <;> grind
 
 /-- Property 5 ("reachable" is right): a direction the checker accepts gives a straight
-path and a drop that touch no placed plank (K3). -/
+path and a drop that share no inside space with a placed plank (K3; touching is allowed). -/
 theorem reachDir_sound (placed : Build) (p : Plank) (h : Rat) (d : Dir)
     (hd : reachDir? placed p h = some d) : StraightPath placed p h d.vec := by
   unfold reachDir? at hd

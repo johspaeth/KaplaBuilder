@@ -110,6 +110,45 @@ Kapla box) is safe to build level by level. -/
 example : SafePlan {} placementError 200 (squareTower 100) :=
   squareTower_safe {} placementError (by decide +kernel) (by decide +kernel) 100
 
+/-! ## "Risky" builds really are not solid (R3)
+
+"Risky" only means the engine could not show the build solid. For E3, E7 and E9 we show
+more: a placement error of at most 2 mm per plank that makes the build fall. E3 is
+`e3_not_solid` (in `KaplaSpecs.PhysicsRules.Examples`, from the rules alone). For E7 and
+E9, the solver's fall certificate for the shifted build is written out here and checked by
+the kernel. -/
+
+/-- E7's errors: the top plank lands 2 mm further out along `x`. Its centre then lies past
+the end of the middle plank. -/
+def e7Shift (i : Nat) : Rat × Rat := if i = 2 then (placementError, 0) else (0, 0)
+
+/-- How the shifted E7 falls: the top plank tips over the end of the middle plank. -/
+def e7Fall : List Solver.Motion := [{}, ⟨29 / 39, -116 / 585, 0⟩, ⟨-1, -1, 0⟩]
+
+/-- E7 is not solid (R3): the 2 mm error `e7Shift` makes it fall. -/
+theorem e7_not_solid : ¬ Solid e7 := fun h =>
+  fallCertificate_sound _ e7Fall (by decide +kernel)
+    (h.2 e7Shift (by unfold SmallShift; decide +kernel))
+
+/-- E9's errors: both standing planks land 2 mm towards `-y`, the top plank 2 mm towards
+`+y`. The top plank's centre is then 1/78 past the far side of its supports. -/
+def e9Shift (i : Nat) : Rat × Rat := if i = 2 then (0, placementError) else (0, -placementError)
+
+/-- How the shifted E9 falls: the top plank tips over the far side of its supports. -/
+def e9Fall : List Solver.Motion := [{}, {}, ⟨-1 / 78, 0, -1⟩]
+
+/-- E9 is not solid (R3): the 2 mm errors `e9Shift` make it fall. -/
+theorem e9_not_solid : ¬ Solid e9 := fun h =>
+  fallCertificate_sound _ e9Fall (by decide +kernel)
+    (h.2 e9Shift (by unfold SmallShift; decide +kernel))
+
+/-- The engine's "risky" for E3, E7 and E9 is right in the strong sense: each stands at
+the exact positions but is not solid. -/
+example : (Stable e3 ∧ ¬ Solid e3) ∧ (Stable e7 ∧ ¬ Solid e7) ∧ (Stable e9 ∧ ¬ Solid e9) :=
+  ⟨⟨stabilityAnswer_stable_sound _ (by decide +kernel), e3_not_solid⟩,
+   ⟨stabilityAnswer_stable_sound _ (by decide +kernel), e7_not_solid⟩,
+   ⟨stabilityAnswer_stable_sound _ (by decide +kernel), e9_not_solid⟩⟩
+
 /-! ## The rules reject bad answers -/
 
 /-- A pull (negative push) is not allowed (F2). -/
