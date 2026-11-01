@@ -27,8 +27,8 @@ structure PhysicsEngine where
 
 structure SemanticEngine where
   interpret : Request → IO TargetSpec                      -- the planner does not call this
-  score     : TargetSpec → List Pose → ScoreReport
-  bound     : TargetSpec → Nat → Bound
+  refine    : TargetSpec → String → IO TargetSpec            -- the planner does not call this
+  score     : TargetSpec → Frame → List Pose → ScoreReport
 
 structure Planner where
   plan : PlanRequest → PhysicsEngine → SemanticEngine → IO (List Candidate)
@@ -259,8 +259,6 @@ The planner develops against these. They are *not* trusted and are deliberately 
 - **SemanticMock.score**: IoU on a coarse voxel grid (cell = one block thickness) between
   the blocks and the union of the target part boxes. Per-part scores come from the same
   grid.
-- **SemanticMock.bound**: `min(45 · N, |target cells|) / |target cells|` (a block covers
-  15 × 3 × 1 = 45 cells).
 
 ---
 
@@ -283,8 +281,8 @@ follow WORKSPLIT §3.
 | `TargetSpec` | `shape`, `silhouette?`, `parts : List PartTag` |
 | `Diagnostic` | the eight cases in WORKSPLIT §3. Step and block indices are `Nat` (block index = position in the flattened plan) |
 | `PhysicsReport` | `ok`, `diagnostics`, `slackPerBlock?` |
-| `ScoreReport` | `score`, `iou`, `silhouetteIoU?`, `perPart : List (String × Q)` |
-| `Bound`, `Verdict` | `maxScore`, `verdict` |
+| `ScoreReport` | `score`, `iou`, `silhouetteIoU?`, `perPart : List (String × Q)`, `missing`, `extra`, `frame`, `blockCount`, `outside`, `uncovered`, `tooSmall` |
+| `Verdict` | `good`, `coarse`, `abstract`, `symbolic` |
 | `PlanRequest` | `target`, `blocks : Nat`, `human`, `maxCandidates`, `maxChecks` |
 | `Candidate` | `plan`, `physics`, `score`, `difficulty` |
 | `Difficulty` | `easy`, `medium`, `expert` |
