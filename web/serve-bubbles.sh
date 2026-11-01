@@ -7,7 +7,7 @@ port=${1:-8000}
 out=.lake/bubble-view
 lake build KaplaWeb
 mkdir -p "$out"
-lake env lean --run web/KaplaWeb/Dev/BubblePage.lean "$out/index.html"
+lake env lean --run web/dev/BubblePage.lean "$out/index.html"
 cp semantics/fixtures/targets/*.json web/examples/bubbles/*.json "$out/"
 
 echo "Open http://localhost:$port/?bubbles=egg.json&height=30"
