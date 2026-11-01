@@ -21,9 +21,10 @@ structure SemanticEngine where
   interpret : Request → IO TargetSpec
   /-- Change a target after a person's remark, such as "make the ears bigger". Calls Claude. -/
   refine    : TargetSpec → String → IO TargetSpec
-  /-- Compare blocks with the target, at the size and position the frame gives. The blocks can
-  be a finished or a partial plan. The caller chooses the frame; the engine never picks one. -/
-  score     : TargetSpec → Frame → List Pose → ScoreReport
+  /-- Compare blocks with the target at this height. The blocks can be a finished or a partial
+  plan. The caller chooses the height; the engine never picks one. The blocks must be built to
+  fit the model: the model is not moved to fit the blocks. -/
+  score     : TargetSpec → Q → List Pose → ScoreReport
 
 /-- What the planner is asked to do. -/
 structure PlanRequest where

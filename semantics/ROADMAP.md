@@ -38,9 +38,8 @@ step 8. Johannes wants real scores on bubble models first.
 
 **Height, not Frame (ruled 1 Nov 2026).** `score` takes a model, a height and blocks. There is no
 sideways shift: the blocks are built to fit the model. `canonicalFrame` is dropped for good. Bubbles
-are the only target shape. The Core change is on `core/score-height`; the planner part is
-Johannes's, on the same branch. When it merges, `placeAt` in `Grid.lean`, the report in
-`Engine.lean` and the notes in `egg.json` each need a small edit.
+are the only target shape. The planner was reset to the scaffold on main, so it restarts on this
+contract.
 
 **Why this order.** The egg and the contract go before the chat because they are what the
 planner is waiting for; the chat only needs the model (3) and the viewer (6), not the engine,

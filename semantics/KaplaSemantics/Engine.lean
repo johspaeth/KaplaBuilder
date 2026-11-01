@@ -24,7 +24,7 @@ def scoreReport (m : BubbleModel) (height : Q) (plan : List Pose) : ScoreReport 
       (b.label, perBubble built b)
     missing := target - covered
     extra
-    frame := Frame.ofHeight height
+    height
     blockCount := plan.length
     outside := outsideBlocks placed plan
     uncovered := uncoveredBubbles placed built
@@ -43,7 +43,7 @@ private def rounded (q : Q) : Json := ratToJson (((q * 1000).floor : Q) / 1000)
 /-- The report as JSON. Numbers are exact, and `scoreRounded` is there for reading. -/
 def reportToJson (r : ScoreReport) : Json :=
   Json.mkObj
-    [ ("height", ratToJson r.frame.scale)
+    [ ("height", ratToJson r.height)
     , ("accepted", Json.bool r.accepted)
     , ("score", ratToJson r.score)
     , ("scoreRounded", rounded r.score)

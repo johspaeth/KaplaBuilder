@@ -9,9 +9,8 @@ the real engines.
 - `physicsMock`: blocks must not overlap, and after **every step** each block must be held
   up: the load on it must act over its support. Loads are split equally between supports.
   It ignores hand error, the press of placing, hand access and friction.
-- `semanticMock`: for bubble targets, counts grid cells inside blocks and bubbles, without the
-  real engine's credit for hollow insides. For other targets, volume IoU against the part
-  boxes; those targets never report a block as outside. -/
+- `semanticMock`: counts grid cells inside blocks and bubbles, without the real engine's credit
+  for hollow insides. -/
 
 namespace KaplaCore
 
@@ -164,39 +163,6 @@ private def cabin (layers : Nat) : List Pose := (List.range layers).flatMap fun 
 
 namespace SemanticMock
 
-/-- The volume two boxes share (cubic block units). -/
-def sharedVolume (a b : Box) : Q :=
-  let len (a1 a2 b1 b2 : Q) : Q := max 0 (min a2 b2 - max a1 b1)
-  len a.lo.x a.hi.x b.lo.x b.hi.x * len a.lo.y a.hi.y b.lo.y b.hi.y *
-  len a.lo.z a.hi.z b.lo.z b.hi.z
-
-/-- Volume of one block (cubic block units). -/
-def blockVolume : Q := blockLength * blockWidth * blockThickness
-
-/-- Move and scale a box: first scale about `o`, then add `d`. -/
-def Box.place (o d : Q3) (k : Q) (b : Box) : Box :=
-  ⟨((b.lo.sub o).scale k).add d, ((b.hi.sub o).scale k).add d⟩
-
-/-- Volume IoU of the blocks against the target's part boxes at this frame. Blocks are boxes
-(exact for turns of 0° and 90°). Target parts are assumed not to overlap, and blocks are
-assumed not to overlap (the physics check rejects that). `missing` and `extra` are given in
-units of one block thickness cubed, rounded down. -/
-def scoreBoxes (t : TargetSpec) (f : Frame) (blocks : List Pose) : ScoreReport :=
-  let parts : List PartTag := t.partsOrWhole.map fun p =>
-    { p with box := Box.place ⟨0, 0, 0⟩ ⟨f.shiftX, f.shiftY, 0⟩ f.scale p.box }
-  let bboxes := blocks.map Pose.box
-  let tVol : Q := parts.foldl (fun (v : Q) p => v + p.box.volume) 0
-  let bVol : Q := bboxes.foldl (fun v b => v + b.volume) 0
-  let shared (p : Box) : Q := bboxes.foldl (fun v b => v + sharedVolume p b) 0
-  let both : Q := parts.foldl (fun (v : Q) p => v + shared p.box) 0
-  let union := tVol + bVol - both
-  let iou : Q := if union ≤ 0 then 0 else both / union
-  let cells (v : Q) : Nat := (v / (blockThickness ^ 3)).floor.toNat
-  { score := iou, iou := iou
-    perPart := parts.map fun p => (p.name, if p.box.volume ≤ (0 : Q) then (0 : Q) else shared p.box / p.box.volume)
-    missing := cells (tVol - both), extra := cells (bVol - both)
-    frame := f, blockCount := blocks.length }
-
 /-- The centres of the unit grid cells in a box, faces included. -/
 def cellCentres (b : Box) : List Q3 :=
   let line (lo hi : Q) : List Q :=
@@ -212,11 +178,11 @@ def blockCells (p : Pose) : List Q3 := (cellCentres p.box).filter p.contains
 /-- The grid cells of one placed bubble, as their centres. -/
 def bubbleCells (b : Bubble) : List Q3 := (cellCentres b.box).filter b.contains
 
-/-- Compare blocks with a bubble model at this frame, by counting grid cells. A bubble's cell is
+/-- Compare blocks with a bubble model at this height, by counting grid cells. A bubble's cell is
 covered only if a block fills it: hollow insides get no credit here. Blocks are assumed not to
 overlap. -/
-def scoreBubbles (m : BubbleModel) (f : Frame) (blocks : List Pose) : ScoreReport :=
-  let placed := m.bubbles.map (Bubble.place f)
+def scoreBubbles (m : BubbleModel) (height : Q) (blocks : List Pose) : ScoreReport :=
+  let placed := m.bubbles.map (Bubble.place height)
   let inAny (c : Q3) : Bool := placed.any (·.contains c)
   let cellsOf := blocks.map blockCells
   let built := cellsOf.flatten
@@ -236,39 +202,21 @@ def scoreBubbles (m : BubbleModel) (f : Frame) (blocks : List Pose) : ScoreRepor
       (b.label, (covered b : Q) / ((bubbleCells b).length : Q))
     missing := target - inside
     extra
-    frame := f
+    height
     blockCount := blocks.length
     outside := (List.range blocks.length).filter fun i =>
       !((cellsOf.getD i []).any inAny)
     uncovered := (placed.filter fun b => hasCells b && covered b == 0).map (·.label)
     tooSmall := (placed.filter fun b => !hasCells b).map (·.label) }
 
-/-- The mock score. -/
-def score (t : TargetSpec) (f : Frame) (blocks : List Pose) : ScoreReport :=
-  match t.shape with
-  | .bubbles m => scoreBubbles m f blocks
-  | _ => scoreBoxes t f blocks
-
 end SemanticMock
 
 /-- The mock semantic engine. Not verified; see the top of this file.
-`interpret` ignores the prompt and returns the example tower. `refine` ignores the remark. -/
+`interpret` ignores the prompt and returns the egg. `refine` ignores the remark. -/
 def semanticMock : SemanticEngine :=
-  { interpret := fun _ => pure TargetSpec.example
+  { interpret := fun _ => pure TargetSpec.egg
     refine := fun t _ => pure t
-    score := SemanticMock.score }
-
--- two boxes that share half of one block
-#guard SemanticMock.sharedVolume (flatAt 0 0 0).box (flatAt (blockLength / 2) 0 0).box
-  == SemanticMock.blockVolume / 2
--- blocks that fill a target box exactly score 1
-#guard
-  let b : Box := ⟨⟨0, 0, 0⟩, ⟨blockLength, blockWidth, 2 * blockThickness⟩⟩
-  (semanticMock.score { shape := .box b } (Frame.ofHeight 1) [flatAt 0 0 0, flatAt 0 0 t]).iou == 1
--- one block against a target 5 blocks wide scores less than 1
-#guard (semanticMock.score
-  { shape := .box ⟨⟨0, 0, 0⟩, ⟨blockLength, blockLength, blockThickness⟩⟩ } (Frame.ofHeight 1)
-  [flatAt 0 0 0]).iou < 1
+    score := fun t height blocks => SemanticMock.scoreBubbles t.model height blocks }
 
 private def ball : TargetSpec := .ofBubbles
   { name := "ball"
@@ -280,7 +228,7 @@ private def farFlat : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
 
 -- the egg at height 30 has exactly the 5152 cells `egg.json` promises the planner
 #guard (SemanticMock.bubbleCells
-  ((BubbleModel.egg.bubbles.head!).place (Frame.ofHeight 30))).length == 5152
+  ((BubbleModel.egg.bubbles.head!).place 30)).length == 5152
 -- only cells above the ground count: a half sphere of radius 2 has 16 cells, none below ground
 #guard
   let foot : Bubble := { label := "foot", tags := [], center := ⟨0, 0, 0⟩, semi := ⟨2, 2, 2⟩ }
@@ -288,15 +236,15 @@ private def farFlat : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
   cells.length == 16 && cells.all (·.z > 0)
 -- a block touching the ball: 1 of its 45 cells is inside, of 8 cells in the ball
 #guard
-  let r := semanticMock.score ball (Frame.ofHeight 2) [flat]
+  let r := semanticMock.score ball 2 [flat]
   r.score == 1 / 52 && r.missing == 7 && r.extra == 44 && r.accepted &&
-    r.verdict == .symbolic && r.frame == Frame.ofHeight 2
+    r.verdict == .symbolic && r.height == 2
 -- a block far away is outside, and the ball has no block
 #guard
-  let r := semanticMock.score ball (Frame.ofHeight 2) [flat, farFlat]
+  let r := semanticMock.score ball 2 [flat, farFlat]
   r.outside == [1] && !r.accepted
 #guard
-  let r := semanticMock.score ball (Frame.ofHeight 2) [farFlat]
+  let r := semanticMock.score ball 2 [farFlat]
   r.outside == [0] && r.uncovered == ["ball"] && !r.accepted
 -- a partial plan with no block outside is not rejected for what it has not built yet
 #guard
@@ -304,15 +252,15 @@ private def farFlat : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
     { name := "two"
       bubbles := [{ label := "a", tags := [], center := ⟨0, 0, 1 / 2⟩, semi := ⟨1 / 2, 1 / 2, 1 / 2⟩ },
                   { label := "b", tags := [], center := ⟨20, 0, 1 / 2⟩, semi := ⟨1 / 2, 1 / 2, 1 / 2⟩ }] }
-  let r := semanticMock.score two (Frame.ofHeight 2) [flat]
+  let r := semanticMock.score two 2 [flat]
   r.outside == [] && r.uncovered == ["b"] && !r.accepted
 -- a bubble too small to hold a cell is listed and ignored ...
 #guard
-  let r := semanticMock.score ball (Frame.ofHeight (1 / 2)) []
+  let r := semanticMock.score ball (1 / 2) []
   r.tooSmall == ["ball"] && r.uncovered == [] && !r.accepted
 -- ... an empty plan is still not accepted, and any block is then outside
 #guard
-  let r := semanticMock.score ball (Frame.ofHeight (1 / 2)) [flat]
+  let r := semanticMock.score ball (1 / 2) [flat]
   r.outside == [0] && !r.accepted
 
 end KaplaCore
