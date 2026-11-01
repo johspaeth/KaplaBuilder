@@ -28,15 +28,17 @@ leaves open; never resolve a design choice on your own.
 - After each module edit: `lake build KaplaSemantics`. Before every commit: `make check`.
   `lake check` / `lake comparator` are Linux-only: run them in the Docker container
   (`semantics/dev/ci.sh`), never two `lake` processes at once.
-- Dev tools: `lake env lean --run semantics/KaplaSemantics/Dev/<Tool>.lean <args>`, after
-  `lake build KaplaSemantics`. CI builds `Dev/*.lean` too: zero warnings there as well.
+- Dev tools: `lake env lean --run semantics/dev/<Tool>.lean <args>`, after
+  `lake build KaplaSemantics`. A tool's `main` must stay outside the library, or it clashes with
+  the `main` of `kapla` in `lake check`. So a tool only reads its arguments: the work goes in a
+  library function, which CI builds and tests.
 
 ## File map (APPROACH.md §7)
-`Bubble.lean` normalize · `Frame.lean` canonicalFrame · `Json.lean` codec · `Grid.lean`
+`Bubble.lean` normalize · `Json.lean` codec · `Grid.lean`
 cells, targetCells, blockCells · `Score.lean` covered (per-bubble fill), extra, missing, score,
 solid, perBubble · `Check.lean` WithinTarget, CoversTarget, checkers, too-small list · `Engine.lean`
 SemanticEngine, `componentName` · In `KaplaCore.Bubble`: `Bubble`, `BubbleModel`,
-`contains`, `wellFormed`, `Frame`, `place` · `Claude.lean` API client · `Dev/*.lean` CLI tools
+`contains`, `wellFormed`, `Frame`, `place` · `Claude.lean` API client · `semantics/dev/*.lean` CLI tools
 (the chat page's backend) · `Proofs/*.lean` one per spec file, same theorem names ·
 `semantics/fixtures/{targets,plans,score_expected}/` · `semantics/dev/` Docker, shell helpers,
 chat page. The frame is always an argument; nothing picks one silently.
