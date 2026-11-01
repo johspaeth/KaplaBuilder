@@ -13,8 +13,9 @@ Owner: D. The only place where the real engines meet. May import every component
 - `kapla view BLUEPRINT.json [--out DIR] [--no-clearance]`: writes the page
   (`web/README.md`), with the physics result in its notes.
 - `kapla serve [--port N]`: starts the website on this computer only, at
-  `http://localhost:8000`. Run it from the top folder of the repo; the gallery is `gallery/`. It reads the API key from `semantics/dev/.env` when it
-  starts; with no key the chat says so and the rest still works. See `web/README.md`.
+  `http://localhost:8000`. Run it from the top folder of the repo. It reads the API key from `semantics/dev/.env` when it
+  starts; with no key there it uses `ANTHROPIC_API_KEY` from the shell. The file wins when both are
+  set. With no key at all the chat says so and the rest still works. See `web/README.md`.
 - `kapla gallery-check`: reads every file in `gallery/` and lists the ones that are not good
   entries (format: `web/README.md`). Exit code 0 when all are good. CI and `make check` run it.
 
