@@ -105,6 +105,45 @@ theorem bubble_contains_of_corners (b : Bubble) (bx : Box)
   exact ⟨hz, hlo'.2.1, contains_of_corners (bubbleEllipsoid b) bx
     (fun q hq => ((bubble_contains_iff b q).mp (hc q hq)).2.2) p hp⟩
 
+/-- A box whose corners lie in one bubble lies inside the bubbles. -/
+theorem boxInOne_sound (bs : List Bubble) (bx : Box) (h : boxInOne bs bx = true) (p : Q3)
+    (hp : bx.contains p) : ∃ b ∈ bs, b.contains p = true := by
+  simp only [boxInOne, List.any_eq_true, List.all_eq_true] at h
+  obtain ⟨b, hb, hc⟩ := h
+  exact ⟨b, hb, bubble_contains_of_corners b bx hc p hp⟩
+
+/-- A point between `lo` and `hi` lies in one of the two halves. -/
+theorem mem_halves (lo hi x : Q) (h1 : lo ≤ x) (h2 : x ≤ hi) :
+    ∃ h ∈ halves lo hi, h.1 ≤ x ∧ x ≤ h.2 := by
+  by_cases hx : x ≤ (lo + hi) / 2
+  · exact ⟨(lo, (lo + hi) / 2), by simp [halves], h1, hx⟩
+  · exact ⟨((lo + hi) / 2, hi), by simp [halves], by grind, h2⟩
+
+/-- A point of a box lies in one of its 8 halves. -/
+theorem mem_boxOctants (bx : Box) (p : Q3) (hp : bx.contains p) :
+    ∃ o ∈ boxOctants bx, o.contains p := by
+  obtain ⟨hx1, hx2, hy1, hy2, hz1, hz2⟩ := hp
+  obtain ⟨⟨x0, x1⟩, hxm, hxa, hxb⟩ := mem_halves _ _ _ hx1 hx2
+  obtain ⟨⟨y0, y1⟩, hym, hya, hyb⟩ := mem_halves _ _ _ hy1 hy2
+  obtain ⟨⟨z0, z1⟩, hzm, hza, hzb⟩ := mem_halves _ _ _ hz1 hz2
+  refine ⟨⟨⟨x0, y0, z0⟩, ⟨x1, y1, z1⟩⟩, ?_, ⟨hxa, hxb, hya, hyb, hza, hzb⟩⟩
+  simp only [boxOctants, List.mem_flatMap, List.mem_map]
+  exact ⟨(x0, x1), hxm, (y0, y1), hym, (z0, z1), hzm, rfl⟩
+
+/-- If `boxInside` accepts a box, every point of the box lies inside some bubble. -/
+theorem boxInside_sound (bs : List Bubble) : ∀ (depth : Nat) (bx : Box),
+    boxInside bs bx depth = true → ∀ p : Q3, bx.contains p → ∃ b ∈ bs, b.contains p = true := by
+  intro depth
+  induction depth with
+  | zero => exact fun bx h => boxInOne_sound bs bx h
+  | succ d ih =>
+    intro bx h p hp
+    simp only [boxInside, Bool.or_eq_true, List.all_eq_true] at h
+    rcases h with h | h
+    · exact boxInOne_sound bs bx h p hp
+    · obtain ⟨o, ho, hpo⟩ := mem_boxOctants bx p hp
+      exact ih o (h o ho) p hpo
+
 /-- A run of `n ≥ 1` pieces of length `h`, starting at `a`, covers every point between its
 ends: each such point is in one of the pieces `[a + m·h, a + (m+1)·h]`, `m < n`. -/
 theorem split_run (h : Rat) : ∀ (n : Nat) (a x : Rat), 0 < n →

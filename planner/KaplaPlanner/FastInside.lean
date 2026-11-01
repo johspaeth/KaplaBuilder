@@ -1,4 +1,4 @@
-import KaplaPlanner.Grid
+import KaplaPlanner.Inside
 
 /-! # A fast inside test for the design search
 
@@ -33,9 +33,9 @@ structure AxisTerm where
   let d := n * t.a - t.b
   t.w * (d * d)
 
-/-- The larger of the terms at the two ends of a cube, `n` and `n + cubeSide`. -/
-@[inline] def AxisTerm.worst (t : AxisTerm) (n : Int) : Int :=
-  max (t.at n) (t.at (n + cubeSide))
+/-- The larger of the terms at the two ends of a cube of side `s`, `n` and `n + s`. -/
+@[inline] def AxisTerm.worst (t : AxisTerm) (n s : Int) : Int :=
+  max (t.at n) (t.at (n + s))
 
 /-- A bubble prepared for whole-number tests on grid points. -/
 structure IntBubble where
@@ -72,14 +72,25 @@ def prepareBubbles (bs : List Bubble) : Array IntBubble :=
 @[inline] def IntBubble.containsPoint (b : IntBubble) (i j k : Int) : Bool :=
   b.x.at i + b.y.at j + b.z.at k ≤ b.m
 
-/-- The cube with lowest corner `(i, j, k)` has all 8 corners inside the bubble
-(same as `(cellBox i j k).corners.all b.contains`). -/
-@[inline] def IntBubble.containsCube (b : IntBubble) (i j k : Int) : Bool :=
-  b.x.worst i + b.y.worst j + b.z.worst k ≤ b.m
+/-- The cube with lowest corner `(i, j, k)` and side `s` (in units) has all 8 corners
+inside the bubble. -/
+@[inline] def IntBubble.containsCube (b : IntBubble) (i j k s : Int) : Bool :=
+  b.x.worst i s + b.y.worst j s + b.z.worst k s ≤ b.m
 
-/-- The cube at `(i, j, k)` has its 8 corners inside one bubble (same as `cellInside`). -/
-@[inline] def cubeInside (bs : Array IntBubble) (i j k : Int) : Bool :=
-  bs.any fun b => b.containsCube i j k
+/-- Same as `boxInside` for the cube with lowest corner `(i, j, k)` and side `s`: its corners
+lie in one bubble, or (up to `depth` more times) each of its 8 halves passes. `s` must be
+divisible by `2 ^ depth`, so all corners stay on grid points. -/
+def cubeInsideAt (bs : Array IntBubble) (i j k s : Int) : Nat → Bool
+  | 0 => bs.any fun b => b.containsCube i j k s
+  | d + 1 => bs.any (fun b => b.containsCube i j k s) ||
+      let h := s / 2
+      [0, h].all fun a => [0, h].all fun c => [0, h].all fun e =>
+        cubeInsideAt bs (i + a) (j + c) (k + e) h d
+
+/-- The cube at `(i, j, k)` lies inside the bubbles (same as `cellInside`). -/
+def cubeInside (bs : Array IntBubble) (i j k : Int) : Bool :=
+  if bs.any fun b => b.containsCube i j k cubeSide then true
+  else cubeInsideAt bs i j k cubeSide splitDepth
 
 -- the whole-number tests agree with `Bubble.contains` and `cellInside`, also for bubbles
 -- with fractional centres and half-widths
@@ -99,9 +110,20 @@ private def testBubbles : List Bubble :=
   let fbs := prepareBubbles testBubbles
   (List.range 30).all fun i => (List.range 20).all fun j => (List.range 20).all fun k =>
     let (i, j, k) : Int × Int × Int := (i - 15, j - 10, k - 4)
-    cubeInside fbs i j k ==
-      testBubbles.any fun b =>
-        (Box.corners ⟨⟨i * unit, j * unit, k * unit⟩,
-          ⟨(i + 4) * unit, (j + 4) * unit, (k + 4) * unit⟩⟩).all b.contains
+    cubeInside fbs i j k == cellInside testBubbles i j k
+
+-- the same for two overlapping balls, where cutting cubes in 8 matters
+#guard
+  let fbs := prepareBubbles twoBalls
+  (List.range 16).all fun i => (List.range 10).all fun j => (List.range 18).all fun k =>
+    let (i, j, k) : Int × Int × Int := (4 * i - 32, 2 * j - 10, 4 * k)
+    cubeInside fbs i j k == cellInside twoBalls i j k
+
+-- and cutting does let more cubes in there
+#guard
+  let fbs := prepareBubbles twoBalls
+  (List.range 8).any fun i => (List.range 40).any fun j => (List.range 18).any fun k =>
+    let (i, j, k) : Int × Int × Int := (i - 4, j - 20, 4 * k)
+    cubeInside fbs i j k && !(fbs.any fun b => b.containsCube i j k cubeSide)
 
 end KaplaPlanner

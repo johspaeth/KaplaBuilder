@@ -45,20 +45,22 @@ def cellSpan (lo hi : Q) : List Int :=
 cubes have the side of one block thickness and are fixed in space; the planner uses them to measure the target. -/
 abbrev Cell := Int × Int × Int
 
-/-- All allowed world cubes (DESIGN.md §3.3): cubes whose 8 corners lie inside one bubble,
-and that are above the ground. Bubbles with a half-width of 0 or less are ignored. -/
+/-- All allowed world cubes (DESIGN.md §3.3): cubes that lie inside the bubbles (`cellInside`:
+inside one bubble, or cut into pieces that each are), and that are above the ground. Bubbles
+with a half-width of 0 or less are ignored. -/
 def allowedCells (bs : List Bubble) : Std.HashSet Cell := Id.run do
+  let arr := prepareBubbles bs
   let mut out : Std.HashSet Cell := {}
   for b in bs do
-    match bubbleBounds b, IntBubble.ofBubble b with
-    | some bx, some fb =>
+    match bubbleBounds b with
+    | some bx =>
       for i in cellSpan bx.lo.x bx.hi.x do
         for j in cellSpan bx.lo.y bx.hi.y do
           for k in cellSpan bx.lo.z bx.hi.z do
-            -- `containsCube` is `(cellBox i j k).corners.all b.contains`, in whole numbers
-            if k ≥ 0 && !out.contains (i, j, k) && fb.containsCube i j k then
+            -- `cubeInside` is `cellInside`, in whole numbers
+            if k ≥ 0 && !out.contains (i, j, k) && cubeInside arr i j k then
               out := out.insert (i, j, k)
-    | _, _ => pure ()
+    | none => pure ()
   return out
 
 /-- The 6 neighbours of a cell. -/
@@ -76,5 +78,7 @@ def surfaceCells (allowed : Std.HashSet Cell) : List Cell :=
 #guard
   let bs := [ball "b" ⟨0, 0, 50⟩ 50]
   (allowedCells bs).toList.all fun (i, j, k) => cellInside bs i j k
+-- also where two bubbles overlap
+#guard (allowedCells twoBalls).toList.all fun (i, j, k) => cellInside twoBalls i j k
 
 end KaplaPlanner

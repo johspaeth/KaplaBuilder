@@ -9,7 +9,10 @@ inside some bubble. Not just the corners: every point.
 
 How the check works: a block is cut into cubes of one block thickness: 15 × 3 × 1
 cubes for a flat block. A cube passes if its 8 corners lie inside one and the same bubble.
-A block passes if all its cubes pass. -/
+If not, it is cut into 8 smaller cubes (half the side), and passes if each of those passes;
+this is done at most twice (`splitDepth`). So a block may reach from one bubble into another
+where they overlap, as long as no part of it is outside all bubbles. A block passes if all
+its cubes pass. -/
 
 namespace KaplaPlanner
 open KaplaCore
@@ -20,9 +23,32 @@ def cellBox (i j k : Int) : Box :=
   let q (v : Int) : Q := (v : Q) * unit
   ⟨⟨q i, q j, q k⟩, ⟨q (i + cubeSide), q (j + cubeSide), q (k + cubeSide)⟩⟩
 
-/-- The cube's 8 corners all lie inside the same bubble, for some bubble in the list. -/
+/-- The box's 8 corners all lie inside the same bubble, for some bubble in the list. -/
+def boxInOne (bs : List Bubble) (bx : Box) : Bool :=
+  bs.any fun b => bx.corners.all fun p => b.contains p
+
+/-- The two halves of the interval from `lo` to `hi`. -/
+def halves (lo hi : Q) : List (Q × Q) := [(lo, (lo + hi) / 2), ((lo + hi) / 2, hi)]
+
+/-- The 8 boxes you get by cutting the box in half along x, along y and along z. -/
+def boxOctants (bx : Box) : List Box :=
+  (halves bx.lo.x bx.hi.x).flatMap fun (x0, x1) =>
+    (halves bx.lo.y bx.hi.y).flatMap fun (y0, y1) =>
+      (halves bx.lo.z bx.hi.z).map fun (z0, z1) => ⟨⟨x0, y0, z0⟩, ⟨x1, y1, z1⟩⟩
+
+/-- The box lies inside the bubbles: its corners lie in one bubble, or (up to `depth` more
+times) each of its 8 halves lies inside the bubbles. -/
+def boxInside (bs : List Bubble) (bx : Box) : Nat → Bool
+  | 0 => boxInOne bs bx
+  | depth + 1 => boxInOne bs bx || (boxOctants bx).all fun o => boxInside bs o depth
+
+/-- How many times a cube may be cut in 8: twice, down to a quarter of a block thickness
+(one grid unit). -/
+def splitDepth : Nat := 2
+
+/-- The cube lies inside the bubbles (see `boxInside`). -/
 def cellInside (bs : List Bubble) (i j k : Int) : Bool :=
-  bs.any fun b => (cellBox i j k).corners.all fun p => b.contains p
+  boxInside bs (cellBox i j k) splitDepth
 
 /-- The integers `a, a+d, …, a+(n-1)·d`. -/
 def intRange (a : Int) (n : Nat) (d : Nat := 1) : List Int :=
@@ -56,5 +82,15 @@ def exampleBall : Bubble := ball "ball" ⟨0, 0, 13⟩ 13
 #guard !insideBubbles [exampleBall] [⟨.flatX, -62, -6, 48⟩]
 -- a block on the ground is outside: the ball only touches the ground at one point
 #guard !insideBubbles [exampleBall] [⟨.flatX, -30, -6, 0⟩]
+
+/-- Example: two balls of radius 8 whose centres are 10 apart; they overlap. -/
+def twoBalls : List Bubble := [ball "left" ⟨-5, 0, 8⟩ 8, ball "right" ⟨5, 0, 8⟩ 8]
+
+-- a block from x = -7.5 to 7.5 fits in neither ball alone, but in the two together
+#guard insideBubbles twoBalls [⟨.flatX, -30, -6, 28⟩]
+#guard !insideBubbles [twoBalls[0]!] [⟨.flatX, -30, -6, 28⟩]
+#guard !insideBubbles [twoBalls[1]!] [⟨.flatX, -30, -6, 28⟩]
+-- one that reaches past the outer side of a ball is still refused
+#guard !insideBubbles twoBalls [⟨.flatX, -6, -6, 28⟩]
 
 end KaplaPlanner

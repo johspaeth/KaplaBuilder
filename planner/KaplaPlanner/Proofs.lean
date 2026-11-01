@@ -34,9 +34,6 @@ theorem insideBubbles_sound (bs : List Bubble) (design : List GridBlock)
   intro blk hblk p hp
   obtain ⟨c, hc, hpc⟩ := cell_of_point blk p hp
   simp only [insideBubbles, List.all_eq_true] at h
-  have hcell := h blk hblk c hc
-  simp only [cellInside, List.any_eq_true, List.all_eq_true] at hcell
-  obtain ⟨b, hb, hcorners⟩ := hcell
-  exact ⟨b, hb, bubble_contains_of_corners b _ hcorners p hpc⟩
+  exact boxInside_sound bs splitDepth _ (h blk hblk c hc) p hpc
 
 end KaplaPlanner
