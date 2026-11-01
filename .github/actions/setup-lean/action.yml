@@ -1,5 +1,13 @@
 name: Set up Lean
-description: Install elan and the toolchain pinned in lean-toolchain (cached).
+description: >
+  Install elan and the toolchain pinned in lean-toolchain (cached), and restore
+  the Lake build directory (.lake) from an earlier run so Lake only rebuilds what changed.
+inputs:
+  cache-name:
+    description: >
+      Name for this job's .lake cache. Jobs that build different targets need
+      different names, or they overwrite each other's cache.
+    required: true
 runs:
   using: composite
   steps:
@@ -19,3 +27,13 @@ runs:
         fi
         echo "$ELAN_HOME/bin" >> "$GITHUB_PATH"
         "$ELAN_HOME/bin/lake" --version
+    # Lake checks a hash of every source file, so out-of-date files in the cache are
+    # rebuilt, never reused. Warnings of cached files are replayed, so
+    # `--fail-level=warning` still fails on them. If no cache matches exactly, use the
+    # newest one for the same toolchain and lakefile.
+    - uses: actions/cache@v4
+      with:
+        path: .lake
+        key: lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ inputs.cache-name }}-${{ hashFiles('**/*.lean') }}
+        restore-keys: |
+          lake-${{ runner.os }}-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ inputs.cache-name }}-

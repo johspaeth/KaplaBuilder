@@ -35,6 +35,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-lean
+        with:
+          cache-name: build-${{ matrix.target }}
       # Warnings fail the build: this catches `sorry` and unused/deprecated code.
       - run: lake build ${{ matrix.target }} --fail-level=warning
 
@@ -44,6 +46,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-lean
+        with:
+          cache-name: verify
       - name: Install sandbox (bubblewrap)
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap
