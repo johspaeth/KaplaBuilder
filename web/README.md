@@ -93,7 +93,8 @@ half sphere, `bunny.json` has six bubbles, `bad-*.json` must show an error).
     "steps": [
       { "blocks": [
           { "up": "flat",                // "flat" | "edge" | "upright"
-            "rot": { "c": 1, "s": 0 },   // cos and sin of the turn about the vertical axis
+            "rot": { "c": 1, "s": 0 },   // cos and sin of the turn about the vertical axis,
+                                         // or { "deg": 45 }: a multiple of 15 (rule B6)
             "center": [0, 0, "1/2"] }    // numbers or exact fractions as strings
         ],
         "phase": "layer 1",              // optional, shown on the card
@@ -110,4 +111,5 @@ the ground has `z = 1/2`. Bubbles are ellipsoids with axes along x, y and z, in 
 the "Hide bubbles" button turns them off and on. Steps are shown in order; a step with two blocks is marked
 "two hands". Other fields are ignored.
 
-`web/examples/` has a house (27 blocks) and a duck (15 blocks).
+`web/examples/` has a house (27 blocks), a duck (15 blocks) and a spiral tower (24 blocks,
+each turned 15° more than the one below).

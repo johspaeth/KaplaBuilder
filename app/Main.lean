@@ -8,10 +8,10 @@ import KaplaWeb
 /-! The `kapla` CLI. The only place where the real engines meet.
 
 * `kapla` lists the components.
-* `kapla check BLUEPRINT.json [--max N] [--clearance]` runs the verified physics engine
+* `kapla check BLUEPRINT.json [--max N] [--no-clearance]` runs the verified physics engine
   on the blueprint (default builder, at most `N` blocks, default 200) and lists the problems
   it finds. Exit code 0 when the plan is `ok`, 1 when it is not.
-* `kapla view BLUEPRINT.json [--out DIR] [--clearance]` writes `DIR/index.html` (default
+* `kapla view BLUEPRINT.json [--out DIR] [--no-clearance]` writes `DIR/index.html` (default
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
 
@@ -21,8 +21,10 @@ import KaplaWeb
 * `kapla serve [--port N]` starts the website on this computer only (default port 8000). Run it
   from the top folder of the repo: saved models are in `models/`. Requests: `web/README.md`.
 
-`--clearance` also asks that a 3.9 mm error can never close a gap between two blocks. Blocks
-that touch in the plan (side by side, end to end, one on another) are fine either way.
+By default the engine also asks that a 3.9 mm error can never close a gap between two
+blocks, and that no block goes into a slot exactly its own width. `--no-clearance` turns
+these two checks off. Blocks that touch in the plan (side by side, end to end, one on
+another) are fine either way.
 -/
 
 open Lean (Json JsonNumber)
@@ -60,8 +62,9 @@ def readQ (j : Json) : Except String Q :=
 #guard (readQ (.str "-169/10")).toOption == some (-169 / 10)
 #guard (readQ (.num ⟨25, 1⟩)).toOption == some (5 / 2)
 
-/-- Read one block: `up` (`"flat"`, `"edge"` or `"upright"`), `rot` (`c`, `s`) and
-`center`. -/
+/-- Read one block: `up` (`"flat"`, `"edge"` or `"upright"`), `rot` and `center`. The turn
+is either `{"deg": d}` with `d` a multiple of 15 (B6), or the exact cosine and sine
+`{"c": c, "s": s}`. -/
 def readPose (j : Json) : Except String KaplaCore.Pose := do
   let up ← match (j.getObjValAs? String "up").toOption.getD "flat" with
     | "flat" => pure Upright.flat
@@ -71,13 +74,20 @@ def readPose (j : Json) : Except String KaplaCore.Pose := do
   let center ← j.getObjValAs? (Array Json) "center"
   unless center.size == 3 do throw "\"center\" needs three numbers"
   let rot := (j.getObjVal? "rot").toOption
-  let c ← match rot.bind (·.getObjVal? "c" |>.toOption) with
-    | some v => readQ v
-    | none => pure 1
-  let s ← match rot.bind (·.getObjVal? "s" |>.toOption) with
-    | some v => readQ v
-    | none => pure 0
-  return ⟨up, ⟨c, s⟩, ⟨← readQ center[0]!, ← readQ center[1]!, ← readQ center[2]!⟩⟩
+  let r ← match rot.bind (·.getObjVal? "deg" |>.toOption) with
+    | some d => do
+      let k := (← readQ d) / 15
+      unless k.den == 1 do throw s!"\"deg\" must be a multiple of 15, got {d.compress}"
+      pure (Rot.step15 (k.num % 24).toNat)
+    | none => do
+      let c ← match rot.bind (·.getObjVal? "c" |>.toOption) with
+        | some v => readQ v
+        | none => pure 1
+      let s ← match rot.bind (·.getObjVal? "s" |>.toOption) with
+        | some v => readQ v
+        | none => pure 0
+      pure ⟨c, s⟩
+  return ⟨up, r, ⟨← readQ center[0]!, ← readQ center[1]!, ← readQ center[2]!⟩⟩
 
 /-- Read the steps of a blueprint (`{"steps": ...}` or `{"plan": {"steps": ...}}`). Only the
 blocks and the phase are kept: grip and approach do not change the physics check. -/
@@ -100,22 +110,34 @@ def defaultMaxBlocks : Nat := 200
 def describe : Diagnostic → String
   | .unstable s b => s!"step {s + 1}: not shown to stand after block {b + 1} (falls, risky, or a turn the engine cannot check)"
   | .slides s c => s!"step {s + 1}: slides at contact {c + 1}"
-  | .pressTips s c => s!"step {s + 1}: pressing on corner {c + 1} tips something"
   | .unreachable s => s!"step {s + 1}: may be hard to reach (warning only)"
   | .overlap i j => s!"blocks {i + 1} and {j + 1} overlap"
   | .clearance i j => s!"blocks {i + 1} and {j + 1} have a small gap: a 3.9 mm error could close it"
+  | .tightSlot s => s!"step {s + 1}: the block goes into a slot exactly its own width; a 3.9 mm error could close it"
   | .unevenSupports b => s!"block {b + 1} rests on supports built differently"
   | .tooManyHands s => s!"step {s + 1}: more blocks than the builder has hands"
   | .emptyStep s => s!"step {s + 1}: places no block"
   | .tooManyBlocks used limit => s!"uses {used} blocks, at most {limit} allowed"
 
-/-- Short lines for the page notes and the terminal. -/
-def physicsLines (opts : KaplaPhysics.PlanOptions) (r : PhysicsReport) : List String :=
-  let clearance := if opts.clearance then "" else " (small gaps not checked)"
-  (if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
-   else s!"Physics (verified): not shown to be safe to build{clearance}") :: r.diagnostics.map describe
+/-- The plan has a block turned by a 15° step that is not a quarter turn (B6). Such plans
+are checked at the planned positions only. -/
+def hasTurnedBlocks (plan : BuildPlan) : Bool :=
+  (KaplaPhysics.buildOf plan.blocks).isNone && (KaplaPhysics.turnedBuildOf plan.blocks).isSome
 
-/-- Run the verified physics engine (`physicsEngine` when clearance is off). -/
+/-- Short lines for the page notes and the terminal. -/
+def physicsLines (opts : KaplaPhysics.PlanOptions) (plan : BuildPlan) (r : PhysicsReport) :
+    List String :=
+  let first :=
+    if hasTurnedBlocks plan then
+      if r.ok then "Physics (verified): well-formed and stands after every block, at the planned positions (turned blocks: placement errors, gaps and reach not checked)"
+      else "Physics (verified): not shown to stand at the planned positions (turned blocks)"
+    else
+      let clearance := if opts.clearance then "" else " (small gaps and tight slots not checked)"
+      if r.ok then s!"Physics (verified): well-formed and solid after every block, for 3.9 mm placement errors{clearance}"
+      else s!"Physics (verified): not shown to be safe to build{clearance}"
+  first :: r.diagnostics.map describe
+
+/-- Run the verified physics engine (`physicsEngine` when clearance is on). -/
 def runPhysics (opts : KaplaPhysics.PlanOptions) (maxBlocks : Nat) (plan : BuildPlan) :
     PhysicsReport :=
   KaplaPhysics.coreCheck opts HumanModel.default maxBlocks plan
@@ -129,7 +151,7 @@ def check (opts : KaplaPhysics.PlanOptions) (file : String) (maxBlocks : Nat) : 
   | .ok plan =>
     let r := runPhysics opts maxBlocks plan
     IO.println s!"{file}: {plan.steps.length} steps, {plan.blockCount} blocks"
-    for line in physicsLines opts r do IO.println s!"  {line}"
+    for line in physicsLines opts plan r do IO.println s!"  {line}"
     return if r.ok then 0 else 1
 
 /-- Write the page for a blueprint file, with the physics result in the notes. -/
@@ -141,7 +163,7 @@ def view (opts : KaplaPhysics.PlanOptions) (file : String) (out : String) : IO U
     return 1
   | .ok p, .ok plan =>
     let r := runPhysics opts defaultMaxBlocks plan
-    let p := { p with notes := p.notes ++ physicsLines opts r }
+    let p := { p with notes := p.notes ++ physicsLines opts plan r }
     IO.FS.createDirAll out
     let path := System.FilePath.mk out / "index.html"
     IO.FS.writeFile path (KaplaWeb.render p)
@@ -361,7 +383,7 @@ def makeProposal (s : KaplaPlanner.Strategy) (m : KaplaCore.BubbleModel) (blocks
       [ ("view", view)
       , ("score", KaplaSemantics.reportToJson score)
       , ("stands", Json.bool physics.ok)
-      , ("physics", Json.arr ((physicsLines opts physics).map Json.str).toArray) ])]
+      , ("physics", Json.arr ((physicsLines opts c.plan physics).map Json.str).toArray) ])]
 
 /-- `POST /plan` with `planner`, `blocks` and `model`. The answer is `proposal`, or null if the
 planner made none. The page gets an answer even if a planner does not end. -/
@@ -479,14 +501,17 @@ def serve (port : Nat) : IO UInt32 := do
 end Server
 
 def usage : String :=
-  "usage: kapla check BLUEPRINT.json [--max N] [--clearance]\n" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--clearance]\n" ++
-  "       kapla plan [--blocks N] [--strategy NAME]\n" ++
+  "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]
+" ++
+  "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]
+" ++
+  "       kapla plan [--blocks N] [--strategy NAME]
+" ++
   "       kapla serve [--port N]"
 
 def main (args : List String) : IO UInt32 := do
-  let opts : KaplaPhysics.PlanOptions := { clearance := args.contains "--clearance" }
-  match args.filter (· != "--clearance") with
+  let opts : KaplaPhysics.PlanOptions := { clearance := !args.contains "--no-clearance" }
+  match args.filter (· != "--no-clearance") with
   | ["check", file] => check opts file defaultMaxBlocks
   | ["check", file, "--max", n] =>
     match n.toNat? with
@@ -517,8 +542,8 @@ def main (args : List String) : IO UInt32 := do
     for name in [KaplaPhysics.componentName, KaplaSemantics.componentName,
                  KaplaPlanner.componentName, KaplaWeb.componentName] do
       IO.println s!"  - {name}"
-    IO.println "Check a blueprint: kapla check BLUEPRINT.json [--max N] [--clearance]"
-    IO.println "Show a blueprint:  kapla view BLUEPRINT.json [--out DIR] [--clearance]"
+    IO.println "Check a blueprint: kapla check BLUEPRINT.json [--max N] [--no-clearance]"
+    IO.println "Show a blueprint:  kapla view BLUEPRINT.json [--out DIR] [--no-clearance]"
     IO.println "Start the website: kapla serve [--port N]"
     return 0
   | _ =>

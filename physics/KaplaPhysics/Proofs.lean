@@ -304,8 +304,9 @@ theorem keepsGaps_of_clear (ε : Rat) (b : Build) (hc : Clear ε b) : KeepsGaps 
     ⟨hi'.1, hi'.2.1⟩ ⟨hi'.2.2.1, hi'.2.2.2⟩ ⟨hj'.1, hj'.2.1⟩ ⟨hj'.2.2.1, hj'.2.2.2⟩
 
 /-- Property 4: an accepted plan uses at most `maxPlanks` planks, and after every step the
-build so far is well-formed, keeps its gaps with placement errors up to `ε` (when
-`opts.clearance` is on), and is solid for those errors (K4, K5). -/
+build so far is well-formed, keeps its gaps with placement errors up to `ε` and puts no
+plank into a tight slot (when `opts.clearance` is on), and is solid for those errors
+(K4, K5, H6). -/
 theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps : Build)
     (h : checkPlan opts ε maxPlanks steps = true) : SafePlan opts ε maxPlanks steps := by
   simp only [checkPlan, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true',
@@ -315,9 +316,9 @@ theorem checkPlan_sound (opts : PlanOptions) (ε : Rat) (maxPlanks : Nat) (steps
   rw [show k - 1 + 1 = k by omega] at hw hc hs
   have hs := solidAnswer_sound ε _ hs
   refine ⟨hw, fun ho => ?_, hs⟩
-  rcases hc with hc | hc
+  rcases hc with hc | ⟨hc, hslot⟩
   · rw [hc] at ho; cases ho
-  · exact keepsGaps_of_clear ε _ hc
+  · exact ⟨keepsGaps_of_clear ε _ hc, of_decide_eq_false hslot⟩
 
 /-! ## The simple rule for a column (property 6) -/
 
@@ -386,6 +387,44 @@ theorem tower_clearPair (ε : Rat) (hε : ε ≤ 1 / 2) (i j : Nat) (hij : i ≠
       simp only [Plank.top, Pose.size]
       grind
 
+/-- Two different planks of the square tower never touch side by side: planks on different
+levels share no height, and the two planks of one level are 9 apart. -/
+theorem tower_noSideTouch (i j : Nat) (hij : i ≠ j) :
+    (FacingAlongX (towerPlank i) (towerPlank j) →
+      (towerPlank j).x1 ≠ (towerPlank i).x ∧ (towerPlank i).x1 ≠ (towerPlank j).x) ∧
+    (FacingAlongY (towerPlank i) (towerPlank j) →
+      (towerPlank j).y1 ≠ (towerPlank i).y ∧ (towerPlank i).y1 ≠ (towerPlank j).y) := by
+  by_cases hl : i / 2 = j / 2
+  · have hp : i % 2 ≠ j % 2 := by omega
+    rcases towerPlank_cases i with ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ <;>
+    (try omega) <;>
+    · rw [ei, ej]
+      simp only [FacingAlongX, FacingAlongY, Plank.x1, Plank.y1, Plank.top, Pose.size]
+      grind
+  · have hc : ((i / 2 : Nat) : Rat) + 1 ≤ ((j / 2 : Nat) : Rat) ∨
+        ((j / 2 : Nat) : Rat) + 1 ≤ ((i / 2 : Nat) : Rat) := by
+      rcases Nat.lt_or_gt_of_ne hl with h' | h'
+      · left; exact_mod_cast h'
+      · right; exact_mod_cast h'
+    rcases towerPlank_cases i with ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ <;>
+    rcases towerPlank_cases j with ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ <;>
+    · rw [ei, ej]
+      simp only [FacingAlongX, FacingAlongY, Plank.top, Pose.size]
+      grind
+
+/-- No plank of the square tower goes into a tight slot. -/
+theorem tower_noTightSlot (m : Nat) : ¬ InTightSlot (towerBuild m) (towerPlank m) := by
+  rintro (⟨a, ha, c, -, h1, -, h3, -⟩ | ⟨a, ha, c, -, h1, -, h3, -⟩) <;>
+  · simp only [towerBuild, List.mem_map, List.mem_range] at ha
+    obtain ⟨i, hi, rfl⟩ := ha
+    first
+      | exact ((tower_noSideTouch m i (by omega)).1 h3).1 h1
+      | exact ((tower_noSideTouch m i (by omega)).2 h3).1 h1
+
+theorem squareTower_get (n m : Nat) (h : m < 2 * n) : (squareTower n).get m = towerPlank m := by
+  simp [squareTower, Build.get, List.getD_eq_getElem?_getD, h]
+
 /-- The square tower passes the clearance check for errors up to `ε ≤ 1/2`. -/
 theorem tower_clear (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : Clear ε (towerBuild k) := by
   intro i hi j hj hij
@@ -403,8 +442,9 @@ theorem squareTower_safe (opts : PlanOptions) (ε : Rat) (hε0 : 0 ≤ ε) (hε 
   refine ⟨by omega, fun k _ hk => ?_⟩
   rw [squareTower_take n k (by omega)]
   have hs := tower_solid ε hε0 hε k
-  exact ⟨tower_wellFormed k,
-    fun _ => keepsGaps_of_clear ε _ (tower_clear ε hε k), hs⟩
+  refine ⟨tower_wellFormed k, fun _ => ⟨keepsGaps_of_clear ε _ (tower_clear ε hε k), ?_⟩, hs⟩
+  rw [squareTower_take n (k - 1) (by omega), squareTower_get n (k - 1) (by omega)]
+  exact tower_noTightSlot (k - 1)
 
 /-! ## Reaching the spot (property 5, K3) -/
 
@@ -495,17 +535,53 @@ theorem stepDiagnostics_nil (h : KaplaCore.HumanModel) (plan : KaplaCore.BuildPl
     · simp at h2
     · omega
 
-/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
-block has a physics pose, and the blocks, one per step, are a safe plan (K4, K5). -/
+/-! ## Turned plans (B6) -/
+
+/-- The push checker for turned builds is right: pushes that pass it show the build stands
+(S2). -/
+theorem checkTPushes_sound (b : TBuild) (ps : List Push) (h : checkTPushes b ps = true) :
+    TStable b := by
+  simp only [checkTPushes, Bool.and_eq_true, decide_eq_true_eq] at h
+  exact ⟨ps, h.1, h.2⟩
+
+theorem tStands_sound (b : TBuild) (h : tStands b = true) : TStable b := by
+  unfold tStands at h
+  split at h
+  · exact checkTPushes_sound b _ h
+  · cases h
+
+/-- An accepted turned plan uses at most `maxPlanks` planks, and after every step the
+build so far is well-formed and stable at the planned positions (B6, K4, K5). -/
+theorem checkTurnedPlan_sound (maxPlanks : Nat) (steps : TBuild)
+    (h : checkTurnedPlan maxPlanks steps = true) : TSafePlan maxPlanks steps := by
+  simp only [checkTurnedPlan, Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true,
+    List.mem_range] at h
+  refine ⟨h.1, fun k hk1 hk2 => ?_⟩
+  obtain ⟨hw, hs⟩ := h.2 (k - 1) (by omega)
+  rw [show k - 1 + 1 = k by omega] at hw hs
+  exact ⟨hw, tStands_sound _ hs⟩
+
+/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, and
+either every block has a physics pose and the blocks, one per step, are a safe plan
+(K4, K5), or some block is turned by a 15° step and the blocks are a safe turned plan:
+well-formed and stable at the planned positions after every block (B6). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b := by
+      ((∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b) ∨
+        (buildOf plan.blocks = none ∧
+          ∃ tb, turnedBuildOf plan.blocks = some tb ∧ TSafePlan maxBlocks tb)) := by
   unfold coreCheck at hok
   split at hok
-  · simp at hok
+  · rename_i hnone
+    split at hok
+    · rename_i tb htb
+      simp only [Bool.and_eq_true] at hok
+      exact ⟨stepDiagnostics_nil h plan hok.1,
+        Or.inr ⟨hnone, tb, htb, checkTurnedPlan_sound _ _ hok.2⟩⟩
+    · simp at hok
   · rename_i b hb
     simp only [Bool.and_eq_true] at hok
-    exact ⟨stepDiagnostics_nil h plan hok.1, b, hb, checkPlan_sound _ _ _ _ hok.2⟩
+    exact ⟨stepDiagnostics_nil h plan hok.1, Or.inl ⟨b, hb, checkPlan_sound _ _ _ _ hok.2⟩⟩
 
 end KaplaPhysics
