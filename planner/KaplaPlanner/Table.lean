@@ -71,7 +71,7 @@ def Table.under (t : Table) (c : Cell) : Bool := c.2.2 + 1 < t.topAt c.1 c.2.1
 
 /-- Build the table for a model at a height. Uses at most the first 64 bubbles (core allows 32). -/
 def Table.make (m : BubbleModel) (height : Q) : Table := Id.run do
-  let placed := (m.bubbles.take 64).toArray.map (·.place (Frame.ofHeight height))
+  let placed := (m.bubbles.take 64).toArray.map (Bubble.place height)
   let ranges := placed.map fun b =>
     let bx := b.box
     (cellRange bx.lo.x bx.hi.x, cellRange bx.lo.y bx.hi.y, cellRange (max 0 bx.lo.z) bx.hi.z)

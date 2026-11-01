@@ -42,14 +42,14 @@ def decimals (q : Q) : String :=
   s!"{whole}.{pad}{frac}"
 
 /-- The blueprint of a candidate for a bubble model. The bubbles are drawn at the candidate's
-height (`ScoreReport.frame`). -/
+height (`ScoreReport.height`). -/
 def blueprintJson (m : BubbleModel) (c : Candidate) : Json :=
-  let f := c.score.frame
+  let h := c.score.height
   let bubbles := m.bubbles.map fun b =>
-    let p := b.place f
+    let p := b.place h
     Json.mkObj [("label", Json.str b.label), ("center", q3Json p.center), ("semi", q3Json p.semi)]
   let notes : List String :=
-    [s!"likeness score {decimals c.score.score} ({repr c.score.verdict}), height {decimals f.scale}",
+    [s!"likeness score {decimals c.score.score} ({repr c.score.verdict}), height {decimals h}",
      s!"physics engine: {if c.physics.ok then "stands after every step" else "rejected"}",
      s!"scorer: {if c.score.accepted then "every block is part of the target, every part is built" else "not accepted"}"]
   Json.mkObj

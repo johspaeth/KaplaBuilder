@@ -258,18 +258,15 @@ def checkTrials (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine)
     checks := checks + used
     if report.ok && !bs.isEmpty then
       let plan := toPlan bs
-      let score := sem.score req.target (Frame.ofHeight tr.height) (bs.map GBlock.toPose)
+      let score := sem.score req.target (tr.height : Q) (bs.map GBlock.toPose)
       found := found.push { plan, physics := report, score,
                             difficulty := difficultyOf bs.length report }
       heightsDone := tr.height :: heightsDone
   return found.toList
 
-/-- The whole planner, as a pure function. Only bubble targets are supported; any other target
-gets no candidates. -/
+/-- The whole planner, as a pure function. -/
 def planPure (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) : List Candidate :=
-  match req.target.shape with
-  | .bubbles m => finalize req.blocks req.maxCandidates (checkTrials req ph sem (allTrials m req.blocks))
-  | _ => []
+  finalize req.blocks req.maxCandidates (checkTrials req ph sem (allTrials req.target.model req.blocks))
 
 /-! ## v2: tree searches under a time limit -/
 
@@ -337,7 +334,7 @@ def candidateOf (req : PlanRequest) (sem : SemanticEngine) (height : Nat) (lf : 
     (r : PhysicsReport) : Candidate :=
   let bs := lf.blocks.toList
   { plan := toPlan bs, physics := r,
-    score := sem.score req.target (Frame.ofHeight height) (bs.map GBlock.toPose),
+    score := sem.score req.target (height : Q) (bs.map GBlock.toPose),
     difficulty := difficultyOf bs.length r }
 
 /-- At most `k` candidates: the best of `firsts` (`finalize`), then, if there is room, the best
@@ -493,14 +490,11 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
   return (trees.toList, log)
 
 /-- The planner with settings: tree searches under the time limit (`runSearch`), then the
-candidates. Only bubble targets are supported; any other target gets no candidates. -/
+candidates. -/
 def plannerWith (cfg : PlannerConfig) : Planner :=
   ⟨fun req ph sem => do
-    match req.target.shape with
-    | .bubbles m =>
-      let (trees, _) ← runSearch cfg req ph m
-      return candidatesOf req sem trees
-    | _ => return []⟩
+    let (trees, _) ← runSearch cfg req ph req.target.model
+    return candidatesOf req sem trees⟩
 
 /-- The planner: tree searches for at most 30 seconds. -/
 def planner : Planner := plannerWith {}

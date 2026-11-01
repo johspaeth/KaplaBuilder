@@ -39,18 +39,12 @@ for it. -/
 theorem planPure_sound (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) :
     ∀ c ∈ planPure req ph sem, c.plan.blockCount ≤ req.blocks ∧ c.physics.ok = true := by
   intro c hc
-  unfold planPure at hc
-  split at hc
-  · exact finalize_sound _ _ _ c hc
-  · simp at hc
+  exact finalize_sound _ _ _ c hc
 
 /-- The planner returns at most `maxCandidates` candidates. -/
 theorem planPure_length (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) :
     (planPure req ph sem).length ≤ req.maxCandidates := by
-  unfold planPure
-  split
-  · exact finalize_length _ _ _
-  · simp
+  exact finalize_length _ _ _
 
 /-- Every candidate `pick` keeps is within the block limit and was accepted by physics. -/
 theorem pick_sound (n k : Nat) (a b : List Candidate) :

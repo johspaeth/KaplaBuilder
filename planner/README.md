@@ -16,8 +16,8 @@ model (`TargetSpec.ofBubbles`), and the two engines. It searches for **at most 3
 branches that cannot beat the best plan so far; then improve the best plans by large
 neighbourhood search) and returns up to `maxCandidates` plans, from different heights first,
 best first. Every plan uses at most `N`
-blocks and passed `PhysicsEngine.check` (theorem `candidatesOf_sound`). Other kinds of target
-get no candidates. `plannerWith cfg` sets the time limit and other settings (`PlannerConfig`).
+blocks and passed `PhysicsEngine.check` (theorem `candidatesOf_sound`).
+`plannerWith cfg` sets the time limit and other settings (`PlannerConfig`).
 `planPure` is v1, a pure function without a time limit.
 
 The planner sends 2 tiny plans to the physics engine first, to learn whether upright blocks
@@ -37,9 +37,7 @@ needs a program outside this folder that imports `KaplaPlanner`, `KaplaPhysics` 
 ```lean
 def semantic : KaplaCore.SemanticEngine :=
   { interpret := fun _ => pure default, refine := fun t _ => pure t
-    score := fun t f ps => match t.shape with
-      | .bubbles m => KaplaSemantics.scoreReport m f.scale ps
-      | _ => default }
+    score := fun t h ps => KaplaSemantics.scoreReport t.model h ps }
 
 def main : IO Unit := do
   let cs ← KaplaPlanner.planner.plan { target := .ofBubbles KaplaPlanner.bunnyModel, blocks := 40 }

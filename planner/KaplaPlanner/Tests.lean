@@ -30,15 +30,13 @@ private def ballTrial : Trial := tryBuild ballModel 10 coarseSettings.head! 12
 #guard
   let req : PlanRequest := { target := .ofBubbles ballModel, blocks := 12 }
   match checkTrials req physicsMock semanticMock [ballTrial] with
-  | [c] => c.physics.ok && c.plan.blockCount ≤ 12 && c.score.accepted && c.score.frame == Frame.ofHeight 10
+  | [c] => c.physics.ok && c.plan.blockCount ≤ 12 && c.score.accepted && c.score.height == 10
   | _ => false
 
 -- The bunny at height 20 with 30 blocks reaches all six bubbles, with foundation cells worth a
 -- little (they are what lets the head and ears be reached).
 #guard (tryBuild bunnyModel 20 { cabin := none, underShare := -1 / 2, perCourse := 0 } 30).covers
 
--- A target that is not a bubble model gets no candidates.
-#guard (planPure { target := TargetSpec.example, blocks := 10 } physicsMock semanticMock).isEmpty
 -- No blocks, no candidates.
 #guard (allTrials ballModel 0).isEmpty
 
