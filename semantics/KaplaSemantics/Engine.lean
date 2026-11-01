@@ -30,6 +30,14 @@ def scoreReport (m : BubbleModel) (height : Q) (plan : List Pose) : ScoreReport 
     uncovered := uncoveredBubbles placed built
     tooSmall := tooSmallBubbles placed }
 
+/-- The real semantic engine. Planners receive it as an argument, through the contract in Core.
+`score` is finished. `interpret` and `refine` need the Claude code (step 7), so until then they
+fail with a clear message and do not make up a target. -/
+def semanticEngine : SemanticEngine :=
+  { interpret := fun _ => throw (IO.userError "interpret is not built yet: it needs the Claude code")
+    refine := fun _ _ => throw (IO.userError "refine is not built yet: it needs the Claude code")
+    score := fun t height blocks => scoreReport t.model height blocks }
+
 /-- The verdict as a word. -/
 def verdictName : Verdict → String
   | .good => "good"
@@ -113,6 +121,15 @@ private def twoBalls : BubbleModel :=
 #guard
   let r := scoreReport ballModel (1 / 2) [flatBlock]
   r.outside == [0] && !r.accepted
+
+/-- Example: two walls with a gap between them, inside the egg at height 30. -/
+private def eggWalls : List Pose :=
+  [⟨.flat, .id, ⟨0, -9 / 2, 31 / 2⟩⟩, ⟨.flat, .id, ⟨0, 9 / 2, 31 / 2⟩⟩]
+
+-- The engine gives the same answer as `scoreReport`.
+#guard semanticEngine.score .egg 30 eggWalls == scoreReport .egg 30 eggWalls
+-- It credits the hollow middle, so it scores higher than the stand-in in Core.
+#guard (semanticEngine.score .egg 30 eggWalls).score > (semanticMock.score .egg 30 eggWalls).score
 
 /-- The block files in `fixtures/plans/`, read from the real files when this module is built. -/
 def oneBlockText : String := include_str "../fixtures/plans/one-block.json"

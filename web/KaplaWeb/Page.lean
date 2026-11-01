@@ -264,12 +264,11 @@ const showInfo = (title, list, unit) => { info.textContent = '';
 const showError = msg => { errorBox.textContent = `Cannot show this model: ${msg}`; errorBox.hidden = false; info.textContent = ''; drawBubbles([], 'blocks'); };
 // Show a model (height 1 and no fixed size) at a height. The model itself is not changed and never
 // rescaled to fit. With no height, the numbers are the model's own (0 to 1).
-const show = (model, height, shiftX = 0, shiftY = 0) => {
+const show = (model, height) => {
   try {
     const hasHeight = height !== undefined && height !== null, h = hasHeight ? height : 1;
     if (!(h > 0) || !Number.isFinite(h)) throw new Error('the height must be a number above 0');
-    if (!Number.isFinite(shiftX) || !Number.isFinite(shiftY)) throw new Error('the shift must be a number');
-    const placed = readModel(model).map(u => ({label:u.label, c:[u.c[0]*h+shiftX, u.c[1]*h+shiftY, u.c[2]*h], r:u.r.map(v => v*h)}));
+    const placed = readModel(model).map(u => ({label:u.label, c:u.c.map(v => v*h), r:u.r.map(v => v*h)}));
     const unit = hasHeight ? 'blocks' : 'model units', top = Math.max(...placed.map(u => aboveGround(u).top));
     errorBox.hidden = true;
     showInfo(`${model.name}: ${hasHeight ? `height ${fmt(h)} blocks` : 'no height given'}, top at z = ${fmt(top)}`, placed, unit);
@@ -279,11 +278,10 @@ const show = (model, height, shiftX = 0, shiftY = 0) => {
 // The chat calls this when it has a new model.
 window.KaplaViewer = {show, showError};
 const q = new URLSearchParams(location.search), src = q.get('bubbles');
-const addressNumber = (name, d) => q.has(name) ? Number(q.get(name)) : d;
 if (src) {
   fetch(src, {cache:'no-store'}).then(r => { if (!r.ok) throw new Error(`could not load ${src} (error ${r.status})`); return r.text(); })
     .then(t => { let m; try { m = JSON.parse(t); } catch (_) { throw new Error(`${src} is not valid JSON`); }
-      show(m, addressNumber('height'), addressNumber('shiftX', 0), addressNumber('shiftY', 0)); })
+      show(m, q.has('height') ? Number(q.get('height')) : undefined); })
     .catch(e => showError(e.message));
 } else if (U.length) { showInfo('The target', U, 'blocks'); drawBubbles(U, 'blocks'); }
 else if (!S.length) info.textContent = 'No model yet.';
