@@ -99,6 +99,10 @@ button{font:inherit;border:1px solid var(--line);background:var(--card);color:va
 .two{color:var(--accent);font-weight:700}
 table{border-collapse:collapse}td,th{border-bottom:1px solid var(--line);padding:2px 10px;text-align:left}
 .meta{color:var(--muted);font-size:.85rem}
+#error{border:1px solid var(--bad);color:var(--bad);border-radius:8px;padding:8px 12px;margin:0 0 10px;font-weight:600}
+#info{margin:10px 0}#info ul{list-style:none;margin:4px 0;padding:0}
+#info li{display:flex;gap:8px;align-items:center}
+.swatch{width:12px;height:12px;border-radius:50%;flex:none}
 @media print{#view,.controls,.noprint{display:none}body{background:#fff;color:#000}
 #cards{grid-template-columns:repeat(2,1fr)}}
 "
@@ -129,13 +133,17 @@ document.getElementById('cards').innerHTML = S.map((_,k)=>card(k)).join('');
 // ---------- 3D view ----------
 const el = document.getElementById('view'), slider = document.getElementById('slider'), label = document.getElementById('label');
 slider.max = S.length; slider.value = S.length;
-let render = () => {};
+let render = () => {}, drawBubbles = () => {};
+const COLORS = ['#5b8fd9','#d9705b','#4fa66b','#a66bd9','#d9a93f','#3fb0b8','#d95b9c','#7f8c4f'];
+// the part of a bubble above the ground (z = 0): its size and where it reaches
+const aboveGround = u => { const [cx,cy,cz] = u.c, [a,b,c] = u.r, f = cz < 0 ? Math.sqrt(Math.max(0, 1-(cz/c)*(cz/c))) : 1;
+  return {x:2*a*f, y:2*b*f, z:Math.min(2*c, cz+c), x0:cx-a*f, x1:cx+a*f, y0:cy-b*f, y1:cy+b*f, top:cz+c}; };
 if (window.THREE) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(40, 1, 0.1, 2500);
   const ren = new THREE.WebGLRenderer({antialias:true, alpha:true}); el.appendChild(ren.domElement);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x887766, 0.9));
   const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(40,-50,100); scene.add(sun);
-  const ground = new THREE.Mesh(new THREE.CircleGeometry(250, 64), new THREE.MeshLambertMaterial({color:0x998877, transparent:true, opacity:.15}));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshLambertMaterial({color:0x998877, transparent:true, opacity:.25, depthWrite:false, side:THREE.DoubleSide}));
   scene.add(ground);
   const wood = new THREE.MeshLambertMaterial({color:0xe2b47a}), hot = new THREE.MeshLambertMaterial({color:0xe07b2a});
   const edges = new THREE.LineBasicMaterial({color:0x6b4a2b, transparent:true, opacity:.5});
@@ -145,34 +153,140 @@ if (window.THREE) {
   // the target's bubbles: see-through ellipsoids, cut off at the ground (z = 0)
   ren.localClippingEnabled = true;
   const clip = [new THREE.Plane(new THREE.Vector3(0,0,1), 0)];
-  const skin = new THREE.MeshLambertMaterial({color:0x5b8fd9, transparent:true, opacity:.18, depthWrite:false, side:THREE.DoubleSide, clippingPlanes:clip});
-  const wire = new THREE.LineBasicMaterial({color:0x3f6fb5, transparent:true, opacity:.35, clippingPlanes:clip});
-  const bubbles = U.map(u => { const g = new THREE.SphereGeometry(1, 40, 24);
-    const m = new THREE.Mesh(g, skin); m.position.set(u.c[0], u.c[1], u.c[2]); m.scale.set(u.r[0], u.r[1], u.r[2]);
-    m.renderOrder = 1; m.add(new THREE.LineSegments(new THREE.WireframeGeometry(new THREE.SphereGeometry(1, 16, 10)), wire));
-    scene.add(m); return m; });
+  const skinShape = new THREE.SphereGeometry(1, 40, 24), wireShape = new THREE.WireframeGeometry(new THREE.SphereGeometry(1, 16, 10));
+  let bubbles = [], shown = [], bubblesOn = true, ruler = null, unit = 'blocks';
   const tog = document.getElementById('bubbles');
-  if (U.length) { tog.hidden = false; tog.onclick = () => { const on = !bubbles[0].visible;
-    bubbles.forEach(m => m.visible = on); tog.textContent = on ? 'Hide bubbles' : 'Show bubbles'; render(); }; }
-  let xs=B.map(b=>b.c[0]), ys=B.map(b=>b.c[1]), zs=B.map(b=>b.c[2]+b.size[2]/2);
-  U.forEach(u => { xs.push(u.c[0]-u.r[0], u.c[0]+u.r[0]); ys.push(u.c[1]-u.r[1], u.c[1]+u.r[1]); zs.push(u.c[2]+u.r[2]); });
-  const cx=(Math.min(...xs)+Math.max(...xs))/2||0, cy=(Math.min(...ys)+Math.max(...ys))/2||0, top=Math.max(...zs,15);
-  const span=Math.max(Math.max(...xs)-Math.min(...xs), Math.max(...ys)-Math.min(...ys), top, 20);
+  tog.onclick = () => { bubblesOn = !bubblesOn; bubbles.forEach(m => m.visible = bubblesOn);
+    tog.textContent = bubblesOn ? 'Hide bubbles' : 'Show bubbles'; render(); };
   cam.up.set(0,0,1);
   const ctl = THREE.OrbitControls ? new THREE.OrbitControls(cam, ren.domElement) : null;
-  cam.position.set(cx+span*1.3, cy-span*1.6, top*0.6+span*0.9);
-  if (ctl) { ctl.target.set(cx, cy, top/3); ctl.update(); ctl.addEventListener('change', ()=>render()); } else cam.lookAt(cx, cy, top/3);
+  // the view can turn all the way round, but it cannot go under the ground
+  if (ctl) { ctl.maxPolarAngle = Math.PI/2 - 0.01; ctl.addEventListener('change', ()=>render()); }
+  // ---------- ground and axes, with numbers in real units ----------
+  const label = (txt, x, y, z, h) => { const c = document.createElement('canvas'), g = c.getContext('2d'), font = \"48px system-ui,sans-serif\";
+    g.font = font; c.width = Math.ceil(g.measureText(txt).width)+8; c.height = 64; g.font = font;
+    g.fillStyle = css('--fg'); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, c.width/2, 32);
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
+    s.position.set(x, y, z); s.scale.set(h*c.width/64, h, 1); s.renderOrder = 2; return s; };
+  const niceStep = raw => { const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    return [1,2,5,10].map(n => n*p).find(v => v >= raw*(1-1e-9)); };
+  const num = v => String(+v.toFixed(6));
+  const drawRuler = (x0, x1, y0, y1, top) => {
+    if (ruler) { scene.remove(ruler); ruler.traverse(o => { if (o.geometry) o.geometry.dispose();
+      if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }); }
+    ruler = new THREE.Group();
+    const size = Math.max(x1-x0, y1-y0, top), step = niceStep(size/5), h = size/22;
+    const ix0 = Math.floor(x0/step+1e-9), ix1 = Math.ceil(x1/step-1e-9), iy0 = Math.floor(y0/step+1e-9), iy1 = Math.ceil(y1/step-1e-9), iz1 = Math.max(1, Math.ceil(top/step-1e-9));
+    const X0 = ix0*step, X1 = ix1*step, Y0 = iy0*step, Y1 = iy1*step, pts = [];
+    for (let i = ix0; i <= ix1; i++) { pts.push(i*step,Y0,0, i*step,Y1,0); ruler.add(label(num(i*step), i*step, Y0-h*1.2, 0, h)); }
+    for (let j = iy0; j <= iy1; j++) { pts.push(X0,j*step,0, X1,j*step,0); ruler.add(label(num(j*step), X0-h*1.5, j*step, 0, h)); }
+    pts.push(X0,Y0,0, X0,Y0,iz1*step);
+    for (let k = 0; k <= iz1; k++) { pts.push(X0-h/3,Y0,k*step, X0+h/3,Y0,k*step); if (k) ruler.add(label(num(k*step), X0-h*1.5, Y0, k*step, h)); }
+    ruler.add(label('x ('+unit+')', X1+h*2.5, Y0-h*1.2, 0, h), label('y ('+unit+')', X0-h*1.5, Y1+h*3.5, 0, h), label('z ('+unit+')', X0, Y0, iz1*step+h*1.3, h));
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    ruler.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({color:css('--muted'), transparent:true, opacity:.55})));
+    scene.add(ruler);
+    ground.scale.set(X1-X0+2*step, Y1-Y0+2*step, 1); ground.position.set((X0+X1)/2, (Y0+Y1)/2, 0); };
+  // ---------- fit the camera to what is drawn; a redraw keeps the direction you turned to ----------
+  let turned = new THREE.Vector3(1.3, -1.6, 1.1).normalize(), fitted = false;
+  const fit = () => {
+    const xs = [], ys = [], zs = [];
+    B.forEach(b => { b.fp.forEach(p => { xs.push(p[0]); ys.push(p[1]); }); zs.push(b.c[2]+b.size[2]/2); });
+    shown.forEach(u => { const e = aboveGround(u); xs.push(e.x0, e.x1); ys.push(e.y0, e.y1); zs.push(e.top); });
+    if (!shown.length && !B.length) { xs.push(-10, 10); ys.push(-10, 10); zs.push(20); }
+    if (B.length) zs.push(15);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), top = Math.max(...zs);
+    drawRuler(x0, x1, y0, y1, top);
+    const R = Math.hypot(x1-x0, y1-y0, top)/2, dist = 1.15*R/Math.sin(cam.fov*Math.PI/360)/Math.min(1, cam.aspect);
+    const tx = (x0+x1)/2, ty = (y0+y1)/2, tz = top/2;
+    if (fitted && ctl) turned = cam.position.clone().sub(ctl.target).normalize();
+    cam.position.set(tx+turned.x*dist, ty+turned.y*dist, tz+turned.z*dist);
+    cam.near = R/50; cam.far = dist+R*30; cam.updateProjectionMatrix();
+    if (ctl) { ctl.target.set(tx, ty, tz); ctl.update(); } else cam.lookAt(tx, ty, tz);
+    fitted = true; };
+  // Draw this list of bubbles in place of the ones drawn now. Each has c (middle) and r (half-widths).
+  drawBubbles = (list, unitName) => {
+    bubbles.forEach(m => { scene.remove(m); m.children[0].material.dispose(); m.material.dispose(); });
+    shown = list; unit = unitName;
+    bubbles = list.map((u, i) => { const color = COLORS[i % COLORS.length];
+      const m = new THREE.Mesh(skinShape, new THREE.MeshLambertMaterial({color, transparent:true, opacity:.25, depthWrite:false, side:THREE.DoubleSide, clippingPlanes:clip}));
+      m.position.set(u.c[0], u.c[1], u.c[2]); m.scale.set(u.r[0], u.r[1], u.r[2]); m.renderOrder = 1; m.visible = bubblesOn;
+      m.add(new THREE.LineSegments(wireShape, new THREE.LineBasicMaterial({color, transparent:true, opacity:.45, clippingPlanes:clip})));
+      scene.add(m); return m; });
+    tog.hidden = !(list.length && B.length);
+    fit(); render(); };
   render = () => { const k = +slider.value;
     meshes.forEach((m,i)=>{ m.visible = B[i].step < k; m.material = (B[i].step === k-1) ? hot : wood; });
     ren.render(scene, cam); };
   const resize = () => { const w = el.clientWidth, h = el.clientHeight; ren.setSize(w, h); cam.aspect = w/h; cam.updateProjectionMatrix(); render(); };
   window.addEventListener('resize', resize); resize();
+  drawBubbles([], 'blocks');
 } else { el.innerHTML = \"<p style='padding:1em'>3D view unavailable (three.js could not be loaded). The step cards below are complete.</p>\"; }
 const update = () => { const k=+slider.value; label.textContent = k===0 ? 'empty' : `after step ${k} of ${S.length}`; render(); };
 slider.addEventListener('input', update);
 document.getElementById('prev').onclick = () => { slider.value = Math.max(0, +slider.value-1); update(); };
 document.getElementById('next').onclick = () => { slider.value = Math.min(S.length, +slider.value+1); update(); };
 update();
+// a page with no blocks shows only the bubbles
+if (!S.length) ['controls','sub','stepsTitle'].forEach(id => document.getElementById(id).style.display = 'none');
+// ---------- bubble models: check, then draw ----------
+// A number as the Lean reader takes it: a JSON number, or a string 'p/q' with q above 0.
+const readNumber = v => { if (typeof v === 'number') return Number.isFinite(v) ? v : NaN;
+  if (typeof v === 'string') { const p = v.split('/');
+    if (p.length === 2 && /^-?[0-9]+$/.test(p[0]) && /^[0-9]+$/.test(p[1]) && +p[1] > 0) return +p[0] / +p[1]; }
+  return NaN; };
+const readThree = (v, what, who) => { if (!Array.isArray(v) || v.length !== 3) throw new Error(`${who}: ${what} needs three numbers`);
+  const r = v.map(readNumber); if (r.some(Number.isNaN)) throw new Error(`${who}: ${what} has something that is not a usable number`);
+  return r; };
+// The same rules as decode in semantics/KaplaSemantics/Json.lean. Lean stays the final authority.
+const readModel = m => {
+  if (m === null || typeof m !== 'object' || typeof m.name !== 'string') throw new Error('the model needs a name');
+  if (!Array.isArray(m.bubbles)) throw new Error('the model needs a list of bubbles');
+  if (m.bubbles.length > 32) throw new Error('the model has more than 32 bubbles');
+  const list = m.bubbles.map((b, i) => { const who = `bubble ${i+1}`;
+    if (b === null || typeof b !== 'object' || typeof b.label !== 'string' || !b.label) throw new Error(`${who} needs a label`);
+    if (!Array.isArray(b.tags) || b.tags.some(t => typeof t !== 'string')) throw new Error(`${b.label}: tags must be a list of words`);
+    const c = readThree(b.center, 'center', b.label), r = readThree(b.semi, 'semi', b.label);
+    if (r.some(v => v <= 0)) throw new Error(`${b.label}: every half-width must be above 0`);
+    if (c[2] + r[2] <= 0) throw new Error(`${b.label}: it is entirely under the ground`);
+    return {label:b.label, c, r}; });
+  if (!list.some(u => u.c[2] - u.r[2] <= 0)) throw new Error('no bubble reaches the ground, so the model floats');
+  return list; };
+const errorBox = document.getElementById('error'), info = document.getElementById('info');
+const fmt = v => String(+v.toFixed(2));
+const showInfo = (title, list, unit) => { info.textContent = '';
+  const head = document.createElement('div'); head.textContent = title; info.append(head);
+  const ul = document.createElement('ul');
+  list.forEach((u, i) => { const e = aboveGround(u), li = document.createElement('li'), dot = document.createElement('span'), t = document.createElement('span');
+    dot.className = 'swatch'; dot.style.background = COLORS[i % COLORS.length];
+    t.textContent = `${u.label}: ${fmt(e.x)} × ${fmt(e.y)} × ${fmt(e.z)} ${unit}`; li.append(dot, t); ul.append(li); });
+  info.append(ul); };
+const showError = msg => { errorBox.textContent = `Cannot show this model: ${msg}`; errorBox.hidden = false; info.textContent = ''; drawBubbles([], 'blocks'); };
+// Show a model (height 1 and no fixed size) at a height. The model itself is not changed and never
+// rescaled to fit. With no height, the numbers are the model's own (0 to 1).
+const show = (model, height, shiftX = 0, shiftY = 0) => {
+  try {
+    const hasHeight = height !== undefined && height !== null, h = hasHeight ? height : 1;
+    if (!(h > 0) || !Number.isFinite(h)) throw new Error('the height must be a number above 0');
+    if (!Number.isFinite(shiftX) || !Number.isFinite(shiftY)) throw new Error('the shift must be a number');
+    const placed = readModel(model).map(u => ({label:u.label, c:[u.c[0]*h+shiftX, u.c[1]*h+shiftY, u.c[2]*h], r:u.r.map(v => v*h)}));
+    const unit = hasHeight ? 'blocks' : 'model units', top = Math.max(...placed.map(u => aboveGround(u).top));
+    errorBox.hidden = true;
+    showInfo(`${model.name}: ${hasHeight ? `height ${fmt(h)} blocks` : 'no height given'}, top at z = ${fmt(top)}`, placed, unit);
+    drawBubbles(placed, unit);
+    return true;
+  } catch (e) { showError(e.message); return false; } };
+// The chat calls this when it has a new model.
+window.KaplaViewer = {show, showError};
+const q = new URLSearchParams(location.search), src = q.get('bubbles');
+const addressNumber = (name, d) => q.has(name) ? Number(q.get(name)) : d;
+if (src) {
+  fetch(src, {cache:'no-store'}).then(r => { if (!r.ok) throw new Error(`could not load ${src} (error ${r.status})`); return r.text(); })
+    .then(t => { let m; try { m = JSON.parse(t); } catch (_) { throw new Error(`${src} is not valid JSON`); }
+      show(m, addressNumber('height'), addressNumber('shiftX', 0), addressNumber('shiftY', 0)); })
+    .catch(e => showError(e.message));
+} else if (U.length) { showInfo('The target', U, 'blocks'); drawBubbles(U, 'blocks'); }
+else if (!S.length) info.textContent = 'No model yet.';
 "
 
 /-- The whole page for a blueprint. -/
@@ -188,20 +302,24 @@ def render (p : ViewPlan) : String :=
 <script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js\"></script>
 </head><body>
 <header><h1>{escape p.title}</h1>
-<div class=\"sub\">{sub}{nBlocks} blocks · {p.steps.length} steps</div>{notes}</header>
+<div class=\"sub\" id=\"sub\">{sub}{nBlocks} blocks · {p.steps.length} steps</div>{notes}</header>
 <main>
+<div id=\"error\" role=\"alert\" hidden></div>
 <div id=\"view\"></div>
-<div class=\"controls\"><button id=\"prev\">◀</button><input id=\"slider\" type=\"range\" min=\"0\" step=\"1\">
+<div id=\"info\"></div>
+<div class=\"controls\" id=\"controls\"><button id=\"prev\">◀</button><input id=\"slider\" type=\"range\" min=\"0\" step=\"1\">
 <button id=\"next\">▶</button><span id=\"label\"></span>
 <button id=\"bubbles\" class=\"noprint\" hidden>Hide bubbles</button>
 <button class=\"noprint\" onclick=\"window.print()\">Print booklet</button></div>
-<h3>Steps</h3><div id=\"cards\"></div>
+<h3 id=\"stepsTitle\">Steps</h3><div id=\"cards\"></div>
 </main>
 <script>const DATA = {scriptJson (pageData p)};</script>
 <script>{js}</script>
 </body></html>"
 
 #guard ((parsePlan exampleJson).map fun p => (render p).contains "three.min.js").toOption == some true
+-- the page has the call the chat uses to show a new model
+#guard ((parsePlan exampleJson).map fun p => (render p).contains "window.KaplaViewer").toOption == some true
 -- text from the file cannot break out of the page
 #guard ((parsePlan "{\"title\": \"<script>x\", \"steps\": []}").map fun p =>
   (render p).contains "<title>&lt;script&gt;x</title>").toOption == some true

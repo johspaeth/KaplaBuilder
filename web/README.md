@@ -19,6 +19,27 @@ with a top-down plan of the layer (new block in orange, blocks below shaded), an
 "Print booklet" button. It is a single HTML file; only three.js comes from a CDN, and the
 step cards work without it.
 
+## Show a bubble model
+
+```sh
+web/serve-bubbles.sh        # then open the address it prints
+```
+
+Open `http://localhost:8000/?bubbles=egg.json&height=30`. Drag to turn, scroll to zoom. The file
+stays at height 1; `height` only sets the numbers on the axes and the sizes in the list. With no
+`height`, the numbers are the model's own (0 to 1). `shiftX` and `shiftY` move the model sideways.
+The page never rescales a model to fit. A broken model shows an error and no picture; the rules are
+the same as `decode` in `semantics/KaplaSemantics/Json.lean`, and Lean stays the final authority.
+
+The chat (step 7) shows a new model with one call, and the picture changes at once:
+
+```js
+KaplaViewer.show(model, 30)   // model is the parsed bubble JSON, 30 is the height
+```
+
+The served folder holds `semantics/fixtures/targets/` and `web/examples/bubbles/` (`foot.json` is a
+half sphere, `bunny.json` has six bubbles, `bad-*.json` must show an error).
+
 ## Blueprint format
 
 ```json
