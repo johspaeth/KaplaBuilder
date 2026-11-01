@@ -1,8 +1,24 @@
-import KaplaPlanner.Build
+import KaplaPlanner.Tree
 
 /-! # Search: heights, settings, the physics check, and the candidates
 
-The outer loop of the planner (`planner/DESIGN.md` §4.1, §4.7, §4.8):
+The planner (`planner`, `planner/DESIGN.md` §11) runs for at most a time limit (30 s):
+
+1. **Probes.** Two tiny plans tell whether the physics engine lets upright blocks stand on
+   flat blocks, and carry blocks (`probeRules`).
+2. **First sweep.** v1's builds at a coarse spread of heights (below). The best heights get a
+   tree search each (`Tree.lean`), starting from the best v1 setting of that height.
+3. **Rounds.** The tree searches run in parallel, a few steps each per round. Leaves that beat
+   a search's incumbent go to the physics engine, each in its own task, at most a few at a
+   time. Reports come back to their search. After `treeShare` of the time, the searches also
+   restart from their incumbents (the heuristic phase). At a third and two thirds of the
+   time, the worse half of the searches stops.
+4. **Stop** at the time limit (less a reserve for scoring), at `maxTries`, or when nothing is
+   left to do. Checks still running are not waited for. The plans that passed are scored by
+   the semantic engine and the best few returned (`finalize`).
+
+`planPure` is v1, kept as a pure function for tests and proofs. Its outer loop
+(`planner/DESIGN.md` §4.1, §4.7, §4.8):
 
 1. **Height and settings.** Build at a coarse spread of heights with a few settings, keep the
    best height, then build at heights close to it with every setting (which way the courses
@@ -81,6 +97,8 @@ def maxHeight : Nat := 200
 /-- One build at one height. -/
 structure Trial where
   height : Nat
+  /-- The setting it was built with. -/
+  setting : Setting := default
   blocks : List GBlock
   /-- The fast score. -/
   fast : Q
@@ -98,14 +116,18 @@ def perCourseLimit (t : Table) (n pc : Nat) : Nat :=
   let share := max 1 (n / max 1 t.courses)
   if pc == 0 then share else if pc == 1 then share + 1 else 0
 
+/-- The build settings for a setting, with at most `cap` blocks. -/
+def paramsFor (t : Table) (s : Setting) (cap : Nat) : BuildParams :=
+  { lambda := 1, price := defaultPrice, maxBlocks := cap, margin := defaultMargin,
+    cabin := s.cabin, underShare := s.underShare,
+    perCourse := perCourseLimit t cap s.perCourse, strict := s.strict }
+
 /-- Build once, with at most `cap` blocks. -/
 def tryBuild (m : BubbleModel) (height : Nat) (s : Setting) (cap : Nat) : Trial :=
   let t := Table.make m height
-  let r := build t { lambda := 1, price := defaultPrice, maxBlocks := cap, margin := defaultMargin,
-                     cabin := s.cabin, underShare := s.underShare,
-                     perCourse := perCourseLimit t cap s.perCourse, strict := s.strict }
+  let r := build t (paramsFor t s cap)
   let bs := r.blocks.toList
-  { height, blocks := bs, fast := r.state.score t, covers := coversAll t bs }
+  { height, setting := s, blocks := bs, fast := r.state.score t, covers := coversAll t bs }
 
 /-- Run the builds in parallel. Each build is a pure function, so the result is the same as
 running them one after the other. -/
@@ -243,7 +265,192 @@ def planPure (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine) : L
   | .bubbles m => finalize req.blocks req.maxCandidates (checkTrials req ph sem (allTrials m req.blocks))
   | _ => []
 
-/-- The planner. -/
-def planner : Planner := ⟨fun req ph sem => pure (planPure req ph sem)⟩
+/-! ## v2: tree searches under a time limit -/
+
+/-- The settings of the planner (`planner/DESIGN.md` §11.5). -/
+structure PlannerConfig where
+  /-- Return within this many milliseconds. -/
+  timeLimitMs : Nat := 30000
+  /-- Of that, keep this much for scoring and choosing at the end. -/
+  reserveMs : Nat := 2000
+  /-- At most this many tries in all (a safety limit; the time limit comes first). -/
+  maxTries : Nat := 10000000
+  /-- The share of the time (in percent) before the heuristic phase starts. -/
+  treeShare : Nat := 60
+  /-- Tree searches at this many heights. -/
+  heights : Nat := 8
+  /-- At most this many physics checks at the same time. -/
+  parallelChecks : Nat := 4
+  deriving Repr, Inhabited
+
+/-- Probe: a standing block in the middle of a flat block. -/
+def probeOnFlat : BuildPlan :=
+  .ofBlocks [(GBlock.mk .flatX 0 0 0).toPose, (GBlock.mk .standX 6 1 1).toPose]
+
+/-- Probe: a flat block resting on two standing blocks (E9 of the physics rules). -/
+def probeCarry : BuildPlan :=
+  .ofBlocks [(GBlock.mk .standX 0 1 0).toPose, (GBlock.mk .standX 12 1 0).toPose,
+    (GBlock.mk .flatX 0 0 15).toPose]
+
+/-- What upright blocks may do, by asking the physics engine (2 checks). -/
+def probeRules (ph : PhysicsEngine) (human : HumanModel) : UprightRules :=
+  { onFlat := (ph.check human 3 probeOnFlat).ok, carry := (ph.check human 3 probeCarry).ok }
+
+/-- The checks the probes use. -/
+def probeChecks : Nat := 2
+
+/-- The heights for tree searches, each with the setting to start from: the two best heights
+of the first sweep, heights near each of them (as v1's fine sweep), then the other heights of the sweep. At most `k`. -/
+def treeHeights (trials : List Trial) (k : Nat) : List (Nat × Setting) :=
+  let sorted := trials.mergeSort Trial.better
+  let firsts := (sorted.map (·.height)).eraseDups.filterMap fun h =>
+    (sorted.find? (·.height == h)).map fun tr => (h, tr.setting)
+  let near (i : Nat) (ps : List Nat) : List (Nat × Setting) := match firsts[i]? with
+    | some (h, s) => (heightsAt h ps).map fun h' => (h', s)
+    | none => []
+  let all := (firsts.take 2 ++ near 0 [92, 108, 85, 115] ++ near 1 [92, 108, 85, 115] ++ firsts.drop 2).foldl
+    (fun acc (h, s) => if acc.any (·.1 == h) then acc else acc ++ [(h, s)]) []
+  all.take k
+
+/-- The tree search at a height, starting from a setting, with the v1 build of that height (if
+any) offered to the physics engine first. -/
+def startTree (m : BubbleModel) (n : Nat) (up : UprightRules) (trials : List Trial)
+    (h : Nat) (s : Setting) : Tree :=
+  let t := Table.make m h
+  let tr := Tree.make t h n { paramsFor t s n with up }
+  match (trials.filter (·.height == h)).mergeSort Trial.better with
+  | best :: _ => tr.offer (Leaf.ofBlocks t tr.info best.blocks.toArray)
+  | [] => tr
+
+/-- A candidate for the plan of a leaf that passed physics, scored by the semantic engine. -/
+def candidateOf (req : PlanRequest) (sem : SemanticEngine) (height : Nat) (lf : Leaf)
+    (r : PhysicsReport) : Candidate :=
+  let bs := lf.blocks.toList
+  { plan := toPlan bs, physics := r,
+    score := sem.score req.target (Frame.ofHeight height) (bs.map GBlock.toPose),
+    difficulty := difficultyOf bs.length r }
+
+/-- At most `k` candidates: the best of `firsts` (`finalize`), then, if there is room, the best
+of `rest`. -/
+def pick (n k : Nat) (firsts rest : List Candidate) : List Candidate :=
+  finalize n k firsts ++ finalize n (k - (finalize n k firsts).length) rest
+
+/-- The candidates from the searches: the best plan that passed physics at each height first,
+then, if there is room, the other plans that passed. -/
+def candidatesOf (req : PlanRequest) (sem : SemanticEngine) (trees : List Tree) : List Candidate :=
+  pick req.blocks req.maxCandidates
+    (trees.filterMap fun tr => tr.passed.head?.map fun (lf, r) => candidateOf req sem tr.height lf r)
+    (trees.flatMap fun tr => (tr.passed.drop 1).map fun (lf, r) => candidateOf req sem tr.height lf r)
+
+/-- A physics check running in the background, for the leaf of search `tree`. -/
+structure Pending where
+  tree : Nat
+  leaf : Leaf
+  task : Task PhysicsReport
+
+/-- What the search did, for reports and tests. -/
+structure SearchLog where
+  rounds : Nat := 0
+  tries : Nat := 0
+  checks : Nat := 0
+  cuts : Nat := 0
+  timedOut : Nat := 0
+  up : UprightRules := {}
+  deriving Repr, Inhabited
+
+/-- Run the tree searches for a bubble model, under the time limit. Returns the searches (with
+the plans that passed physics) and a log. -/
+def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m : BubbleModel) :
+    IO (List Tree × SearchLog) := do
+  let start ← IO.monoMsNow
+  let stopAt := start + cfg.timeLimitMs - min cfg.timeLimitMs cfg.reserveMs
+  let n := req.blocks
+  if n == 0 then return ([], {})
+  let up := probeRules ph req.human
+  let mut log : SearchLog := { checks := probeChecks, up }
+  -- the first sweep: v1 builds at a coarse spread of heights
+  let h0 := firstHeight m n
+  let trials := tryAll m n ((heightsAt h0 [50, 75, 100, 125, 150, 200]).flatMap fun h =>
+    (forBudget n coarseSettings).map fun s => (h, s))
+  let mut trees : Array Tree :=
+    ((treeHeights trials cfg.heights).map fun (h, s) => startTree m n up trials h s).toArray
+  let mut alive : Array Bool := trees.map fun _ => true
+  let mut pending : Array Pending := #[]
+  let mut steps := 2
+  let afterSweep ← IO.monoMsNow
+  let treeEnd := afterSweep + (stopAt - min stopAt afterSweep) * cfg.treeShare / 100
+  let mut heuristic := false
+  let mut halvings := 0
+  repeat
+    let now ← IO.monoMsNow
+    if now ≥ stopAt || log.tries ≥ cfg.maxTries then break
+    if now ≥ treeEnd then heuristic := true
+    -- reports that came back
+    let mut still : Array Pending := #[]
+    for p in pending do
+      if ← IO.hasFinished p.task then
+        trees := trees.modify p.tree (·.report p.leaf p.task.get)
+      else still := still.push p
+    pending := still
+    -- new checks, taking turns between the searches
+    let mut progress := true
+    while progress && pending.size < cfg.parallelChecks && log.checks < req.maxChecks do
+      progress := false
+      for i in [0:trees.size] do
+        if pending.size < cfg.parallelChecks && log.checks < req.maxChecks then
+          match trees[i]!.takeRequest with
+          | some (lf, tr') =>
+            trees := trees.set! i tr'
+            let plan := toPlan lf.blocks.toList
+            let task := Task.spawn (prio := .dedicated) fun _ => ph.check req.human n plan
+            pending := pending.push { tree := i, leaf := lf, task }
+            log := { log with checks := log.checks + 1 }
+            progress := true
+          | none => pure ()
+    -- successive halving: at a third and two thirds of the time, the worse half stops
+    let third := (stopAt - min stopAt afterSweep) / 3
+    if halvings < 2 && now ≥ afterSweep + third * (halvings + 1) then
+      halvings := halvings + 1
+      let ranked := ((List.range trees.size).filter (alive[·]!)).mergeSort fun i j =>
+        match trees[i]!.incumbent, trees[j]!.incumbent with
+        | some a, some b => a.better b || !b.better a
+        | some _, none => true
+        | none, _ => false
+      let keep := ranked.take (max 1 ((ranked.length + 1) / 2))
+      alive := (List.range trees.size).toArray.map keep.contains
+    -- one round of every live search, in parallel
+    let live := (List.range trees.size).filter (alive[·]!)
+    let busy := live.filter fun i => !trees[i]!.idle || heuristic
+    if busy.isEmpty then
+      if pending.isEmpty && trees.all (·.requests.isEmpty) then
+        if heuristic || trees.all (·.incumbent.isNone) then break
+        heuristic := true
+      else IO.sleep 20
+      continue
+    let t0 ← IO.monoMsNow
+    let tasks := busy.map fun i => (i, Task.spawn fun _ => trees[i]!.run steps heuristic)
+    for (i, task) in tasks do
+      let before := trees[i]!.tries
+      let tr ← IO.wait task
+      trees := trees.set! i tr
+      log := { log with tries := log.tries + (tr.tries - before) }
+    let dt := (← IO.monoMsNow) - t0
+    steps := if dt < 150 then min 256 (steps * 2) else if dt > 600 then max 1 (steps / 2) else steps
+    log := { log with rounds := log.rounds + 1 }
+  log := { log with timedOut := pending.size, cuts := trees.foldl (· + ·.cuts) 0 }
+  return (trees.toList, log)
+
+/-- The planner with settings: tree searches under the time limit (`runSearch`), then the
+candidates. Only bubble targets are supported; any other target gets no candidates. -/
+def plannerWith (cfg : PlannerConfig) : Planner :=
+  ⟨fun req ph sem => do
+    match req.target.shape with
+    | .bubbles m =>
+      let (trees, _) ← runSearch cfg req ph m
+      return candidatesOf req sem trees
+    | _ => return []⟩
+
+/-- The planner: tree searches for at most 30 seconds. -/
+def planner : Planner := plannerWith {}
 
 end KaplaPlanner

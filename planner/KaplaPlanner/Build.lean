@@ -6,8 +6,9 @@ import KaplaPlanner.Support
 At one height, the planner builds one course (one block thick) at a time, from the ground up
 (`planner/DESIGN.md` §4.3). In each course:
 
-1. **Candidates.** Every flat block, along x or along y, that has at least one cell in a bubble
-   at this course. Only these can be part of an accepted plan: a block with no cell in any
+1. **Candidates.** Every block starting at this course, lying a way that the settings allow
+   (flat along x or y; with `uprights`, also on edge and standing), that has at least one cell
+   in a bubble. Only these can be part of an accepted plan: a block with no cell in any
    bubble is always rejected by the scorer.
 2. **Value.** `covered cells it adds − price × cells it puts outside the bubbles`, plus
    `firstBonus` for each bubble the block is the first to reach. Outside
@@ -65,6 +66,13 @@ structure BuildParams where
   odd ones (a log cabin); `some false`: the other way round; `none`: both ways in every
   course. -/
   cabin : Option Bool := some true
+  /-- If set, the flat ways a block may lie in every course; this replaces `cabin`. The tree
+  search (`Tree.lean`) chooses them course by course. -/
+  orients : Option (List Orient) := none
+  /-- Also try blocks on edge and standing. -/
+  uprights : Bool := false
+  /-- What upright blocks may do (`Support.lean`). -/
+  up : UprightRules := {}
   deriving Repr, Inhabited
 
 /-- The result of one build. -/
@@ -106,40 +114,59 @@ def Table.holds (t : Table) (b : GBlock) : Bool :=
   t.x0 ≤ b.x && b.x + b.sx ≤ t.x0 + t.nx && t.y0 ≤ b.y && b.y + b.sy ≤ t.y0 + t.ny &&
     0 ≤ b.z && b.z + b.sz ≤ t.nz
 
-/-- The ways a block of course `z` may lie. -/
+/-- The flat ways a block of course `z` may lie. -/
 def orientsAt (cabin : Option Bool) (z : Int) : List Orient :=
   match cabin with
   | none => [.flatX, .flatY]
   | some evenX => if (z % 2 == 0) == evenX then [.flatX] else [.flatY]
 
-/-- All flat blocks of course `z`, lying the ways given, with at least one cell in a bubble. -/
+/-- The ways a block of course `z` may lie under the settings: the flat ones, and the upright
+ones if allowed there (on the ground, or anywhere if they may stand on flat blocks). -/
+def BuildParams.orientsAt (p : BuildParams) (z : Int) : List Orient :=
+  let flats := p.orients.getD (KaplaPlanner.orientsAt p.cabin z)
+  if p.uprights && (z == 0 || p.up.onFlat) then flats ++ Orient.uprights else flats
+
+/-- The union of two boxes (x and y ranges). -/
+def unionBox : Option (Int × Int × Int × Int) → Option (Int × Int × Int × Int) →
+    Option (Int × Int × Int × Int)
+  | some (a, b, c, d), some (a', b', c', d') => some (min a a', max b b', min c c', max d d')
+  | some r, none | none, some r => some r
+  | none, none => none
+
+/-- All blocks starting at course `z`, lying the ways given, with at least one cell in a
+bubble. -/
 def candidatesAt (t : Table) (z : Int) (orients : List Orient) : Array GBlock := Id.run do
   let mut res : Array GBlock := #[]
-  match sliceBox t z with
-  | none => return res
-  | some (xa, xb, ya, yb) =>
-    for o in orients do
-      let (sx, sy, _) := o.size
+  for o in orients do
+    let (sx, sy, sz) := o.size
+    -- the box around the bubble cells of every course the block fills
+    let box := (intRange z (z + sz - 1)).foldl (fun r zz => unionBox r (sliceBox t zz)) none
+    match box with
+    | none => pure ()
+    | some (xa, xb, ya, yb) =>
       for y in intRange (ya - sy + 1) yb do
         for x in intRange (xa - sx + 1) xb do
           let b : GBlock := ⟨o, x, y, z⟩
           if t.holds b && b.cells.any (fun c => t.maskAt c != 0) then res := res.push b
-    return res
+  return res
 
 /-- Do the two blocks share a grid line along x or y in their course? -/
 def sharesLine (a b : GBlock) : Bool :=
   (a.x < b.x + b.sx && b.x < a.x + a.sx) || (a.y < b.y + b.sy && b.y < a.y + a.sy)
 
-/-- Build one course on top of what is there. -/
-def buildCourse (t : Table) (p : BuildParams) (z : Int) (start : Built) : Built := Id.run do
+/-- Build one course on top of what is there. Placements in `nogood` (by `Stack.supportKey`)
+are never made. -/
+def buildCourse (t : Table) (p : BuildParams) (z : Int) (start : Built)
+    (nogood : Std.HashSet UInt64 := {}) : Built := Id.run do
   let mut st := start.stack
   let mut sc := start.state
   let mut blocks := start.blocks
   if blocks.size ≥ p.maxBlocks then return start
-  let cands := (candidatesAt t z (orientsAt p.cabin z)).filter fun u =>
-    z == 0 || match contactsOf st u with
+  let cands := (candidatesAt t z (p.orientsAt z)).filter fun u =>
+    (z == 0 || match contactsOf st u p.up with
       | some cs => !cs.isEmpty
-      | none => false
+      | none => false) &&
+    (nogood.isEmpty || !nogood.contains (st.supportKey u))
   let mut ds : Array (Option Delta) := cands.map fun u => some (delta t sc u.cells)
   -- the pillar bonus, while this course has no block under an untouched bubble yet
   let under := cands.map (underUntouched t sc.touched)
@@ -169,7 +196,7 @@ def buildCourse (t : Table) (p : BuildParams) (z : Int) (start : Built) : Built 
       ds := ds.set! i none
       let v := value p sc d + pillar i
       if v ≤ 0 || v < p.lambda then continue
-      match st.place u p.margin p.strict with
+      match st.place u p.margin p.strict p.up with
       | none => pure ()
       | some st' =>
         st := st'

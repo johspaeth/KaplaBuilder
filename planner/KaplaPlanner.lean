@@ -4,6 +4,7 @@ import KaplaPlanner.Table
 import KaplaPlanner.FastScore
 import KaplaPlanner.Support
 import KaplaPlanner.Build
+import KaplaPlanner.Tree
 import KaplaPlanner.Search
 import KaplaPlanner.Blueprint
 import KaplaPlanner.Proofs
