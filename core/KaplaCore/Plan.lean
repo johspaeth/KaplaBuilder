@@ -57,11 +57,17 @@ def BuildPlan.example : BuildPlan := ⟨[{ blocks := [Pose.example] }]⟩
 
 #guard BuildPlan.example.blockCount == 1
 
-/-- What we assume about the person who builds. See docs/DESIGN.md §2.1. -/
+/-- What we assume about the person who builds. See docs/DESIGN.md §2.1.
+
+The verified physics engine reads only `epsRel` and `hands`. -/
 structure HumanModel where
-  /-- How far a block may be off, measured against the block(s) it rests on. -/
+  /-- How far a block may land from its own planned spot, along `x` and along `y` (rule R1
+  of `spec/physics-rules.md`). Each block's error is separate, so two touching blocks can
+  end up as much as `2 * epsRel` off from each other. Errors do not add up from level to
+  level: a block high in a tower is still within `epsRel` of its planned spot. -/
   epsRel : Q
-  /-- How far any block may drift from the plan in total. -/
+  /-- How far any block may drift from the plan in total. Not used by the verified physics
+  engine: under R1 no block drifts more than `epsRel`. Kept for the mock and for later. -/
   eAbs   : Q
   /-- Downward press while placing a block, in block weights. -/
   press  : Q

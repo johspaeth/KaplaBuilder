@@ -1,0 +1,33 @@
+{
+  "challenge_module": "KaplaSpecs.Physics",
+  "solution_module": "KaplaPhysics.Proofs",
+  "theorem_names": [
+    "KaplaPhysics.stabilityAnswer_stable_sound",
+    "KaplaPhysics.stabilityAnswer_falls_sound",
+    "KaplaPhysics.verdict_solid_sound",
+    "KaplaPhysics.verdict_solid_stable",
+    "KaplaPhysics.verdict_risky_sound",
+    "KaplaPhysics.verdict_falls_sound",
+    "KaplaPhysics.checkPlan_sound",
+    "KaplaPhysics.column_stable_iff",
+    "KaplaPhysics.stable_withFriction",
+    "KaplaPhysics.squareTower_safe",
+    "KaplaPhysics.reachDir_sound",
+    "KaplaPhysics.hardToReach_nil_sound",
+    "KaplaPhysics.Rect.inter_contains",
+    "KaplaPhysics.Rect.hasArea_iff",
+    "KaplaPhysics.restPatch_plank_iff",
+    "KaplaPhysics.restPatch_ground_iff",
+    "KaplaPhysics.checkPushes_sound",
+    "KaplaPhysics.fallCertificate_sound",
+    "KaplaPhysics.solidCertificate_sound",
+    "KaplaPhysics.not_stands_and_falls",
+    "KaplaPhysics.plankOf_box",
+    "KaplaPhysics.coreCheck_ok_sound"
+  ],
+  "permitted_axioms": [
+    "propext",
+    "Quot.sound",
+    "Classical.choice"
+  ]
+}

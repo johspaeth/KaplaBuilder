@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Reject escape hatches in code that is supposed to be proven (CLAUDE.md §7).
-# specs/ is skipped for `sorry`: spec statements are left unproven on purpose.
+# specs/ is skipped for `sorry`: spec statements are left unproven on purpose. The
+# physics rules in specs/KaplaSpecs/PhysicsRules/ are definitions, so they are checked.
 # The build (--fail-level=warning) and `lake check` catch most of these too;
 # this grep gives an early, readable error. Words inside comments also count:
 # rephrase the comment.
@@ -18,7 +19,7 @@ report() { # pattern message dirs...
     fail=1
   fi
 }
-report 'sorry|admit'            'unfinished proof'                       "${code_dirs[@]}"
+report 'sorry|admit'            'unfinished proof'                       "${code_dirs[@]}" specs/KaplaSpecs/PhysicsRules
 report 'axiom'                  'new axiom: use an opaque with a contract' "${code_dirs[@]}" specs
 report 'native_decide'          'adds a compiler axiom; agree with the team first' "${code_dirs[@]}" specs
 report 'debug\.skipKernelTC'    'skips the kernel check'                 "${code_dirs[@]}" specs
