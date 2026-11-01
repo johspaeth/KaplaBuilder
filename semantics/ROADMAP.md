@@ -32,6 +32,16 @@ narration text, chat inside the project web UI, demo polish.
 convexity lemmas of APPROACH.md §6 also need the ground: a straight line between two points above
 it stays above it.
 
+**New order (ruled 1 Nov 2026).** After step 6: the scorer part of step 8 (`Grid`, `Score`, `Check`,
+`scoreReport`, the command in `semantics/dev/Score.lean`), then step 7 (chat), then the proofs of
+step 8. Johannes wants real scores on bubble models first.
+
+**Height, not Frame (ruled 1 Nov 2026).** `score` takes a model, a height and blocks. There is no
+sideways shift: the blocks are built to fit the model. `canonicalFrame` is dropped for good. Bubbles
+are the only target shape. The Core change is on `core/score-height`; the planner part is
+Johannes's, on the same branch. When it merges, `placeAt` in `Grid.lean`, the report in
+`Engine.lean` and the notes in `egg.json` each need a small edit.
+
 **Why this order.** The egg and the contract go before the chat because they are what the
 planner is waiting for; the chat only needs the model (3) and the viewer (6), not the engine,
 so it is not delayed by the proofs; the engine (8) comes after the contract (5) so its

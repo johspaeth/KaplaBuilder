@@ -80,6 +80,55 @@ def decodesTo (text : String) (m : BubbleModel) : Bool :=
   | .ok m' => m' == m
   | .error _ => false
 
+/-- Read a number in a blocks file: as `ratFromJson`, and also a whole number in a string. -/
+private def blockNumber : Json → Except String Rat
+  | .str s =>
+    match s.toInt? with
+    | some i => .ok (i : Rat)
+    | none => ratFromJson (.str s)
+  | j => ratFromJson j
+
+/-- Read one block: `up` (`"flat"`, `"edge"` or `"upright"`), `rot` (`c`, `s`) and `center`.
+This is the block format of `web/README.md`. -/
+def poseFromJson (j : Json) : Except String Pose := do
+  let up ← match (j.getObjValAs? String "up").toOption.getD "flat" with
+    | "flat" => pure Upright.flat
+    | "edge" => pure Upright.onEdge
+    | "upright" => pure Upright.standing
+    | u => throw s!"unknown \"up\": {u}"
+  let part (key : String) (default : Rat) : Except String Rat :=
+    match j.getObjVal? "rot" |>.toOption |>.bind (·.getObjVal? key |>.toOption) with
+    | some v => blockNumber v
+    | none => .ok default
+  match (← (← j.getObjVal? "center").getArr?).toList with
+  | [x, y, z] =>
+    return ⟨up, ⟨← part "c" 1, ← part "s" 0⟩, ⟨← blockNumber x, ← blockNumber y, ← blockNumber z⟩⟩
+  | _ => throw s!"\"center\" needs three numbers: {j.compress}"
+
+/-- Read a blocks file: a blueprint (`{"steps": ...}` or `{"plan": {"steps": ...}}`), or a plain
+`{"blocks": [...]}`. -/
+def decodeBlocks (text : String) : Except String (List Pose) := do
+  let j ← Json.parse text
+  match j.getObjVal? "blocks" with
+  | .ok blocks => (← blocks.getArr?).toList.mapM poseFromJson
+  | .error _ =>
+    let planJ := (j.getObjVal? "plan").toOption.getD j
+    let steps ← (← planJ.getObjVal? "steps").getArr?
+    let perStep ← steps.toList.mapM fun st => do
+      (← (← st.getObjVal? "blocks").getArr?).toList.mapM poseFromJson
+    return perStep.flatten
+
+-- Blocks can come in any of the three forms, in the same order.
+#guard (decodeBlocks "{\"blocks\":[{\"center\":[\"15/2\",\"3/2\",0.5]}]}").toOption ==
+  some [⟨.flat, ⟨1, 0⟩, ⟨15 / 2, 3 / 2, 1 / 2⟩⟩]
+#guard ((decodeBlocks "{\"steps\":[{\"blocks\":[{\"up\":\"upright\",\"center\":[0,0,\"7\"]}]}]}").toOption.map
+  (·.map (·.center.z))) == some [7]
+#guard ((decodeBlocks "{\"plan\":{\"steps\":[{\"blocks\":[{\"center\":[0,0,1]},{\"center\":[0,0,2]}]}]}}").toOption.map
+  (·.length)) == some 2
+#guard (decodeBlocks "{\"blocks\":[{\"up\":\"sideways\",\"center\":[0,0,0]}]}") matches .error _
+#guard (decodeBlocks "{\"blocks\":[{\"center\":[0,0]}]}") matches .error _
+#guard (decodeBlocks "{}") matches .error _
+
 /-- Does text fail to decode? -/
 def decodeFails (text : String) : Bool :=
   match decode text with
@@ -98,6 +147,15 @@ def thirdExample : BubbleModel :=
   { name := "third"
     bubbles := [{ label := "a", tags := [], center := ⟨-1 / 3, 1 / 8, 1 / 3⟩
                   semi := ⟨1 / 3, 1 / 7, 1 / 3⟩ }] }
+
+/-- The bunny fixture, read from the real file when this module is built. -/
+def bunnyFixtureText : String := include_str "../fixtures/targets/bunny.json"
+
+-- The bunny decodes, has six bubbles and survives a round trip.
+#guard (decode bunnyFixtureText).toOption.map (·.bubbles.length) == some 6
+#guard match decode bunnyFixtureText with
+  | .ok m => decodesTo (encode m) m
+  | .error _ => false
 
 #guard decodesTo (encode thirdExample) thirdExample
 #guard (ratToJson (3 / 10)).compress == "0.3"
