@@ -295,12 +295,15 @@ theorem ofBlocks_blockCount (bs : List Pose) : (BuildPlan.ofBlocks bs).blockCoun
     omega
 
 /-- With the physics check on, a design that passes has a plan the physics engine accepted, and
-it uses at most the allowed number of blocks. -/
+it uses at most the allowed number of blocks. The candidate's physics report is the engine's
+answer for the candidate's own plan, so the engine's soundness theorem applies to it (for the
+real engine: `KaplaPhysics.coreCheck_ok_sound`). -/
 theorem judge_checked_passed (req : PlanRequest) (ph : PhysicsEngine) (sem : SemanticEngine)
     (reply : Except String String) (c : Candidate)
     (hpass : (judge req (some ph) sem reply).passed = true)
     (hcand : (judge req (some ph) sem reply).candidate = some c) :
-    c.physics.ok = true ∧ c.plan.blockCount ≤ req.blocks := by
+    c.physics = ph.check req.human req.blocks c.plan ∧
+      c.physics.ok = true ∧ c.plan.blockCount ≤ req.blocks := by
   unfold judge at hpass hcand
   split at hpass <;> simp_all
   rename_i text
@@ -309,7 +312,7 @@ theorem judge_checked_passed (req : PlanRequest) (ph : PhysicsEngine) (sem : Sem
   split at hpass <;> simp_all
   obtain ⟨-, hok⟩ := hpass
   subst hcand
-  exact ⟨hok, by rw [ofBlocks_blockCount]; omega⟩
+  exact ⟨rfl, hok, by rw [ofBlocks_blockCount]; omega⟩
 
 /-- An example request: the egg, at most 4 blocks. -/
 private def eggRequest : PlanRequest := { target := .egg, blocks := 4 }
