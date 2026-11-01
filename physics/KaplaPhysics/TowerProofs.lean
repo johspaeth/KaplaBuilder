@@ -15,6 +15,8 @@ errors are. -/
 
 namespace KaplaPhysics
 
+open KaplaCore (Pose)
+
 /-! ## Planks of the tower -/
 
 /-- What stands after `k` steps. -/
@@ -32,27 +34,39 @@ theorem squareTower_take (n k : Nat) (hk : k ≤ 2 * n) :
 
 /-- The four kinds of tower plank, by level parity and side. -/
 theorem towerPlank_cases (m : Nat) :
-    (m / 2 % 2 = 0 ∧ m % 2 = 0 ∧ towerPlank m = ⟨.flatX, 0, 0, ((m / 2 : Nat) : Rat)⟩) ∨
-    (m / 2 % 2 = 0 ∧ m % 2 = 1 ∧ towerPlank m = ⟨.flatX, 0, 12, ((m / 2 : Nat) : Rat)⟩) ∨
-    (m / 2 % 2 = 1 ∧ m % 2 = 0 ∧ towerPlank m = ⟨.flatY, 0, 0, ((m / 2 : Nat) : Rat)⟩) ∨
-    (m / 2 % 2 = 1 ∧ m % 2 = 1 ∧ towerPlank m = ⟨.flatY, 12, 0, ((m / 2 : Nat) : Rat)⟩) := by
+    (m / 2 % 2 = 0 ∧ m % 2 = 0 ∧ towerPlank m = Plank.at .flatX 0 0 ((m / 2 : Nat) : Rat)) ∨
+    (m / 2 % 2 = 0 ∧ m % 2 = 1 ∧ towerPlank m = Plank.at .flatX 0 12 ((m / 2 : Nat) : Rat)) ∨
+    (m / 2 % 2 = 1 ∧ m % 2 = 0 ∧ towerPlank m = Plank.at .flatY 0 0 ((m / 2 : Nat) : Rat)) ∨
+    (m / 2 % 2 = 1 ∧ m % 2 = 1 ∧ towerPlank m = Plank.at .flatY 12 0 ((m / 2 : Nat) : Rat)) := by
   have h1 : m / 2 % 2 = 0 ∨ m / 2 % 2 = 1 := by omega
   have h2 : m % 2 = 0 ∨ m % 2 = 1 := by omega
   rcases h1 with h1 | h1 <;> rcases h2 with h2 | h2 <;> simp [towerPlank, h1, h2]
 
+/-- After `k` steps and errors `d`, plank `m` of the tower is the tower plank moved by its
+error. -/
+theorem towerShift_get (k m : Nat) (d : Nat → Rat × Rat) (h : m < k) :
+    ((towerBuild k).shift d).get m = (towerPlank m).moveBy (d m).1 (d m).2 0 := by
+  rw [shift_get _ d m (by simpa using h), towerBuild_get k m h]
+
 /-! ## Well-formed after every step -/
 
-theorem tower_no_overlap (i j : Nat) (hij : i ≠ j) : ¬ Overlap (towerPlank i) (towerPlank j) := by
-  intro h
-  have hz := h.2.2
+/-- Two different planks of the tower, each moved by at most 1/2 along `x` and `y`, share
+no inside space: on one level they are 12 apart, and planks on different levels share no
+height. -/
+theorem tower_no_overlap_moved (i j : Nat) (hij : i ≠ j) (a b c e : Rat)
+    (ha : -(1 / 2) ≤ a ∧ a ≤ 1 / 2) (hb : -(1 / 2) ≤ b ∧ b ≤ 1 / 2)
+    (hc : -(1 / 2) ≤ c ∧ c ≤ 1 / 2) (he : -(1 / 2) ≤ e ∧ e ≤ 1 / 2) :
+    ¬ Overlap ((towerPlank i).moveBy a b 0) ((towerPlank j).moveBy c e 0) := by
+  rintro ⟨hz, x, y, h1, h2⟩
   by_cases hl : i / 2 = j / 2
   · -- Same level: the two planks are on opposite sides.
     have hp : i % 2 ≠ j % 2 := by omega
     rcases towerPlank_cases i with ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ | ⟨a1, a2, ei⟩ <;>
     rcases towerPlank_cases j with ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ | ⟨b1, b2, ej⟩ <;>
     (try omega) <;>
-    · rw [ei, ej] at h
-      simp only [Overlap, Plank.x1, Plank.y1, Plank.top, Pose.size] at h
+    · rw [ei, Plank.at_moveBy, Plank.at_coversInside] at h1
+      rw [ej, Plank.at_moveBy, Plank.at_coversInside] at h2
+      simp only [AxisPose.size] at h1 h2
       grind
   · -- Different levels: one is at least a full thickness above the other.
     have hc : ((i / 2 : Nat) : Rat) + 1 ≤ ((j / 2 : Nat) : Rat) ∨
@@ -62,12 +76,22 @@ theorem tower_no_overlap (i j : Nat) (hij : i ≠ j) : ¬ Overlap (towerPlank i)
       · right; exact_mod_cast h'
     rcases towerPlank_cases i with ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ | ⟨_, _, ei⟩ <;>
     rcases towerPlank_cases j with ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ | ⟨_, _, ej⟩ <;>
-    · rw [ei, ej] at hz
-      simp only [Plank.top, Pose.size] at hz
+    · rw [ei, ej, Plank.at_moveBy, Plank.at_moveBy, Plank.at_bottom, Plank.at_bottom,
+        Plank.at_top, Plank.at_top] at hz
+      simp only [AxisPose.size] at hz
       grind
 
+theorem tower_no_overlap (i j : Nat) (hij : i ≠ j) : ¬ Overlap (towerPlank i) (towerPlank j) := by
+  have := tower_no_overlap_moved i j hij 0 0 0 0 (by grind) (by grind) (by grind) (by grind)
+  rwa [moveBy_zero, moveBy_zero] at this
+
 theorem tower_wellFormed (k : Nat) : WellFormed (towerBuild k) := by
-  refine ⟨?_, ?_, ?_⟩
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · intro i hi
+    simp only [towerBuild_length] at hi
+    rw [towerBuild_get k i hi]
+    rcases towerPlank_cases i with ⟨_, _, e⟩ | ⟨_, _, e⟩ | ⟨_, _, e⟩ | ⟨_, _, e⟩ <;>
+      rw [e] <;> simp only [Plank.at] <;> decide +kernel
   · intro i hi j hj hij
     simp only [towerBuild_length] at hi hj
     rw [towerBuild_get k i hi, towerBuild_get k j hj]
@@ -76,30 +100,59 @@ theorem tower_wellFormed (k : Nat) : WellFormed (towerBuild k) := by
     simp only [towerBuild_length] at hi
     rw [towerBuild_get k i hi]
     rcases towerPlank_cases i with ⟨_, _, e⟩ | ⟨_, _, e⟩ | ⟨_, _, e⟩ | ⟨_, _, e⟩ <;>
-      rw [e] <;> show (0 : Rat) ≤ ((i / 2 : Nat) : Rat) <;> exact_mod_cast Nat.zero_le _
+      rw [e, Plank.at_bottom] <;> exact_mod_cast Nat.zero_le _
   · intro i hi
     simp only [towerBuild_length] at hi
     by_cases h0 : i / 2 = 0
     · -- Level 0 rests on the ground.
       left
-      simp only [restPatch, towerBuild_get k i hi]
+      simp only [RestsOn, towerBuild_get k i hi]
       rcases towerPlank_cases i with ⟨_, _, e⟩ | ⟨_, _, e⟩ | ⟨_, _, e⟩ | ⟨_, _, e⟩ <;>
-        rw [e] <;> simp [h0]
+        rw [e, Plank.at_bottom] <;> simp [h0]
     · -- Higher levels rest on the first plank of the level below.
       right
       refine ⟨2 * (i / 2 - 1), by simp; omega, ?_⟩
       have hlow : (2 * (i / 2 - 1)) / 2 = i / 2 - 1 := by omega
       have hz : ((i / 2 : Nat) : Rat) = ((i / 2 - 1 : Nat) : Rat) + 1 := by
         rw [show i / 2 = (i / 2 - 1) + 1 by omega]; simp
-      simp only [restPatch, towerBuild_get k i hi, towerBuild_get k _ (show 2 * (i / 2 - 1) < k by omega)]
+      simp only [RestsOn, towerBuild_get k i hi,
+        towerBuild_get k _ (show 2 * (i / 2 - 1) < k by omega)]
       rcases towerPlank_cases i with ⟨a1, _, e⟩ | ⟨a1, _, e⟩ | ⟨a1, _, e⟩ | ⟨a1, _, e⟩ <;>
       rcases towerPlank_cases (2 * (i / 2 - 1)) with ⟨b1, b2, f⟩ | ⟨b1, b2, f⟩ | ⟨b1, b2, f⟩ | ⟨b1, b2, f⟩ <;>
       (try omega) <;>
-      · rw [e, f, hlow]
-        simp only [Plank.top, Pose.size, Plank.footprint, Plank.x1, Plank.y1, Rect.inter,
-          Rect.HasArea]
-        simp only [hz, true_and]
-        grind
+      · rw [e, f, hlow, Plank.at_bottom, Plank.at_top]
+        simp only [AxisPose.size]
+        refine ⟨by grind, ?_⟩
+        first
+        | exact ⟨3 / 2, 3 / 2, by rw [Plank.at_coversInside]; simp only [AxisPose.size]; grind,
+            by rw [Plank.at_coversInside]; simp only [AxisPose.size]; grind⟩
+        | exact ⟨3 / 2, 27 / 2, by rw [Plank.at_coversInside]; simp only [AxisPose.size]; grind,
+            by rw [Plank.at_coversInside]; simp only [AxisPose.size]; grind⟩
+        | exact ⟨27 / 2, 3 / 2, by rw [Plank.at_coversInside]; simp only [AxisPose.size]; grind,
+            by rw [Plank.at_coversInside]; simp only [AxisPose.size]; grind⟩
+
+/-- Every plank meets itself: its centre is under it, and its height overlaps its own. -/
+theorem meets_self (p : Plank) : Meets p p := by
+  obtain ⟨up, r, c⟩ := p
+  have hs : 0 < (up.dims).x ∧ 0 < (up.dims).y ∧ 0 < (up.dims).z := by
+    cases up <;> simp only [KaplaCore.Upright.dims, KaplaCore.blockLength, KaplaCore.blockWidth,
+      KaplaCore.blockThickness] <;> decide +kernel
+  refine ⟨⟨?_, ?_⟩, c.x, c.y, ?_, ?_⟩ <;>
+    simp only [Pose.bottom, Pose.top, Pose.size, Pose.Covers, Pose.alongLength,
+      Pose.alongWidth] <;> grind
+
+/-- The square tower keeps its gaps for errors up to `ε ≤ 1/2`: two different planks never
+share inside space after the errors. -/
+theorem tower_keepsGaps (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) : KeepsGaps ε (towerBuild k) := by
+  intro d hd i hi j hj hm
+  simp only [towerBuild_length] at hi hj
+  have hij : i ≠ j := by
+    rintro rfl; exact hm (meets_self _)
+  rw [towerShift_get k i d hi, towerShift_get k j d hj]
+  have di := hd i (by simpa using hi)
+  have dj := hd j (by simpa using hj)
+  exact tower_no_overlap_moved i j hij _ _ _ _ ⟨by grind, by grind⟩ ⟨by grind, by grind⟩
+    ⟨by grind, by grind⟩ ⟨by grind, by grind⟩
 
 /-! ## Corners and loads -/
 
@@ -236,8 +289,8 @@ theorem tower_sum (k i : Nat) (hi : i < k) (F A : Nat → Nat × Nat → Rat) :
 
 /-- The tower plank at corner `κ` of level `L`. -/
 theorem towerPlank_plankAt (L : Nat) (κ : Nat × Nat) (hκ : κ ∈ towerCorners) :
-    towerPlank (plankAt L κ) = if L % 2 = 0 then ⟨.flatX, 0, 12 * (κ.2 : Rat), (L : Rat)⟩
-      else ⟨.flatY, 12 * (κ.1 : Rat), 0, (L : Rat)⟩ := by
+    towerPlank (plankAt L κ) = if L % 2 = 0 then Plank.at .flatX 0 (12 * (κ.2 : Rat)) (L : Rat)
+      else Plank.at .flatY (12 * (κ.1 : Rat)) 0 (L : Rat) := by
   simp only [towerCorners, List.mem_cons, List.mem_nil_iff, or_false] at hκ
   have h2 : (2 * L + 1) / 2 = L := by omega
   have h3 : (2 * L + 1) % 2 = 1 := by omega
@@ -268,15 +321,15 @@ theorem own_shares (L β : Nat) (hβ : β < 2) :
     have p0 : plankAt L (0, β) = 2 * L + β := by simp [plankAt, hL]
     have p1 : plankAt L (1, β) = 2 * L + β := by simp [plankAt, hL]
     rw [p0] at e
-    simp only [hL, ite_true, share, shareX, shareY, p0, p1, e, Plank.centerX, Plank.centerY,
-      Pose.size]
+    simp only [hL, ite_true, share, shareX, shareY, p0, p1, e, Pose.centerX, Pose.centerY,
+      Plank.at, AxisPose.size]
     rcases hb with rfl | rfl <;> simp <;> refine ⟨by grind, by grind, by grind⟩
   · have e := towerPlank_plankAt L (β, 0) (by rcases hb with rfl | rfl <;> simp [towerCorners])
     have p0 : plankAt L (β, 0) = 2 * L + β := by simp [plankAt, hL]
     have p1 : plankAt L (β, 1) = 2 * L + β := by simp [plankAt, hL]
     rw [p0] at e
-    simp only [hL, ite_false, share, shareX, shareY, p0, p1, e, Plank.centerX, Plank.centerY,
-      Pose.size]
+    simp only [hL, ite_false, share, shareX, shareY, p0, p1, e, Pose.centerX, Pose.centerY,
+      Plank.at, AxisPose.size]
     rcases hb with rfl | rfl <;> simp <;> refine ⟨by grind, by grind, by grind⟩
 
 /-! ## Loads are positive and stay in the corner cores -/
@@ -367,54 +420,45 @@ theorem corner_cases (κ : Nat × Nat) (hκ : κ ∈ towerCorners) :
   simp only [towerCorners, List.mem_cons, List.mem_nil_iff, or_false] at hκ
   rcases hκ with rfl | rfl | rfl | rfl <;> simp
 
-/-- With errors of at most `ε ≤ 1/2`, the real patch at corner `κ` between level `L` and
-what it rests on contains the core square of `κ`. -/
-theorem tower_patch (ε : Rat) (hε : ε ≤ 1 / 2) (k L : Nat) (κ : Nat × Nat)
+/-- With errors of at most `ε ≤ 1/2`, the level-`L` plank at corner `κ` rests on what is
+below it there, and the patch contains the core square of `κ`. -/
+theorem tower_contact (ε : Rat) (hε : ε ≤ 1 / 2) (k L : Nat) (κ : Nat × Nat)
     (hκ : κ ∈ towerCorners) (hd : SmallShift ε k d) (hk : plankAt L κ < k) :
-    ∃ r, restPatch ((towerBuild k).shift d) (plankAt L κ) (lowerOf L κ) = some r ∧
-      r.x0 ≤ 12 * (κ.1 : Rat) + ε ∧ 12 * (κ.1 : Rat) + 3 - ε ≤ r.x1 ∧
-      r.y0 ≤ 12 * (κ.2 : Rat) + ε ∧ 12 * (κ.2 : Rat) + 3 - ε ≤ r.y1 := by
+    RestsOn ((towerBuild k).shift d) (plankAt L κ) (lowerOf L κ) ∧
+    ∀ x y, 12 * (κ.1 : Rat) + ε ≤ x → x ≤ 12 * (κ.1 : Rat) + 3 - ε →
+      12 * (κ.2 : Rat) + ε ≤ y → y ≤ 12 * (κ.2 : Rat) + 3 - ε →
+      InPatch ((towerBuild k).shift d) (plankAt L κ) (lowerOf L κ) x y := by
   have ⟨c1, c2⟩ := corner_cases κ hκ
   have du := hd _ hk
-  have hku : plankAt L κ < (towerBuild k).length := by simpa using hk
   cases L with
   | zero =>
-    simp only [lowerOf, ite_true, restPatch, shift_get _ d _ hku, towerBuild_get k _ hk,
+    simp only [lowerOf, ite_true, RestsOn, InPatch, towerShift_get k _ d hk,
       towerPlank_plankAt 0 κ hκ]
-    split
-    · exact ⟨_, rfl, by simp [Plank.footprint, Plank.x1, Pose.size]; grind,
-        by simp [Plank.footprint, Plank.x1, Pose.size]; grind,
-        by simp [Plank.footprint, Plank.y1, Pose.size]; grind,
-        by simp [Plank.footprint, Plank.y1, Pose.size]; grind⟩
-    · exfalso; grind
+    simp only [Plank.at_moveBy, Plank.at_bottom, Plank.at_covers, AxisPose.size]
+    refine ⟨by grind, fun x y h1 h2 h3 h4 => ⟨?_, trivial⟩⟩
+    refine ⟨?_, ?_, ?_, ?_⟩ <;> grind
   | succ L' =>
     have hl : plankAt L' κ < k := by
       have := plankAt_ge (L' + 1) κ; rcases plankAt_bit L' κ hκ with h | h <;> omega
-    have hkl : plankAt L' κ < (towerBuild k).length := by simpa using hl
     have dl := hd _ hl
-    simp only [lowerOf, Nat.add_one_ne_zero, ite_false, Nat.add_sub_cancel, restPatch,
-      shift_get _ d _ hku, shift_get _ d _ hkl, towerBuild_get k _ hk, towerBuild_get k _ hl,
-      towerPlank_plankAt _ κ hκ]
+    simp only [lowerOf, Nat.add_one_ne_zero, ite_false, Nat.add_sub_cancel, RestsOn, InPatch,
+      towerShift_get k _ d hk, towerShift_get k _ d hl, towerPlank_plankAt _ κ hκ]
     have hz : ((L' + 1 : Nat) : Rat) = (L' : Rat) + 1 := by simp
     by_cases hp : L' % 2 = 0
     · have hp' : ¬ (L' + 1) % 2 = 0 := by omega
-      simp only [hp, hp', ite_true, ite_false]
-      split
-      · refine ⟨_, rfl, ?_, ?_, ?_, ?_⟩ <;>
-          simp only [Plank.footprint, Rect.inter, Plank.x1, Plank.y1, Pose.size] <;> grind
-      · exfalso; rename_i hn; apply hn
-        simp only [Plank.top, Pose.size, Rect.HasArea, Plank.footprint, Rect.inter, Plank.x1,
-          Plank.y1]
-        refine ⟨by grind, by grind, by grind⟩
+      simp only [hp, hp', ite_true, ite_false, Plank.at_moveBy, Plank.at_bottom, Plank.at_top,
+        Plank.at_covers, AxisPose.size]
+      refine ⟨⟨by grind, 12 * (κ.1 : Rat) + 3 / 2, 12 * (κ.2 : Rat) + 3 / 2, ?_, ?_⟩,
+        fun x y h1 h2 h3 h4 => ⟨?_, ?_⟩⟩ <;>
+        (try rw [Plank.at_coversInside]) <;> (try simp only [AxisPose.size]) <;>
+        refine ⟨?_, ?_, ?_, ?_⟩ <;> grind
     · have hp' : (L' + 1) % 2 = 0 := by omega
-      simp only [hp, hp', ite_true, ite_false]
-      split
-      · refine ⟨_, rfl, ?_, ?_, ?_, ?_⟩ <;>
-          simp only [Plank.footprint, Rect.inter, Plank.x1, Plank.y1, Pose.size] <;> grind
-      · exfalso; rename_i hn; apply hn
-        simp only [Plank.top, Pose.size, Rect.HasArea, Plank.footprint, Rect.inter, Plank.x1,
-          Plank.y1]
-        refine ⟨by grind, by grind, by grind⟩
+      simp only [hp, hp', ite_true, ite_false, Plank.at_moveBy, Plank.at_bottom, Plank.at_top,
+        Plank.at_covers, AxisPose.size]
+      refine ⟨⟨by grind, 12 * (κ.1 : Rat) + 3 / 2, 12 * (κ.2 : Rat) + 3 / 2, ?_, ?_⟩,
+        fun x y h1 h2 h3 h4 => ⟨?_, ?_⟩⟩ <;>
+        (try rw [Plank.at_coversInside]) <;> (try simp only [AxisPose.size]) <;>
+        refine ⟨?_, ?_, ?_, ?_⟩ <;> grind
 
 /-! ## The pushes, and balance for every error -/
 
@@ -423,13 +467,10 @@ def towerPoint (k L : Nat) (κ : Nat × Nat) : Push :=
   { upper := plankAt L κ, lower := lowerOf L κ, x := momX d k L κ / load d k L κ,
     y := momY d k L κ / load d k L κ, force := load d k L κ }
 
-/-- All pushes of the tower after `k` steps, for errors `d`, spread over patch corners. -/
+/-- All pushes of the tower after `k` steps, for errors `d`. -/
 def towerPushes (k : Nat) : List Push :=
   (List.range k).flatMap fun L => towerCorners.flatMap fun κ =>
-    if plankAt L κ < k then
-      spreadOver ((restPatch ((towerBuild k).shift d) (plankAt L κ) (lowerOf L κ)).getD default)
-        (towerPoint d k L κ)
-    else []
+    if plankAt L κ < k then [towerPoint d k L κ] else []
 
 theorem lowerOf_eq_plank (L : Nat) (κ : Nat × Nat) (i : Nat) :
     lowerOf L κ = .plank i ↔ L ≠ 0 ∧ plankAt (L - 1) κ = i := by
@@ -453,13 +494,13 @@ theorem tower_allowed (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) (hd : SmallShift
   obtain ⟨L, _, κ, hκ, hp⟩ := hp
   split at hp
   · rename_i hk
-    obtain ⟨r, hr, h1, h2, h3, h4⟩ := tower_patch d ε hε k L κ hκ hd hk
+    simp only [List.mem_singleton] at hp
+    subst hp
+    obtain ⟨hr, hin⟩ := tower_contact d ε hε k L κ hκ hd hk
     have hF := load_pos d ε hε k L κ hd hk
     have pc := point_in_core d ε hε k L κ hd hk
-    rw [hr] at hp
-    refine spread_allowed _ r (towerPoint d k L κ) (Rat.le_of_lt hF) (by simpa [towerPoint] using hk) ?_ hr
-      (by grind) (by grind) (by simp [towerPoint]; grind) (by simp [towerPoint]; grind)
-      (by simp [towerPoint]; grind) (by simp [towerPoint]; grind) p hp
+    refine ⟨Rat.le_of_lt hF, by simpa [towerPoint] using hk, ?_, hr,
+      hin _ _ pc.1 pc.2.1 pc.2.2.1 pc.2.2.2⟩
     simp only [towerPoint, lowerOf]
     split
     · trivial
@@ -499,20 +540,12 @@ theorem corner_step (ε : Rat) (hε : ε ≤ 1 / 2) (k i : Nat) (hi : i < k) (κ
 theorem tower_balanced (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) (hd : SmallShift ε k d) (i : Nat)
     (hi : i < k) : Balanced ((towerBuild k).shift d) (towerPushes d k) i := by
   have hik : i < (towerBuild k).length := by simpa using hi
-  -- The planks of level `i / 2` and corner `κ` that exist have a patch with an area.
-  have patch : ∀ L κ, κ ∈ towerCorners → plankAt L κ < k → ∃ r,
-      (restPatch ((towerBuild k).shift d) (plankAt L κ) (lowerOf L κ)).getD default = r ∧
-        r.x0 < r.x1 ∧ r.y0 < r.y1 := fun L κ hκ hk => by
-    obtain ⟨r, hr, h1, h2, h3, h4⟩ := tower_patch d ε hε k L κ hκ hd hk
-    exact ⟨r, by rw [hr]; rfl, by grind, by grind⟩
   obtain ⟨own1, ownX, ownY⟩ := own_shares d (i / 2) (i % 2) (by omega)
   rw [Nat.div_add_mod] at own1 ownX ownY
   -- Turn the sum over all pushes into the sum of `tower_sum`.
   have reduce : ∀ (h : Push → Rat) (A : Nat → Nat × Nat → Rat),
       (∀ L κ, κ ∈ towerCorners → plankAt L κ < k →
-        ((spreadOver ((restPatch ((towerBuild k).shift d) (plankAt L κ) (lowerOf L κ)).getD default)
-          (towerPoint d k L κ)).map fun q => q.upOn i * h q).sum
-          = (towerPoint d k L κ).upOn i * A L κ) →
+        h (towerPoint d k L κ) = A L κ) →
       ((towerPushes d k).map fun q => q.upOn i * h q).sum
         = (towerCorners.map fun κ => if plankAt (i / 2) κ = i then
             load d k (i / 2) κ * A (i / 2) κ
@@ -526,16 +559,16 @@ theorem tower_balanced (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) (hd : SmallShif
     apply sum_map_congr; intro κ hκ
     rw [sum_ite_list]
     split
-    · rw [hA L κ hκ ‹_›, towerPoint_upOn]
+    · simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, Rat.add_zero]
+      rw [hA L κ hκ ‹_›, towerPoint_upOn]
     · rfl
   have cx : (((towerBuild k).shift d).get i).centerX = (towerPlank i).centerX + (d i).1 := by
-    rw [shift_get _ d i hik, towerBuild_get k i hi]; simp only [Plank.centerX]; grind
+    rw [towerShift_get k i d hi]; simp only [Pose.centerX, Pose.moveBy]
   have cy : (((towerBuild k).shift d).get i).centerY = (towerPlank i).centerY + (d i).2 := by
-    rw [shift_get _ d i hik, towerBuild_get k i hi]; simp only [Plank.centerY]; grind
+    rw [towerShift_get k i d hi]; simp only [Pose.centerY, Pose.moveBy]
   refine ⟨?_, ?_, ?_⟩
   · -- Net push up is 1.
-    have := reduce (fun _ => 1) (fun _ _ => 1) fun L κ hκ hk => by
-      simp only [Rat.mul_one]; exact spread_force _ _ i
+    have := reduce (fun _ => 1) (fun _ _ => 1) fun L κ hκ hk => rfl
     simp only [Rat.mul_one] at this
     rw [this, ← own1]
     apply sum_map_congr; intro κ hκ
@@ -557,10 +590,9 @@ theorem tower_balanced (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) (hd : SmallShif
         grind
     · rfl
   · -- No turning about `y`.
-    rw [reduce _ (fun L κ => momX d k L κ / load d k L κ - (((towerBuild k).shift d).get i).centerX)
-      fun L κ hκ hk => by
-        obtain ⟨r, hr, hx, _⟩ := patch L κ hκ hk
-        rw [hr]; exact spread_turnX r _ i _ hx]
+    rw [reduce (fun q => q.x - (((towerBuild k).shift d).get i).centerX)
+      (fun L κ => momX d k L κ / load d k L κ - (((towerBuild k).shift d).get i).centerX)
+      fun L κ hκ hk => rfl]
     rw [sum_map_congr _ _ (fun κ => if plankAt (i / 2) κ = i then
         share d (i / 2) κ * shareX d (i / 2) κ - (((towerBuild k).shift d).get i).centerX
           * share d (i / 2) κ else 0)]
@@ -577,10 +609,9 @@ theorem tower_balanced (ε : Rat) (hε : ε ≤ 1 / 2) (k : Nat) (hd : SmallShif
           (fun L => rfl)
       · rfl
   · -- No turning about `x`.
-    rw [reduce _ (fun L κ => momY d k L κ / load d k L κ - (((towerBuild k).shift d).get i).centerY)
-      fun L κ hκ hk => by
-        obtain ⟨r, hr, _, hy⟩ := patch L κ hκ hk
-        rw [hr]; exact spread_turnY r _ i _ hy]
+    rw [reduce (fun q => q.y - (((towerBuild k).shift d).get i).centerY)
+      (fun L κ => momY d k L κ / load d k L κ - (((towerBuild k).shift d).get i).centerY)
+      fun L κ hκ hk => rfl]
     rw [sum_map_congr _ _ (fun κ => if plankAt (i / 2) κ = i then
         share d (i / 2) κ * shareY d (i / 2) κ - (((towerBuild k).shift d).get i).centerY
           * share d (i / 2) κ else 0)]

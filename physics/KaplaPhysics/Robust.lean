@@ -1,4 +1,4 @@
-import KaplaSpecs.PhysicsRules.Rules
+import KaplaPhysics.Contacts
 
 /-! # Solid builds: the certificate and its checker (R1–R3)
 
@@ -12,9 +12,11 @@ placement errors. A certificate does that with one formula:
 
 Balance then holds for every error at once exactly when some plain equations between the
 numbers of the certificate hold (`BalancedLoads`). The load point stays inside its contact
-patch for every error when it is far enough from the patch's edges in the planned build
-(`LoadInside`). Both are checked on concrete numbers. `Proofs.lean` shows that a passing
-certificate makes the build solid.
+patch for every error when it is far enough from every side of the patch in the planned
+build (`Load.InsideOf`). A second point, which moves with the upper plank, stays strictly
+inside both planks for every error, so the contact never shrinks to an edge (C3). All of
+this is checked on concrete numbers. `RobustProofs.lean` shows that a passing certificate
+makes the build solid.
 
 The check is cautious: a solid build may lack such a certificate (then the engine says
 "risky"), but a certificate is never accepted for a build that is not solid. -/
@@ -23,7 +25,8 @@ namespace KaplaPhysics
 
 /-- One load of a solidity certificate: plank `upper` rests on `lower` and passes it
 `force` plank weights, at a point that is `(x, y)` in the planned build and moves by the
-weighted sum `mix` of the planks' errors. -/
+weighted sum `mix` of the planks' errors. For a plank below, `(wx, wy)` is a point that
+stays strictly inside both planks; it moves with `upper`. -/
 structure Load where
   upper : Nat
   lower : Support
@@ -31,6 +34,8 @@ structure Load where
   x : Rat
   y : Rat
   mix : Array Rat
+  wx : Rat := 0
+  wy : Rat := 0
   deriving Repr, DecidableEq
 
 /-- The size of a number, ignoring its sign. -/
@@ -46,32 +51,27 @@ def Load.drift (l : Load) (n o : Nat) : Rat :=
   ((List.range n).map fun m => size (l.relMix o m)).sum
 
 /-- The load point stays inside plank `o`'s footprint for all errors of at most `ε`: in the
-planned build it is at least `ε * drift` from each edge. -/
+planned build each side of the footprint is at least `ε * drift * slope` there. -/
 def Load.InsideOf (ε : Rat) (b : Build) (l : Load) (o : Nat) : Prop :=
-  let p := b.get o
-  let m := ε * l.drift b.length o
-  p.x + m ≤ l.x ∧ l.x + m ≤ p.x1 ∧ p.y + m ≤ l.y ∧ l.y + m ≤ p.y1
+  ∀ g ∈ (b.get o).sides, ε * l.drift b.length o * g.slope ≤ g.eval l.x l.y
 
 instance (ε : Rat) (b : Build) (l : Load) (o : Nat) : Decidable (l.InsideOf ε b o) := by
   unfold Load.InsideOf; infer_instance
-
-/-- A rectangle with `e` cut off each side. -/
-def Rect.shrink (r : Rect) (e : Rat) : Rect := ⟨r.x0 + e, r.x1 - e, r.y0 + e, r.y1 - e⟩
 
 /-- The load is a valid contact for every error of at most `ε`:
 1. it pushes, never pulls;
 2. it is between planks of the build;
 3. `upper`'s bottom is at the height of `lower`'s top (heights do not change, R2);
-4. for a plank below: the planned patch, cut by `ε` on each side, still has an area
-   (so the real patch always does);
-5. the load point stays inside `upper`'s footprint, and inside `lower`'s if it is a plank. -/
+4. the load point stays inside `upper`'s footprint, and inside `lower`'s if it is a plank;
+5. for a plank below: the point `(wx, wy)` is strictly inside `upper`, and inside `lower`
+   with room for both planks to move by `ε` (so the real patch always has an area). -/
 def Load.Valid (ε : Rat) (b : Build) (l : Load) : Prop :=
   0 ≤ l.force ∧ l.upper < b.length ∧ l.lower.InBuild b.length ∧ l.InsideOf ε b l.upper ∧
     match l.lower with
-    | .ground => (b.get l.upper).z = 0
-    | .plank j => (b.get l.upper).z = (b.get j).top ∧
-        (((b.get l.upper).footprint.inter (b.get j).footprint).shrink ε).HasArea ∧
-        l.InsideOf ε b j
+    | .ground => (b.get l.upper).bottom = 0
+    | .plank j => (b.get l.upper).bottom = (b.get j).top ∧ l.InsideOf ε b j ∧
+        (∀ g ∈ (b.get l.upper).sides, 0 < g.eval l.wx l.wy) ∧
+        (∀ g ∈ (b.get j).sides, 2 * ε * g.slope < g.eval l.wx l.wy)
 
 instance (ε : Rat) (b : Build) (l : Load) : Decidable (l.Valid ε b) := by
   unfold Load.Valid; cases l.lower <;> infer_instance

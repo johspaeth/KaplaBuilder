@@ -1,6 +1,9 @@
 import KaplaPhysics.Basic
 import KaplaPhysics.Solver
 import KaplaPhysics.Sums
+import KaplaPhysics.Affine
+import KaplaPhysics.Contacts
+import KaplaPhysics.TurnProofs
 import KaplaPhysics.Robust
 import KaplaPhysics.RobustSolver
 import KaplaPhysics.RobustProofs

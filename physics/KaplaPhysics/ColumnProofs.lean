@@ -5,12 +5,15 @@ import KaplaPhysics.RobustProofs
 
 * Stable ⇒ rule: add up the balance of every plank from level `k` up. Pushes between two
   of these planks cancel; what is left are the pushes where plank `k` rests, and they carry
-  the combined weight at the combined centre of mass. Those pushes sit at corners of the
-  patch, so their average point lies in the patch.
+  the combined weight at the combined centre of mass. Those pushes are in the patch, and
+  every side of the patch is at least zero at each of them, so also at their weighted
+  average: the combined centre of mass is in the patch.
 * Rule ⇒ stable: let plank `k` pass the weight of everything from level `k` up, at the
-  combined centre of mass, to the patch below it, spread over its corners (F4). -/
+  combined centre of mass, to the patch below it (F4). -/
 
 namespace KaplaPhysics
+
+open KaplaCore (Pose)
 
 /-! ## Levels -/
 
@@ -23,9 +26,8 @@ theorem below_eq_plank (k i : Nat) : below k = .plank i ↔ k = i + 1 := by
 /-- In a column, every allowed push is between a plank and the plank just below it. -/
 theorem column_push_lower (b : Build) (hc : IsColumn b) (p : Push) (hp : p.Allowed b) :
     p.lower = below p.upper := by
-  obtain ⟨_, hu, hl, hr⟩ := hp
-  apply (hc p.upper hu p.lower hl).mp
-  revert hr; cases restPatch b p.upper p.lower <;> simp
+  obtain ⟨_, hu, hl, hr, _⟩ := hp
+  exact (hc p.upper hu p.lower hl).mp hr
 
 theorem mem_fromLevel (b : Build) (k m : Nat) : m ∈ fromLevel b k ↔ k ≤ m ∧ m < b.length := by
   simp only [fromLevel, List.mem_range'_1]; omega
@@ -110,16 +112,16 @@ theorem div_le_of_le_mul (x1 S W : Rat) (hW : 0 < W) (h : S ≤ x1 * W) : S / W 
   · have := Rat.mul_pos (show 0 < S / W - x1 by grind) hW
     grind
 
-/-- Stable ⇒ the column rule holds at level `k`, along one axis. `pos p` is the push's
-coordinate, `cen i` plank `i`'s centre, `lo`, `hi` the patch edges. -/
-theorem column_level_axis (b : Build) (hc : IsColumn b) (ps : List Push)
+/-- Stable ⇒ at level `k`, a lower bound `lo` on `pos` that holds at every push holding up
+plank `k` also holds at the combined centre of mass. `pos p` is a weighted sum of the push's
+coordinates, `cen i` the same sum of plank `i`'s centre. -/
+theorem column_level_lower (b : Build) (hc : IsColumn b) (ps : List Push)
     (hall : ∀ p ∈ ps, p.Allowed b) (k : Nat) (hk : k < b.length)
-    (pos : Push → Rat) (cen : Nat → Rat) (lo hi : Rat)
+    (pos : Push → Rat) (cen : Nat → Rat) (lo : Rat)
     (hforce : ∀ i < b.length, (ps.map fun p => p.upOn i).sum = 1)
     (hturn : ∀ i < b.length, (ps.map fun p => p.upOn i * (pos p - cen i)).sum = 0)
-    (hin : ∀ p ∈ ps, p.upper = k → lo ≤ pos p ∧ pos p ≤ hi) :
-    lo ≤ ((fromLevel b k).map cen).sum / ((fromLevel b k).length : Rat) ∧
-      ((fromLevel b k).map cen).sum / ((fromLevel b k).length : Rat) ≤ hi := by
+    (hin : ∀ p ∈ ps, p.upper = k → lo ≤ pos p) :
+    lo ≤ ((fromLevel b k).map cen).sum / ((fromLevel b k).length : Rat) := by
   let L := fromLevel b k
   have memL : ∀ i ∈ L, i < b.length := fun i hi => ((mem_fromLevel b k i).mp hi).2
   -- Total force on the planks from level `k` up.
@@ -153,13 +155,8 @@ theorem column_level_axis (b : Build) (hc : IsColumn b) (ps : List Push)
   have hLpos : (0 : Rat) < (L.length : Rat) := by
     show (0 : Rat) < ((fromLevel b k).length : Rat)
     rw [fromLevel_succ b k hk]; simp; grind
-  -- The pushes at level `k` lie between `lo` and `hi`, so their weighted sum does too.
+  -- The pushes at level `k` are above `lo`, so their weighted sum is too.
   have hlo : 0 ≤ (ps.map fun p => if p.upper = k then p.force * (pos p - lo) else 0).sum := by
-    apply sum_map_nonneg; intro p hp
-    split
-    · exact Rat.mul_nonneg (hall p hp).1 (by have := hin p hp ‹_›; grind)
-    · exact Rat.le_refl
-  have hhi : 0 ≤ (ps.map fun p => if p.upper = k then p.force * (hi - pos p) else 0).sum := by
     apply sum_map_nonneg; intro p hp
     split
     · exact Rat.mul_nonneg (hall p hp).1 (by have := hin p hp ‹_›; grind)
@@ -167,71 +164,47 @@ theorem column_level_axis (b : Build) (hc : IsColumn b) (ps : List Push)
   rw [sum_map_congr _ _ (fun p => (if p.upper = k then p.force * pos p else 0)
       - lo * (if p.upper = k then p.force else 0)) (fun _ _ => by split <;> grind),
     sum_map_sub, sum_map_mul_left, hW, hS] at hlo
-  rw [sum_map_congr _ _ (fun p => hi * (if p.upper = k then p.force else 0)
-      - (if p.upper = k then p.force * pos p else 0)) (fun _ _ => by split <;> grind),
-    sum_map_sub, sum_map_mul_left, hW, hS] at hhi
-  exact ⟨le_div_of_mul_le _ _ _ hLpos (by grind), div_le_of_le_mul _ _ _ hLpos (by grind)⟩
+  exact le_div_of_mul_le _ _ _ hLpos (by grind)
 
-/-- A contact patch always has an area bigger than zero. -/
-theorem restPatch_area (b : Build) (i : Nat) (s : Support) (r : Rect)
-    (h : restPatch b i s = some r) : r.HasArea := by
-  cases s with
-  | ground =>
-    simp only [restPatch] at h
-    split at h
-    · cases h
-      have := pose_size_pos (b.get i).pose
-      simp only [Rect.HasArea, Plank.footprint, Plank.x1, Plank.y1]; grind
-    · cases h
-  | plank j =>
-    simp only [restPatch] at h
-    split at h
-    · cases h; exact ‹_ ∧ _›.2
-    · cases h
-
-/-- The corners of a rectangle with an area lie in it. -/
-theorem corner_contains (r : Rect) (hr : r.HasArea) (c : Rat × Rat) (hc : c ∈ r.corners) :
-    r.Contains c.1 c.2 := by
-  obtain ⟨hx, hy⟩ := hr
-  simp only [Rect.corners, List.mem_cons, List.mem_nil_iff, or_false] at hc
-  rcases hc with rfl | rfl | rfl | rfl <;> simp only [Rect.Contains] <;> grind
+/-- The average of `a * f + b * g` is `a` times the average of `f` plus `b` times the
+average of `g`. -/
+theorem avg_lin (l : List Nat) (f g : Nat → Rat) (a c : Rat) :
+    (l.map fun m => a * f m + c * g m).sum / (l.length : Rat)
+      = a * ((l.map f).sum / (l.length : Rat)) + c * ((l.map g).sum / (l.length : Rat)) := by
+  rw [sum_map_add, sum_map_mul_left, sum_map_mul_left]
+  cases l with
+  | nil => simp [Rat.div_def]; grind
+  | cons x l =>
+    have : ((x :: l).length : Rat) ≠ 0 := by simp; grind
+    grind
 
 theorem stable_columnRule (b : Build) (hc : IsColumn b) (hs : Stable b) : ColumnRule b := by
   obtain ⟨ps, hall, hbal⟩ := hs
   intro k hk
   have hforce := fun i hi => (hbal i hi).1
-  -- Every push holding up plank `k` sits at a corner of the patch below `k`.
-  have corner : ∀ p ∈ ps, p.upper = k → ∃ r, restPatch b k (below k) = some r ∧
-      r.HasArea ∧ r.Contains p.x p.y := by
+  refine ⟨(hc k hk (below k) (below_inBuild _ _ hk)).mpr rfl, ?_⟩
+  rw [inPatch_iff]
+  intro g hg
+  -- Every push holding up plank `k` is in the patch below `k`, so `g` is at least zero there.
+  have hin : ∀ p ∈ ps, p.upper = k → -g.c ≤ g.a * p.x + g.b * p.y := by
     intro p hp hu
     have hl := column_push_lower b hc p (hall p hp)
-    obtain ⟨_, _, _, hm⟩ := hall p hp
-    rw [hl, hu] at hm
-    revert hm
-    cases hr : restPatch b k (below k) with
-    | none => intro h; exact h.elim
-    | some r =>
-      intro hm
-      exact ⟨r, rfl, restPatch_area b k _ r hr, corner_contains r (restPatch_area b k _ r hr) _ hm⟩
-  cases hr : restPatch b k (below k) with
-  | none =>
-    -- No push can hold up plank `k`; its weight has nowhere to go.
-    have := column_level_axis b hc ps hall k hk Push.x (fun i => (b.get i).centerX) 1 0 hforce
-      (fun i hi => (hbal i hi).2.1)
-      (fun p hp hu => by obtain ⟨r, h, _⟩ := corner p hp hu; rw [hr] at h; cases h)
-    grind
-  | some r =>
-    have hx := column_level_axis b hc ps hall k hk Push.x (fun i => (b.get i).centerX) r.x0 r.x1
-      hforce (fun i hi => (hbal i hi).2.1)
-      (fun p hp hu => by
-        obtain ⟨r', h, _, hcon⟩ := corner p hp hu
-        rw [hr] at h; cases h; exact ⟨hcon.1, hcon.2.1⟩)
-    have hy := column_level_axis b hc ps hall k hk Push.y (fun i => (b.get i).centerY) r.y0 r.y1
-      hforce (fun i hi => (hbal i hi).2.2)
-      (fun p hp hu => by
-        obtain ⟨r', h, _, hcon⟩ := corner p hp hu
-        rw [hr] at h; cases h; exact ⟨hcon.2.2.1, hcon.2.2.2⟩)
-    exact ⟨hx.1, hx.2, hy.1, hy.2⟩
+    obtain ⟨_, _, _, _, hm⟩ := hall p hp
+    rw [hl, hu, inPatch_iff] at hm
+    have := hm g hg
+    simp only [Aff.eval] at this; grind
+  have h := column_level_lower b hc ps hall k hk (fun p => g.a * p.x + g.b * p.y)
+    (fun i => g.a * (b.get i).centerX + g.b * (b.get i).centerY) (-g.c) hforce
+    (fun i hi => by
+      obtain ⟨_, h2, h3⟩ := hbal i hi
+      rw [sum_map_congr _ _ (fun p => g.a * (p.upOn i * (p.x - (b.get i).centerX))
+          + g.b * (p.upOn i * (p.y - (b.get i).centerY))) (fun _ _ => by grind),
+        sum_map_add, sum_map_mul_left, sum_map_mul_left, h2, h3]
+      grind)
+    hin
+  rw [avg_lin] at h
+  simp only [Aff.eval, comX, comY]
+  grind
 
 /-! ## Rule ⇒ stable -/
 
@@ -241,11 +214,8 @@ def columnPush (b : Build) (k : Nat) : Push :=
   { upper := k, lower := below k, x := comX b k, y := comY b k,
     force := ((fromLevel b k).length : Rat) }
 
-/-- The pushes for a column that meets the rule: each `columnPush`, spread over the corners
-of its patch. -/
-def columnPushes (b : Build) : List Push :=
-  (List.range b.length).flatMap fun k =>
-    spreadOver ((restPatch b k (below k)).getD default) (columnPush b k)
+/-- The pushes for a column that meets the rule: each `columnPush`. -/
+def columnPushes (b : Build) : List Push := (List.range b.length).map (columnPush b)
 
 /-- The number of planks from level `k` up, times their centre of mass, is the sum of
 their centres. -/
@@ -270,29 +240,13 @@ theorem sum_below (n i : Nat) (g : Nat → Rat) :
 /-- If every level's centre of mass is over the patch where that level rests, the build is
 stable. (This direction needs no column assumption.) -/
 theorem columnRule_stable (b : Build) (hr : ColumnRule b) : Stable b := by
-  -- Each level's patch, with the centre of mass inside it.
-  have patch : ∀ k < b.length, ∃ r, restPatch b k (below k) = some r ∧ r.HasArea ∧
-      r.Contains (comX b k) (comY b k) := by
-    intro k hk
-    have := hr k hk
-    revert this
-    cases h : restPatch b k (below k) with
-    | none => intro h; exact h.elim
-    | some r => intro hin; exact ⟨r, rfl, restPatch_area b k _ r h, hin⟩
   refine ⟨columnPushes b, ?_, ?_⟩
   · intro p hp
-    simp only [columnPushes, List.mem_flatMap, List.mem_range] at hp
-    obtain ⟨k, hk, hp⟩ := hp
-    obtain ⟨r, hr, ⟨hx, hy⟩, h1, h2, h3, h4⟩ := patch k hk
-    rw [hr] at hp
-    exact spread_allowed b r (columnPush b k) (by simp [columnPush] <;> grind) hk
-      (below_inBuild _ _ hk) hr hx hy h1 h2 h3 h4 p hp
+    simp only [columnPushes, List.mem_map, List.mem_range] at hp
+    obtain ⟨k, hk, rfl⟩ := hp
+    obtain ⟨hrest, hin⟩ := hr k hk
+    exact ⟨by simp [columnPush] <;> grind, hk, below_inBuild _ _ hk, hrest, hin⟩
   · intro i hi
-    have hspread : ∀ k ∈ List.range b.length, ∃ r,
-        (restPatch b k (below k)).getD default = r ∧ r.x0 < r.x1 ∧ r.y0 < r.y1 := by
-      intro k hk
-      obtain ⟨r, hr, ⟨hx, hy⟩, _⟩ := patch k (List.mem_range.mp hk)
-      exact ⟨r, by rw [hr]; rfl, hx, hy⟩
     -- Weights and centre sums one level up.
     have hW : ((fromLevel b i).length : Rat) = ((fromLevel b (i + 1)).length : Rat) + 1 := by
       rw [fromLevel_succ b i hi]; simp
@@ -311,19 +265,15 @@ theorem columnRule_stable (b : Build) (hr : ColumnRule b) : Stable b := by
       by_cases h : i = k
       · subst h; simp only [ite_true]; rfl
       · simp only [h, Ne.symm h, ite_false]; rfl
+    unfold Balanced
+    simp only [columnPushes, List.map_map, Function.comp_def]
     refine ⟨?_, ?_, ?_⟩
-    · rw [columnPushes, sum_flatMap,
-        sum_map_congr _ _ _ fun k _ => spread_force _ (columnPush b k) i]
-      rw [sum_map_congr _ _ _ fun k _ => upOn_col k, sum_map_sub,
+    · rw [sum_map_congr _ _ _ fun k _ => upOn_col k, sum_map_sub,
         sum_range_single _ _ hi (fun k => ((fromLevel b k).length : Rat)), sum_below]
       split
       · grind
       · rw [hend ‹_›] at hW; simp at hW; grind
-    · rw [columnPushes, sum_flatMap,
-        sum_map_congr _ _ _ fun k hk => by
-          obtain ⟨r, hr, hx, _⟩ := hspread k hk
-          rw [hr]; exact spread_turnX r (columnPush b k) i (b.get i).centerX hx]
-      rw [sum_map_congr _ _ (fun k =>
+    · rw [sum_map_congr _ _ (fun k =>
           (if i = k then ((fromLevel b k).length : Rat) * (comX b k - (b.get i).centerX) else 0)
           - (if below k = .plank i then
               ((fromLevel b k).length : Rat) * (comX b k - (b.get i).centerX) else 0))
@@ -335,11 +285,7 @@ theorem columnRule_stable (b : Build) (hr : ColumnRule b) : Stable b := by
       split
       · grind
       · rw [hend ‹_›] at hW hSx; simp at hW hSx; grind
-    · rw [columnPushes, sum_flatMap,
-        sum_map_congr _ _ _ fun k hk => by
-          obtain ⟨r, hr, _, hy⟩ := hspread k hk
-          rw [hr]; exact spread_turnY r (columnPush b k) i (b.get i).centerY hy]
-      rw [sum_map_congr _ _ (fun k =>
+    · rw [sum_map_congr _ _ (fun k =>
           (if i = k then ((fromLevel b k).length : Rat) * (comY b k - (b.get i).centerY) else 0)
           - (if below k = .plank i then
               ((fromLevel b k).length : Rat) * (comY b k - (b.get i).centerY) else 0))

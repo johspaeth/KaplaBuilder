@@ -6,13 +6,15 @@ import KaplaSpecs.PhysicsRules.Examples
 
 Each `#guard` fails the build if the engine disagrees with the table in the spec: the
 "Exact (S2)" column, the "Real (R4)" column (with ε = 2 mm), and buildability (K4).
-The builds themselves (`e1` ... `e12`, `slotPlaced`, `underRoof`) are in
-`specs/KaplaSpecs/PhysicsRules/Examples.lean`, shared with the spec. -/
+The builds themselves (`e1` ... `e19`, `slotPlaced`, `underRoof`) are in
+`specs/KaplaSpecs/PhysicsRules/Examples.lean`, shared with the spec. E13–E19 have blocks
+turned by about 30°, 45° or 60°. -/
 
 namespace KaplaPhysics.Examples
 
-#guard [e1, e2, e3, e4, e6, e7, e9, e10, e11, e12].all fun b => decide (WellFormed b)
-#guard !decide (WellFormed e5)
+#guard [e1, e2, e3, e4, e6, e7, e9, e10, e11, e12].all wellFormedCheck
+#guard !wellFormedCheck e5
+#guard floatsCheck e5 1
 
 #guard stabilityAnswer e1 == .stable
 #guard stabilityAnswer e2 == .stable
@@ -28,7 +30,7 @@ namespace KaplaPhysics.Examples
 
 -- A large build that falls (51 planks, above the global-LP limit): a 25-level tower with
 -- an overhanging plank on top. The fall certificate moves only the top plank.
-#guard stabilityAnswer (squareTower 25 ++ [⟨.flatX, 8, 0, 25⟩]) == .falls
+#guard stabilityAnswer (squareTower 25 ++ [Plank.at .flatX 8 0 25]) == .falls
 
 -- Placement errors (R4), with ε = 2 mm.
 #guard verdict placementError e1 == .solid
@@ -50,10 +52,10 @@ namespace KaplaPhysics.Examples
 #guard stabilityAnswer (e12.take 2) == .falls
 
 -- The simple rule for columns (section 7): the engine agrees with it on E2, E3, E4, E7.
-#guard [e1, e2, e3, e4, e7].all fun b => decide (IsColumn b)
-#guard !decide (IsColumn e9)                       -- a bridge is not a column
-#guard [e1, e2, e3, e7].all fun b => decide (ColumnRule b) && stabilityAnswer b == .stable
-#guard !decide (ColumnRule e4) && stabilityAnswer e4 == .falls
+#guard [e1, e2, e3, e4, e7].all columnCheck
+#guard !columnCheck e9                       -- a bridge is not a column
+#guard [e1, e2, e3, e7].all fun b => columnRuleCheck b && stabilityAnswer b == .stable
+#guard !columnRuleCheck e4 && stabilityAnswer e4 == .falls
 
 -- Step-by-step report: E12's second step falls, the third would be solid again.
 #guard (planReport placementError dropGap e12).map (·.verdict) == [.solid, .falls, .solid]
@@ -62,11 +64,25 @@ namespace KaplaPhysics.Examples
 -- Reaching the spot (K3), with a drop gap of 1 unit.
 #guard hardToReach dropGap (squareTower 8) == []
 #guard hardToReach dropGap e9 == []
-#guard reachDir? [] ⟨.flatX, 0, 0, 0⟩ dropGap == some .fromAbove
+#guard reachDir? [] (Plank.at .flatX 0 0 0) dropGap == some .fromAbove
 
 #guard reachDir? slotPlaced slotPlank dropGap == none
 
-#guard reachDir? underRoof ⟨.flatY, 6, 0, 0⟩ dropGap == some .fromPlusY
+#guard reachDir? underRoof (Plank.at .flatY 6 0 0) dropGap == some (.side 0 1)
+
+/-! ## Turned blocks (E13–E19) -/
+
+#guard [e13, e14, e15, e17, e19].all wellFormedCheck
+#guard !wellFormedCheck e16                      -- the two blocks cross (P1)
+#guard !wellFormedCheck e18                      -- a turn of about 53° (B6)
+#guard (patchPoly (e14.get 1) (e14.get 0)).length == 4   -- a slanted four-sided patch
+#guard verdict placementError e13 == .solid
+#guard verdict placementError e14 == .solid
+#guard verdict placementError e15 == .falls
+#guard verdict placementError e17 == .solid
+#guard verdict placementError e19 == .solid
+#guard checkPlan {} placementError 200 e19
+#guard hardToReach dropGap e19 == []
 
 /-! ## The main theorems apply to real inputs (their hypotheses can be met) -/
 
@@ -85,22 +101,26 @@ itself) and let the kernel check it. -/
 /-- E2: the bottom plank carries 2 to the ground at its middle, which moves with the
 average of both planks' errors; the top plank carries 1 at its own centre. -/
 def e2Certificate : List Load :=
-  [⟨0, .ground, 2, 10, 3 / 2, #[1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 25 / 2, 3 / 2, #[0, 1]⟩]
+  [⟨0, .ground, 2, 10, 3 / 2, #[1 / 2, 1 / 2], 0, 0⟩,
+   ⟨1, .plank 0, 1, 25 / 2, 3 / 2, #[0, 1], 10, 3 / 2⟩]
 
 example : Solid e2 := solidCertificate_sound _ _ e2Certificate (by decide +kernel)
-example : Solid e6 := solidCertificate_sound _ _ [⟨0, .ground, 1, 3 / 2, 1 / 2, #[1]⟩]
+example : Solid e6 := solidCertificate_sound _ _ [⟨0, .ground, 1, 3 / 2, 1 / 2, #[1], 0, 0⟩]
   (by decide +kernel)
 
-example : StraightPath underRoof ⟨.flatY, 6, 0, 0⟩ dropGap Dir.fromPlusY.vec :=
+example : StraightPath underRoof (Plank.at .flatY 6 0 0) dropGap (Dir.side 0 1).vec :=
   reachDir_sound _ _ _ _ (by decide +kernel)
 example : EveryStepReachable dropGap (squareTower 2) :=
   hardToReach_nil_sound _ _ (by decide +kernel)
 
 /-- E3 is stable by the simple column rule alone, with no solver involved. -/
-example : Stable e3 := (column_stable_iff e3 (by decide +kernel)).mpr (by decide +kernel)
+example : Stable e3 :=
+  (column_stable_iff e3 (columnCheck_sound _ (by decide +kernel))).mpr
+    (columnRuleCheck_sound _ (by decide +kernel))
 /-- E4 falls by the simple column rule: the top plank's centre is past the edge. -/
 example : ¬ Stable e4 := fun h =>
-  absurd ((column_stable_iff e4 (by decide +kernel)).mp h) (by decide +kernel)
+  absurd ((column_stable_iff e4 (columnCheck_sound _ (by decide +kernel))).mp h 1 (by decide)).2
+    (by decide +kernel)
 
 /-- E2 stands with wood-on-wood friction too (μ = 0.4). -/
 example : StableWithFriction (2 / 5) e2 :=
@@ -110,6 +130,12 @@ example : StableWithFriction (2 / 5) e2 :=
 Kapla box) is safe to build level by level. -/
 example : SafePlan {} placementError 200 (squareTower 100) :=
   squareTower_safe {} placementError (by decide +kernel) (by decide +kernel) 100
+
+/-- E19 for every height: the square tower turned by about 45° is safe to build level by
+level, with the default 2 mm error. -/
+example (n : Nat) : SafePlan {} placementError (2 * n) (turnedTower .deg45 n) :=
+  turnedTower_safe {} .deg45 (by decide +kernel) placementError (by decide +kernel)
+    (by decide +kernel) n
 
 /-! ## "Risky" builds really are not solid (R3)
 
@@ -153,13 +179,14 @@ example : (Stable e3 ∧ ¬ Solid e3) ∧ (Stable e7 ∧ ¬ Solid e7) ∧ (Stabl
 /-! ## The rules reject bad answers -/
 
 /-- A pull (negative push) is not allowed (F2). -/
-example : ¬ (Push.mk 1 (.plank 0) 5 0 (-1)).Allowed e2 := by decide +kernel
+example : ¬ (Push.mk 1 (.plank 0) 5 0 (-1)).Allowed e2 := fun h => absurd h.1 (by decide)
 
-/-- A push that is not at a corner of a contact patch is not allowed (F4). -/
-example : ¬ (Push.mk 1 (.plank 0) 10 0 1).Allowed e2 := by decide +kernel
+/-- A push outside the contact patch is not allowed (F4): `x = 4` is not under the top
+plank. -/
+example : ¬ (Push.mk 1 (.plank 0) 4 1 1).Allowed e2 := fun h => absurd h.2.2.2.2 (by decide +kernel)
 
 /-- A push between planks that do not touch is not allowed (C1). -/
-example : ¬ (Push.mk 1 .ground 5 0 1).Allowed e2 := by decide +kernel
+example : ¬ (Push.mk 1 .ground 5 0 1).Allowed e2 := fun h => absurd h.2.2.2.1 (by decide +kernel)
 
 /-- Holding up E4's top plank at its far end is not allowed: the support stops at 15. -/
 example : checkPushes e4
@@ -171,7 +198,8 @@ example : ¬ Balanced e2 [⟨1, .plank 0, 15, 0, 1⟩] 1 := by decide +kernel
 /-- E2's certificate does not fit E3: the top load is too close to the edge of the plank
 below, so it could leave the patch. -/
 example : ¬ SolidCertificate placementError e3
-    [⟨0, .ground, 2, 45 / 4, 3 / 2, #[1 / 2, 1 / 2]⟩, ⟨1, .plank 0, 1, 15, 3 / 2, #[0, 1]⟩] := by
+    [⟨0, .ground, 2, 45 / 4, 3 / 2, #[1 / 2, 1 / 2], 0, 0⟩,
+     ⟨1, .plank 0, 1, 15, 3 / 2, #[0, 1], 45 / 4, 3 / 2⟩] := by
   decide +kernel
 
 /-- An unstable build is not called stable: E4 is not stable, so no answer "stable". -/
@@ -194,41 +222,57 @@ example : ∀ plan ∈ [[e12A, e12B, e12C], [e12A, e12C, e12B], [e12B, e12A, e12
   · exact fun h => stabilityAnswer_falls_sound _ (by decide +kernel)
       (solid_stable _ _ (h.2 2 (by decide) (by decide)).2.2)
   all_goals first
-    | exact fun h => absurd (h.2 1 (by decide) (by decide)).1 (by decide +kernel)
-    | exact fun h => absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
+    | exact fun h => not_wellFormed_of_floats _ 0 (by decide) (by decide +kernel)
+        (h.2 1 (by decide) (by decide)).1
+    | exact fun h => not_wellFormed_of_floats _ 1 (by decide) (by decide +kernel)
+        (h.2 2 (by decide) (by decide)).1
 
 /-- Coming straight down into the slot is not a valid path: the plank above is in the way. -/
 example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
   intro ⟨_, _, _, _, hdrop⟩
-  exact hdrop 1 (by decide +kernel) (by decide +kernel) ⟨.flatX, 0, 0, 1⟩ (by simp [slotPlaced])
-    (by decide +kernel)
+  exact hdrop 1 (by decide +kernel) (by decide +kernel) (Plank.at .flatX 0 0 1)
+    (by simp [slotPlaced]) ⟨by decide +kernel, 1, 1, by decide +kernel, by decide +kernel⟩
 
 /-! ## Review regressions (PR #14) -/
 
 /-- Two planks side by side with a gap of 1/4. Each is stable and well-formed where it is
 planned, but moving them 1/4 towards each other (within the 10/39 error) makes them share
 a strip of inside space. -/
-def nearlyTouching : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩]
+def nearlyTouching : Build := [Plank.at .flatX 0 0 0, Plank.at .flatX 0 (13 / 4) 0]
 
 /-- The errors that push the two planks of `nearlyTouching` into each other. -/
 def towardsEachOther (i : Nat) : Rat × Rat := if i = 0 then (0, 1 / 4) else (0, -1 / 4)
 
 /-- Two planks side by side and touching, as in a wall. -/
-def sideBySide : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 3, 0⟩]
+def sideBySide : Build := [Plank.at .flatX 0 0 0, Plank.at .flatX 0 3 0]
 
 /-- The clearance check, switched on. -/
 def withClearance : PlanOptions := { clearance := true }
 
-#guard decide (WellFormed nearlyTouching)
+#guard wellFormedCheck nearlyTouching
 #guard !checkPlan withClearance placementError 200 nearlyTouching
-#guard !decide (WellFormed (nearlyTouching.shift towardsEachOther))
+
+/-- After the errors, the two planks share inside space: the point (1, 31/10) is inside
+both. -/
+theorem nearlyTouching_overlap :
+    Overlap ((nearlyTouching.shift towardsEachOther).get 0)
+      ((nearlyTouching.shift towardsEachOther).get 1) :=
+  ⟨by decide +kernel, 1, 31 / 10, by decide +kernel, by decide +kernel⟩
+
+/-- At the planned positions the two planks do not meet: there is a gap of 1/4. -/
+theorem nearlyTouching_apart : ¬ Meets (nearlyTouching.get 0) (nearlyTouching.get 1) := by
+  rintro ⟨-, x, y, h1, h2⟩
+  simp only [nearlyTouching, Build.get, List.getD_cons_zero, List.getD_cons_succ] at h1 h2
+  rw [Plank.at_covers] at h1 h2
+  simp only [AxisPose.size] at h1 h2
+  grind
 
 /-- With the clearance check on, the plan is not safe: the errors `towardsEachOther` are
 allowed and close the gap (P1). -/
 example : ¬ SafePlan withClearance placementError 200 nearlyTouching := fun h =>
   (h.2 2 (by decide) (by decide)).2.1 rfl towardsEachOther
     (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide)
-    (by decide +kernel) (by decide +kernel)
+    nearlyTouching_apart nearlyTouching_overlap
 
 -- The clearance check is off by default. Then the plan is accepted: each step is
 -- well-formed at the planned positions and solid.
@@ -244,14 +288,16 @@ example : ¬ SafePlan withClearance placementError 200 nearlyTouching := fun h =
 #guard checkPlan withClearance placementError 200 (squareTower 8)
 #guard checkPlan withClearance placementError 200 e2
 -- Planks end to end on one level, touching, are fine too.
-#guard checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 0, 0⟩]
+#guard checkPlan withClearance placementError 200 [Plank.at .flatX 0 0 0, Plank.at .flatX 15 0 0]
 -- Only near misses fail: a gap above 0 and below 2ε, here end to end with a gap of 1/4.
-#guard !checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 61 / 4, 0, 0⟩]
+#guard !checkPlan withClearance placementError 200
+  [Plank.at .flatX 0 0 0, Plank.at .flatX (61 / 4) 0 0]
 -- Touching along `x` but 1/4 apart along `y` (corner to corner) is a near miss as well.
-#guard !checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 15, 13 / 4, 0⟩]
+#guard !checkPlan withClearance placementError 200
+  [Plank.at .flatX 0 0 0, Plank.at .flatX 15 (13 / 4) 0]
 
 -- With a gap of 1 (more than twice the error) the plan is accepted.
-#guard checkPlan withClearance placementError 200 [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 4, 0⟩]
+#guard checkPlan withClearance placementError 200 [Plank.at .flatX 0 0 0, Plank.at .flatX 0 4 0]
 
 -- A negative error is never "solid": E4 falls at the exact positions.
 #guard verdict (-1) e4 == .falls
@@ -268,7 +314,7 @@ example (ε : Rat) : ¬ SolidWithin ε e4 := fun h =>
 
 -- A drop gap of zero or below gives no path (K2, K3 ask for a real drop).
 #guard reachDir? slotPlaced slotPlank 0 == none
-#guard reachDir? [⟨.flatX, 0, 0, 0⟩] ⟨.flatX, 0, 0, 0⟩ (-2) == none
+#guard reachDir? [Plank.at .flatX 0 0 0] (Plank.at .flatX 0 0 0) (-2) == none
 #guard hardToReach 0 e1 == [0]
 
 /-- No straight path has a gap of zero. -/
@@ -277,7 +323,7 @@ example (v : Rat × Rat × Rat) : ¬ StraightPath slotPlaced slotPlank 0 v :=
 
 /-- No straight path has a negative gap, even for a plank put exactly onto itself. -/
 example (v : Rat × Rat × Rat) :
-    ¬ StraightPath [⟨.flatX, 0, 0, 0⟩] ⟨.flatX, 0, 0, 0⟩ (-2) v :=
+    ¬ StraightPath [Plank.at .flatX 0 0 0] (Plank.at .flatX 0 0 0) (-2) v :=
   fun h => absurd h.1 (by decide)
 
 /-- A sideways push bigger than `μ` times the up-push is not allowed. -/
@@ -315,10 +361,10 @@ def coreBoxedIn : BuildPlan := .ofBlocks
    flatAt 12 0 0 true, flatAt 12 0 1 true, flatAt 12 0 2 true,
    flatAt 0 0 3, coreEdgeAt 0 16 0, coreEdgeAt 0 (-2) 0, flatAt 6 0 0 true]
 
--- The conversion gives the same planks as the physics examples.
-#guard buildOf coreE7.blocks == some e7
-#guard buildOf coreE12.blocks == some e12
-#guard buildOf coreTower.blocks == some (squareTower 2)
+-- Core's blocks are the physics planks: the same as the physics examples.
+#guard coreE7.blocks == e7
+#guard coreE12.blocks == e12
+#guard coreTower.blocks == squareTower 2
 
 #guard coreCheck {} .default 200 coreE2 == { ok := true }
 #guard coreCheck {} .default 200 coreTower == { ok := true }
@@ -328,9 +374,11 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 #guard coreCheck {} .default 200 coreE12 == { ok := false, diagnostics := [.unstable 1 1] }
 -- Blocks of one step are checked one after the other, so two hands do not save E12.
 #guard coreCheck {} .default 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
--- A block turned by the 3-4-5 angle has no physics pose.
-#guard coreCheck {} .default 200 (.ofBlocks [⟨.flat, .ofTriple 3 4 5, ⟨0, 0, 1 / 2⟩⟩]) ==
-  { ok := false, diagnostics := [.unstable 0 0] }
+-- A block turned by the 3-4-5 angle (about 53°) is not allowed (B6, E18).
+#guard coreCheck {} .default 200 (.ofBlocks e18) == { ok := false, diagnostics := [.unstable 0 0] }
+-- A block turned by about 45° is fine (E13), and so is the turned tower (E19).
+#guard coreCheck {} .default 200 (.ofBlocks e13) == { ok := true }
+#guard coreCheck {} .default 200 (.ofBlocks e19) == { ok := true }
 #guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 1 0 0]) ==
   { ok := false, diagnostics := [.overlap 0 1, .unstable 1 1, .unreachable 1] }
 -- Two blocks side by side, touching: `ok`, with the clearance check on or off.

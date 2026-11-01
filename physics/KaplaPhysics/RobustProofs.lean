@@ -1,15 +1,17 @@
 import KaplaPhysics.Robust
 import KaplaPhysics.Sums
+import KaplaSpecs.PhysicsRules.Examples
 
 /-! # A solidity certificate makes the build solid
 
 Plan of the proof, for one combination of errors `d`:
-1. Each load acts at a point inside the real contact patch (`load_patch`).
-2. A push at a point inside a rectangle has the same effect as four pushes at its corners
-   (`spread_*`, rule F4).
-3. The certificate's equations give balance for this `d` (`solid_balanced`). -/
+1. Each load acts at a point inside the real contact patch, and the patch still has an area
+   (`load_allowed`).
+2. The certificate's equations give balance for this `d` (`solid_balanced`). -/
 
 namespace KaplaPhysics
+
+open KaplaCore (Pose)
 
 /-! ## Moving the build -/
 
@@ -18,24 +20,8 @@ namespace KaplaPhysics
   simp [Build.shift]
 
 theorem shift_get (b : Build) (d : Nat → Rat × Rat) (i : Nat) (h : i < b.length) :
-    (b.shift d).get i = { b.get i with x := (b.get i).x + (d i).1, y := (b.get i).y + (d i).2 } := by
+    (b.shift d).get i = (b.get i).moveBy (d i).1 (d i).2 0 := by
   simp [Build.shift, Build.get, List.getD_eq_getElem?_getD, h]
-
-/-- Every pose has a length and a width bigger than zero. -/
-theorem pose_size_pos (p : Pose) : 0 < p.size.dx ∧ 0 < p.size.dy := by
-  cases p <;> decide +kernel
-
-/-! ## Spreading a push over the corners of a rectangle (F4) -/
-
-/-- Replace a push at a point inside `r` by four pushes at the corners of `r`. The weights
-split the push in proportion to how close the point is to each corner. -/
-def spreadOver (r : Rect) (p : Push) : List Push :=
-  let a := (p.x - r.x0) / (r.x1 - r.x0)
-  let c := (p.y - r.y0) / (r.y1 - r.y0)
-  [{ p with x := r.x0, y := r.y0, force := p.force * (1 - a) * (1 - c) },
-   { p with x := r.x1, y := r.y0, force := p.force * a * (1 - c) },
-   { p with x := r.x0, y := r.y1, force := p.force * (1 - a) * c },
-   { p with x := r.x1, y := r.y1, force := p.force * a * c }]
 
 /-- Which way a push acts on plank `i`: `+1` up, `-1` down, `0` not at all. -/
 def Push.sign (i : Nat) (p : Push) : Rat :=
@@ -47,52 +33,18 @@ theorem upOn_eq (i : Nat) (p : Push) : p.upOn i = p.force * p.sign i := by
 theorem div_nonneg' {a b : Rat} (ha : 0 ≤ a) (hb : 0 < b) : 0 ≤ a / b := by
   rw [Rat.div_def]; exact Rat.mul_nonneg ha (Rat.le_of_lt (Rat.inv_pos.mpr hb))
 
-/-- The fraction of the way from `x0` to `x1` at which `t` lies, and its complement, are
-both at least zero. -/
-theorem frac_bounds (x0 x1 t : Rat) (h : x0 < x1) (h0 : x0 ≤ t) (h1 : t ≤ x1) :
-    0 ≤ (t - x0) / (x1 - x0) ∧ 0 ≤ 1 - (t - x0) / (x1 - x0) := by
-  refine ⟨div_nonneg' (by grind) (by grind), ?_⟩
-  have : 1 - (t - x0) / (x1 - x0) = (x1 - t) / (x1 - x0) := by grind
-  rw [this]; exact div_nonneg' (by grind) (by grind)
+/-- A side of a moved plank, at a moved point, has its old value at the point moved back. -/
+theorem moved_side (p : Plank) (dx dy x y : Rat) (g : Aff) (hg : g ∈ (p.moveBy dx dy 0).sides) :
+    ∃ g0 ∈ p.sides, g.eval x y = g0.eval (x - dx) (y - dy) ∧ g0.slope = g.slope := by
+  rw [sides_moveBy] at hg
+  obtain ⟨g0, h0, rfl⟩ := List.mem_map.mp hg
+  exact ⟨g0, h0, Aff.shift_eval _ _ _ _ _, by simp [Aff.slope, Aff.shift]⟩
 
-/-- Spreading keeps the net push on every plank. -/
-theorem spread_force (r : Rect) (p : Push) (i : Nat) :
-    ((spreadOver r p).map fun q => q.upOn i).sum = p.upOn i := by
-  simp only [spreadOver, List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, upOn_eq,
-    Push.sign]
-  grind
-
-/-- Spreading keeps the turning effect along `x` on every plank. -/
-theorem spread_turnX (r : Rect) (p : Push) (i : Nat) (c : Rat) (h : r.x0 < r.x1) :
-    ((spreadOver r p).map fun q => q.upOn i * (q.x - c)).sum = p.upOn i * (p.x - c) := by
-  simp only [spreadOver, List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, upOn_eq,
-    Push.sign]
-  have : r.x1 - r.x0 ≠ 0 := by grind
-  grind
-
-/-- Spreading keeps the turning effect along `y` on every plank. -/
-theorem spread_turnY (r : Rect) (p : Push) (i : Nat) (c : Rat) (h : r.y0 < r.y1) :
-    ((spreadOver r p).map fun q => q.upOn i * (q.y - c)).sum = p.upOn i * (p.y - c) := by
-  simp only [spreadOver, List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, upOn_eq,
-    Push.sign]
-  have : r.y1 - r.y0 ≠ 0 := by grind
-  grind
-
-/-- Spreading a push from inside a contact patch gives four allowed corner pushes. -/
-theorem spread_allowed (b : Build) (r : Rect) (p : Push)
-    (hf : 0 ≤ p.force) (hu : p.upper < b.length) (hl : p.lower.InBuild b.length)
-    (hr : restPatch b p.upper p.lower = some r) (hx : r.x0 < r.x1) (hy : r.y0 < r.y1)
-    (hx0 : r.x0 ≤ p.x) (hx1 : p.x ≤ r.x1) (hy0 : r.y0 ≤ p.y) (hy1 : p.y ≤ r.y1) :
-    ∀ q ∈ spreadOver r p, q.Allowed b := by
-  obtain ⟨a0, a1⟩ := frac_bounds _ _ _ hx hx0 hx1
-  obtain ⟨c0, c1⟩ := frac_bounds _ _ _ hy hy0 hy1
-  intro q hq
-  simp only [spreadOver, List.mem_cons, List.mem_nil_iff, or_false] at hq
-  rcases hq with rfl | rfl | rfl | rfl <;>
-    refine ⟨?_, hu, hl, ?_⟩ <;> simp only [hr, Rect.corners, List.mem_cons] <;>
-    first
-    | simp
-    | exact Rat.mul_nonneg (Rat.mul_nonneg hf (by assumption)) (by assumption)
+/-- A side's value changes by at most `e * slope` when the point moves by at most `e`. -/
+theorem eval_move (g : Aff) (x y u v e : Rat) (hu : -e ≤ u ∧ u ≤ e) (hv : -e ≤ v ∧ v ≤ e) :
+    g.eval x y - e * g.slope ≤ g.eval (x + u) (y + v) := by
+  have := (Aff.lin_le g e u v hu hv).2
+  simp only [Aff.eval]; grind
 
 /-! ## Loads under errors -/
 
@@ -128,72 +80,88 @@ theorem relMix_bound (ε : Rat) (l : Load) (n o : Nat) (ho : o < n) (e : Nat →
 /-- The load point stays inside plank `o`'s moved footprint. -/
 theorem inside_moved (ε : Rat) (b : Build) (l : Load) (o : Nat) (d : Nat → Rat × Rat)
     (ho : o < b.length) (hd : SmallShift ε b.length d) (hin : l.InsideOf ε b o) :
-    (b.get o).x + (d o).1 ≤ (l.at b.length d).x ∧
-    (l.at b.length d).x ≤ (b.get o).x1 + (d o).1 ∧
-    (b.get o).y + (d o).2 ≤ (l.at b.length d).y ∧
-    (l.at b.length d).y ≤ (b.get o).y1 + (d o).2 := by
+    ((b.shift d).get o).Covers (l.at b.length d).x (l.at b.length d).y := by
   have bx := relMix_bound ε l b.length o ho (fun m => (d m).1) fun m hm => ⟨(hd m hm).1, (hd m hm).2.1⟩
   have by' := relMix_bound ε l b.length o ho (fun m => (d m).2)
     fun m hm => ⟨(hd m hm).2.2.1, (hd m hm).2.2.2⟩
-  simp only [Load.InsideOf] at hin
+  rw [covers_iff_sides, shift_get b d o ho]
+  intro g hg
+  obtain ⟨g0, h0, he, -⟩ := moved_side _ _ _ _ _ g hg
+  rw [he]
+  have hm := eval_move g0 l.x l.y (mixSum b.length l.mix (fun m => (d m).1) - (d o).1)
+    (mixSum b.length l.mix (fun m => (d m).2) - (d o).2) (ε * l.drift b.length o)
+    ⟨by grind, by grind⟩ ⟨by grind, by grind⟩
+  have := hin g0 h0
   simp only [Load.at]
+  rw [show l.x + mixSum b.length l.mix (fun m => (d m).1) - (d o).1
+      = l.x + (mixSum b.length l.mix (fun m => (d m).1) - (d o).1) by grind,
+    show l.y + mixSum b.length l.mix (fun m => (d m).2) - (d o).2
+      = l.y + (mixSum b.length l.mix (fun m => (d m).2) - (d o).2) by grind]
   grind
 
-/-- Under errors of at most `ε`, a valid load sits inside a real contact patch with an
-area bigger than zero. -/
-theorem load_patch (ε : Rat) (b : Build) (l : Load) (d : Nat → Rat × Rat)
+/-- Under errors of at most `ε`, a valid load gives an allowed push in the moved build. -/
+theorem load_allowed (ε : Rat) (b : Build) (l : Load) (d : Nat → Rat × Rat)
     (hl : l.Valid ε b) (hd : SmallShift ε b.length d) :
-    ∃ r, restPatch (b.shift d) l.upper l.lower = some r ∧ r.x0 < r.x1 ∧ r.y0 < r.y1 ∧
-      r.x0 ≤ (l.at b.length d).x ∧ (l.at b.length d).x ≤ r.x1 ∧
-      r.y0 ≤ (l.at b.length d).y ∧ (l.at b.length d).y ≤ r.y1 := by
-  obtain ⟨_, hu, hin, hinU, hlow⟩ := hl
+    (l.at b.length d).Allowed (b.shift d) := by
+  obtain ⟨hf, hu, hin, hinU, hlow⟩ := hl
   have pu := inside_moved ε b l l.upper d hu hd hinU
   have du := hd l.upper hu
-  cases hs : l.lower with
-  | ground =>
-    rw [hs] at hlow
-    have := pose_size_pos (b.get l.upper).pose
-    refine ⟨((b.shift d).get l.upper).footprint, ?_, ?_⟩
-    · simp [restPatch, shift_get b d _ hu, hlow]
-    · simp only [shift_get b d _ hu, Plank.footprint, Plank.x1, Plank.y1] at pu ⊢
-      grind
-  | plank j =>
-    rw [hs] at hlow hin
-    obtain ⟨hz, harea, hinJ⟩ := hlow
-    have hj : j < b.length := hin
-    have pj := inside_moved ε b l j d hj hd hinJ
-    have dj := hd j hj
-    simp only [Rect.HasArea, Rect.shrink, Rect.inter, Plank.footprint] at harea
-    refine ⟨((b.shift d).get l.upper).footprint.inter ((b.shift d).get j).footprint, ?_, ?_⟩
-    · simp only [restPatch, shift_get b d _ hu, shift_get b d _ hj]
-      rw [ite_eq_left_iff]
-      intro hn; apply absurd _ hn
-      refine ⟨by simpa [Plank.top] using hz, ?_⟩
-      simp only [Rect.HasArea, Rect.inter, Plank.footprint, Plank.x1, Plank.y1] at harea ⊢
-      grind
-    · simp only [shift_get b d _ hu, shift_get b d _ hj, Rect.inter, Plank.footprint,
-        Plank.x1, Plank.y1] at pu pj harea ⊢
-      grind
+  refine ⟨hf, by simpa [Load.at] using hu, ?_, ?_, ?_⟩
+  · cases h : l.lower with
+    | ground => simp [Load.at, h, Support.InBuild]
+    | plank j => rw [h] at hin; simpa [Load.at, h, Support.InBuild] using hin
+  · cases hs : l.lower with
+    | ground =>
+      rw [hs] at hlow
+      simp only [Load.at, hs, RestsOn, shift_get b d _ hu, moveBy_bottom]; grind
+    | plank j =>
+      rw [hs] at hlow hin
+      obtain ⟨hz, -, hwU, hwJ⟩ := hlow
+      have hj : j < b.length := hin
+      have dj := hd j hj
+      simp only [Load.at, hs, RestsOn, shift_get b d _ hu, shift_get b d _ hj, moveBy_bottom,
+        moveBy_top]
+      refine ⟨by grind, l.wx + (d l.upper).1, l.wy + (d l.upper).2, ?_, ?_⟩
+      · rw [coversInside_iff_sides]
+        intro g hg
+        obtain ⟨g0, h0, he, -⟩ := moved_side _ _ _ _ _ g hg
+        rw [he]
+        have := hwU g0 h0
+        rw [show l.wx + (d l.upper).1 - (d l.upper).1 = l.wx by grind,
+          show l.wy + (d l.upper).2 - (d l.upper).2 = l.wy by grind]
+        exact this
+      · rw [coversInside_iff_sides]
+        intro g hg
+        obtain ⟨g0, h0, he, -⟩ := moved_side _ _ _ _ _ g hg
+        rw [he]
+        have hm := eval_move g0 l.wx l.wy ((d l.upper).1 - (d j).1) ((d l.upper).2 - (d j).2)
+          (2 * ε) ⟨by grind, by grind⟩ ⟨by grind, by grind⟩
+        have := hwJ g0 h0
+        rw [show l.wx + (d l.upper).1 - (d j).1 = l.wx + ((d l.upper).1 - (d j).1) by grind,
+          show l.wy + (d l.upper).2 - (d j).2 = l.wy + ((d l.upper).2 - (d j).2) by grind]
+        grind
+  · cases hs : l.lower with
+    | ground => exact ⟨by simpa [Load.at] using pu, by simp [Load.at, hs]⟩
+    | plank j =>
+      rw [hs] at hlow hin
+      have hj : j < b.length := hin
+      refine ⟨by simpa [Load.at] using pu, ?_⟩
+      simp only [Load.at, hs]
+      exact inside_moved ε b l j d hj hd hlow.2.1
 
 /-! ## The certificate gives balance for every error -/
 
-/-- The pushes for errors `d`: every load, spread over the corners of its real patch. -/
+/-- The pushes for errors `d`: every load, at its moved point. -/
 def solidPushes (b : Build) (ls : List Load) (d : Nat → Rat × Rat) : List Push :=
-  ls.flatMap fun l =>
-    spreadOver ((restPatch (b.shift d) l.upper l.lower).getD default) (l.at b.length d)
+  ls.map fun l => l.at b.length d
 
 theorem solid_allowed (ε : Rat) (b : Build) (ls : List Load) (d : Nat → Rat × Rat)
     (hc : SolidCertificate ε b ls) (hd : SmallShift ε b.length d) :
     ∀ p ∈ solidPushes b ls d, p.Allowed (b.shift d) := by
   intro p hp
-  simp only [solidPushes, List.mem_flatMap] at hp
-  obtain ⟨l, hl, hp⟩ := hp
-  have hv := hc.2.1 l hl
-  obtain ⟨r, hr, hx, hy, hx0, hx1, hy0, hy1⟩ := load_patch ε b l d hv hd
-  rw [hr] at hp
-  exact spread_allowed (b.shift d) r (l.at b.length d) hv.1 (by simpa [Load.at] using hv.2.1)
-    (by have := hv.2.2.1; cases h : l.lower <;> simp_all [Support.InBuild, Load.at])
-    hr hx hy hx0 hx1 hy0 hy1 p hp
+  simp only [solidPushes, List.mem_map] at hp
+  obtain ⟨l, hl, rfl⟩ := hp
+  exact load_allowed ε b l d (hc.2.1 l hl) hd
 
 /-- Loads that do not touch plank `i` do not lift it. -/
 theorem upOn_of_not_touches (i : Nat) (l : Load) (h : l.Touches i = false) : l.upOn i = 0 := by
@@ -249,42 +217,29 @@ theorem mix_total (b : Build) (ls : List Load) (i : Nat) (hi : i < b.length) (e 
     _ = e i := sum_range_single _ _ hi e
 
 theorem solid_balanced (ε : Rat) (b : Build) (ls : List Load) (d : Nat → Rat × Rat)
-    (hc : SolidCertificate ε b ls) (hd : SmallShift ε b.length d) (i : Nat)
+    (hc : SolidCertificate ε b ls) (i : Nat)
     (hi : i < b.length) : Balanced (b.shift d) (solidPushes b ls d) i := by
   have hb := hc.2.2 i hi
-  have patch : ∀ l ∈ ls, ∃ r, restPatch (b.shift d) l.upper l.lower = some r ∧
-      r.x0 < r.x1 ∧ r.y0 < r.y1 := fun l hl => by
-    obtain ⟨r, hr, hx, hy, _⟩ := load_patch ε b l d (hc.2.1 l hl) hd
-    exact ⟨r, hr, hx, hy⟩
   have mx := mix_total b ls i hi (fun m => (d m).1) hb
   have my := mix_total b ls i hi (fun m => (d m).2) hb
   obtain ⟨h1, h2, h3, _⟩ := balancedLoads_full b ls i hb
   have cx : ((b.shift d).get i).centerX = (b.get i).centerX + (d i).1 := by
-    rw [shift_get b d i hi]; simp only [Plank.centerX]; grind
+    rw [shift_get b d i hi]; simp only [Pose.centerX, Pose.moveBy]
   have cy : ((b.shift d).get i).centerY = (b.get i).centerY + (d i).2 := by
-    rw [shift_get b d i hi]; simp only [Plank.centerY]; grind
-  refine ⟨?_, ?_, ?_⟩
-  · rw [solidPushes, sum_flatMap,
-      sum_map_congr _ _ _ fun l _ => spread_force _ (l.at b.length d) i]
-    simpa only [at_upOn] using h1
-  · rw [solidPushes, sum_flatMap, sum_map_congr _ _ (fun l => l.upOn i *
-        (l.x + mixSum b.length l.mix (fun m => (d m).1) - ((b.shift d).get i).centerX))]
-    · rw [sum_map_congr _ _ (fun l => l.upOn i * l.x + l.upOn i * mixSum b.length l.mix
-          (fun m => (d m).1) - l.upOn i * ((b.shift d).get i).centerX) (fun _ _ => by grind),
-        sum_map_sub, sum_map_add, sum_map_mul_right, h1, h2, mx, cx]
-      grind
-    · intro l hl
-      obtain ⟨r, hr, hx, _⟩ := patch l hl
-      rw [hr]; exact spread_turnX r _ i _ hx
-  · rw [solidPushes, sum_flatMap, sum_map_congr _ _ (fun l => l.upOn i *
-        (l.y + mixSum b.length l.mix (fun m => (d m).2) - ((b.shift d).get i).centerY))]
-    · rw [sum_map_congr _ _ (fun l => l.upOn i * l.y + l.upOn i * mixSum b.length l.mix
-          (fun m => (d m).2) - l.upOn i * ((b.shift d).get i).centerY) (fun _ _ => by grind),
-        sum_map_sub, sum_map_add, sum_map_mul_right, h1, h3, my, cy]
-      grind
-    · intro l hl
-      obtain ⟨r, hr, _, hy⟩ := patch l hl
-      rw [hr]; exact spread_turnY r _ i _ hy
+    rw [shift_get b d i hi]; simp only [Pose.centerY, Pose.moveBy]
+  unfold Balanced
+  simp only [solidPushes, List.map_map, Function.comp_def, at_upOn]
+  refine ⟨h1, ?_, ?_⟩
+  · rw [sum_map_congr _ _ (fun l => l.upOn i * l.x + l.upOn i * mixSum b.length l.mix
+        (fun m => (d m).1) - l.upOn i * ((b.shift d).get i).centerX)
+        (fun _ _ => by simp only [Load.at]; grind),
+      sum_map_sub, sum_map_add, sum_map_mul_right, h1, h2, mx, cx]
+    grind
+  · rw [sum_map_congr _ _ (fun l => l.upOn i * l.y + l.upOn i * mixSum b.length l.mix
+        (fun m => (d m).2) - l.upOn i * ((b.shift d).get i).centerY)
+        (fun _ _ => by simp only [Load.at]; grind),
+      sum_map_sub, sum_map_add, sum_map_mul_right, h1, h3, my, cy]
+    grind
 
 /-- A passing solidity certificate makes the build solid (R3). -/
 theorem solidCertificate_sound (ε : Rat) (b : Build) (ls : List Load)
@@ -293,14 +248,10 @@ theorem solidCertificate_sound (ε : Rat) (b : Build) (ls : List Load)
   refine ⟨solidPushes b ls d, solid_allowed ε b ls d hc hd, ?_⟩
   intro i hi
   rw [shift_length] at hi
-  exact solid_balanced ε b ls d hc hd i hi
+  exact solid_balanced ε b ls d hc i hi
 
 /-- With no errors, the build is the planned one. -/
-theorem shift_zero (b : Build) : b.shift (fun _ => (0, 0)) = b := by
-  apply List.ext_getElem
-  · simp [Build.shift]
-  · intro i _ _; simp only [Build.shift, List.getElem_mapIdx]
-    rw [Rat.add_zero, Rat.add_zero]
+theorem shift_zero (b : Build) : b.shift (fun _ => (0, 0)) = b := Examples.shift_zero b
 
 /-- A solid build is stable at the exact positions. -/
 theorem solid_stable (ε : Rat) (b : Build) (h : SolidWithin ε b) : Stable b := by

@@ -44,8 +44,10 @@ and is not part of what we verify.
 - **B2. Weight.** Every plank weighs the same. The weight is spread evenly
   through the plank, so its balance point (centre of mass) is its exact centre.
 - **B3. Rigid.** Planks never bend, squash or break.
-- **B4. Orientation.** A plank's sides are always parallel to the axes. That
-  leaves six ways to place it:
+- **B4. Orientation.** A plank always has a face down: it lies flat, on its
+  long edge, or stands on its end. It may be turned about the vertical axis
+  (B6). Not turned, or turned by a quarter turn, that gives six ways to place
+  it:
 
   | Pose | Size along `x` × `y` × `z` |
   |------|----------------------------|
@@ -57,12 +59,19 @@ and is not part of what we verify.
   | Standing, wide side facing `x` | 1 × 3 × 15 |
 
   No tilted or leaning planks.
-- **B5. Position.** A plank's position is the corner with the smallest
-  `x`, `y` and `z`. Any fraction is allowed. (The app may snap to a grid; the
-  engine does not need one.)
+- **B5. Position.** A plank is Core's block: which face is down, its turn, and
+  its centre. Any fraction is allowed. (The app may snap to a grid; the
+  engine does not need one.) Examples give the six poses above by their corner
+  with the smallest `x`, `y` and `z` (`Plank.at`).
+- **B6. Turns.** A turn is given exactly by its cosine and sine, as fractions,
+  with `cos² + sin² = 1`. Allowed are: no turn and quarter turns, and turns
+  close to 30°, 45° and 60° (and the same plus quarter turns). "Close" means
+  `sin²` is within 1/200 of 1/4, 1/2 or 3/4: about ±0.3°. Exact 30°, 45° and
+  60° are not fractions, so we use nearby turns from whole-number triangles,
+  for example 119-120-169 for about 45.24°.
 
-*Why B4:* if every plank is parallel to the axes, every contact between planks
-is a flat, horizontal patch. That makes the physics much simpler (see F3).
+*Why B4:* every plank has a face down, so every contact between planks is a
+flat, horizontal patch. That makes the physics much simpler (see F3).
 
 ## 4. Legal placement
 
@@ -79,8 +88,10 @@ A build is a list of planks. It must be *well-formed*:
 - **C1. What a contact is.** Plank A rests on plank B when A's bottom is at
   the same height as B's top, and the two faces overlap in a patch of area
   bigger than zero. A plank rests on the ground when its bottom is at `z = 0`.
-- **C2. Contact patch.** The patch is the rectangle where the two faces
-  overlap. For the ground it is the whole bottom face of the plank.
+- **C2. Contact patch.** The patch is the shape where the two faces overlap,
+  seen from above: a convex shape with at most 8 corners (a rectangle when
+  neither plank is turned against the other). For the ground it is the whole
+  bottom face of the plank.
 - **C3. Edge and corner touches do not count.** If two faces meet only along a
   line or at a point, there is no contact.
 - **C4. Side touches do not count.** When two planks touch side by side
@@ -102,14 +113,15 @@ up by sideways friction is reported as falling.
   contact is horizontal, so nothing tries to slide and friction has nothing to
   do. Friction can resist motion but can never start it, so a build we call
   stable is stable with or without friction.
-- **F4. Corner forces are enough.** Any way of spreading a push over a
-  rectangle patch has the same effect as four pushes, one at each corner of
-  the patch, each zero or more. So the engine only uses corner pushes.
+- **F4. One push per point is enough.** Any way of spreading a push over a
+  patch has the same effect as one push at a point of the patch (edges
+  included). So a contact pushes at points of its patch, each push zero or
+  more.
 
 *Why F4 is true:* a spread-out push acts like one push at its "centre of
-pressure". That point is always inside the patch, and any point inside a
-rectangle is a weighted average of its four corners. (This is a lemma we
-should prove, or list as a trusted modelling fact.)
+pressure", and that point is always in the patch, because the patch is
+convex. A push at a point of the patch is also the same as pushes at the
+patch's corners that add up to it, so the engine only needs corner pushes.
 
 ## 7. Stability at the exact positions
 
@@ -185,8 +197,8 @@ Side contacts still carry no force (C4); R5 is only about where planks end up.
 
 The app turns a design into a list of steps. A person follows the steps.
 
-- **K1. One plank per step.** Each step places one plank, in one of the six
-  poses (B4), at one position.
+- **K1. One plank per step.** Each step places one plank, in an allowed pose
+  (B4, B6), at one position.
 - **K2. Set it down, don't slide it.** The builder may carry the plank to its
   spot along any path: from above, from the side, at an angle. The last
   movement is a short drop straight down onto its supports. They do not
@@ -226,8 +238,9 @@ Say these out loud in the demo and the README:
 
 - No motion, speed, or falling sequence (section 1).
 - No placement error bigger than 2 mm (R1).
-- No twisting error: we assume the builder lines each plank up square with
-  the others.
+- No twisting error: we assume the builder turns each plank exactly as
+  planned. Turns are allowed only near 0°, 30°, 45°, 60° and quarter turns of
+  these (B6).
 - No difference between planks: all have exactly the same size and weight
   (B1–B2). Real Kapla planks are very even, but a plank resting on two
   supports can rock if one support is a hair taller.
@@ -236,7 +249,8 @@ Say these out loud in the demo and the README:
 - No bumps, shaking, or dropping a plank from a height (K2, W4).
 - No hands or fingers: the reachability check (K3) looks at the plank only,
   and only at straight paths.
-- No tilted or leaning planks (B4).
+- No tilted or leaning planks: every plank has a face down (B4). A plank
+  standing on an edge or a corner is not modelled.
 
 ## 11. Properties to prove
 
@@ -257,12 +271,16 @@ These are the main theorems. Each one points to the rules it depends on.
    placed, at any point along the way. Touching them is allowed (K3).
 6. **Matches the simple rule.** For a single column of planks, the engine
    agrees with the centre-of-mass rule in section 7.
-7. **Contacts are right.** The contact patches the engine finds are exactly
-   the overlaps described in C1–C3.
+7. **Planks are Core's blocks.** What the rules call "under the plank" and
+   "inside the plank" agrees with Core's `Pose.contains`, up to the faces.
+   (The engine's own contact checks each come with a proof that they match
+   C1–C3.)
 8. **Friction cannot hurt.** If a build is stable without friction, it is
    stable with any amount of friction (F3).
 9. **Square towers are safe to build, at any height.** For every `n`, building
-   the square tower (example E8) level by level is a safe plan.
+   the square tower (example E8) level by level is a safe plan. The same holds
+   for the square tower turned as a whole by any allowed turn (E19), for a
+   slightly smaller error bound.
 
 As CLAUDE.md asks, each theorem also gets a concrete example with every
 hypothesis met, and a few known-bad outputs that the spec rejects.
@@ -286,6 +304,18 @@ so two planks can end up `2ε` ≈ 0.51 units (4 mm) off from each other.
 | E10 | Same bridge, but the standing planks at `y = 0` | Falls | Falls | Supports cover `y` from 0 to 1. The top plank's centre is at `y = 1.5`. |
 | E11 | Square tower (E8) with one plank of a middle level left out | Falls | Falls | The planks above rest on one end only. |
 | E12 | Counterweight: plank A flat along `x` at `(0, 0, 0)`; B flat along `x` at `(9, 0, 1)`; C flat along `y` at `(9, -6, 2)` | Stable | — | Finished, B and C together have their centre at `x = 13.5`, over A. But B alone has its centre at 16.5, past A's edge at 15, so B falls before C can be placed. No order works: **not buildable** (K4). |
+
+Turned blocks (B6). Positions here are centres.
+
+| # | Build | Exact (S2) | Real (R4) | Why |
+|---|-------|------------|-----------|-----|
+| E13 | One flat block turned about 45°, centre `(0, 0, 1/2)` | Stable | Solid | It rests on its own bottom face. |
+| E14 | E1, and on it a flat block turned about 30° with centre `(7.5, 1.5, 1.5)` | Stable | Solid | Its centre is the middle of the slanted four-sided patch. |
+| E15 | E1, and on it a flat block turned about 45° with centre `(7.5, 6, 1.5)` | Falls | Falls | It rests on E1 over a small patch, but its centre is beside E1. |
+| E16 | Two flat blocks on the ground, turned about 45° and 135°, same centre | Not well-formed | — | They cross (P1). |
+| E17 | A block on its long edge turned about 60°, on the ground | Stable | Solid | It rests on its own bottom face. |
+| E18 | A flat block turned by the 3-4-5 triangle (about 53°) | Not well-formed | — | B6 does not allow this turn. |
+| E19 | The square tower (E8) of 3 levels, turned as a whole by about 45° | Stable | Solid at every step | E8, turned. |
 
 ## 13. Open questions
 

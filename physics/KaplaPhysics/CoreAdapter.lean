@@ -1,12 +1,11 @@
 import KaplaCore
 import KaplaPhysics.Engine
-import KaplaSpecs.PhysicsRules.FromCore
 
 /-! # The physics engine behind KaplaCore's interface
 
 `physicsEngine` is the value of `KaplaCore.PhysicsEngine` that the app passes to the
-planner instead of `physicsMock`. It turns the core plan into planks (`buildOf`), runs
-`checkPlan`, and turns the result into core diagnostics.
+planner instead of `physicsMock`. A core block is a physics plank, so it runs `checkPlan` on
+the blocks of the plan and turns the result into core diagnostics.
 
 How core's plan is read:
 
@@ -23,8 +22,8 @@ How core's plan is read:
   (clearance off). When it is on, blocks that touch in the plan are still fine, but two
   blocks with a gap must keep it: the gap must be at least `2 * epsRel`, so no placement
   error can close it. Pairs with a smaller gap get a `clearance` diagnostic.
-* **Turns.** Only quarter turns have a physics pose. A plan with any other turn is not
-  `ok`.
+* **Turns.** Only the turns allowed by B6 (quarter turns, and about 30°, 45°, 60°) pass
+  the well-formedness check. A plan with any other turn is not `ok`.
 * **Reach (K3)** is a warning: it gives an `unreachable` diagnostic but does not make the
   plan not `ok`.
 * **Not modelled:** `eAbs`, `press`, `clear` and `muSafe` are not used, and the engine never
@@ -47,57 +46,59 @@ def stepDiagnostics (h : HumanModel) (plan : BuildPlan) : List Diagnostic :=
     (if st.blocks.isEmpty then [.emptyStep k] else []) ++
       (if st.blocks.length > h.hands then [.tooManyHands k] else [])
 
-/-- Every pair of blocks `i < j` that share inside space (P1). -/
+/-- Every pair of blocks `i < j` that seem to share inside space (P1). Only a hint for the
+builder: the guarantee comes from `checkPlan`. -/
 def overlapPairs (b : Build) : List Diagnostic :=
   (List.range b.length).flatMap fun i =>
-    ((List.range b.length).filter fun j => i < j && decide (Overlap (b.get i) (b.get j))).map
+    ((List.range b.length).filter fun j => i < j && overlapGuess (b.get i) (b.get j)).map
       fun j => .overlap i j
+where
+  /-- The heights overlap and the computed point is strictly inside both planks. -/
+  overlapGuess (p q : Plank) : Bool :=
+    decide (p.bottom < q.top) && decide (q.bottom < p.top) && sharesCheck p q
 
 /-- Every pair of blocks `i < j` with a gap that a placement error up to `ε` could close:
-a near miss (`ClearPair`). -/
+a near miss (`clearPairCheck`). -/
 def clearancePairs (ε : Rat) (b : Build) : List Diagnostic :=
   (List.range b.length).flatMap fun i =>
     ((List.range b.length).filter fun j =>
-      i < j && !decide (Overlap (b.get i) (b.get j)) &&
-        !decide (ClearPair ε (b.get i) (b.get j))).map fun j => .clearance i j
+      i < j && !overlapPairs.overlapGuess (b.get i) (b.get j) &&
+        !clearPairCheck ε (b.get i) (b.get j)).map fun j => .clearance i j
 
 /-- The first block after which the build is not shown to be well-formed and solid.
 (Near misses get their own `clearance` diagnostic.) -/
 def firstUnsafeBlock (ε : Rat) (b : Build) : Option Nat :=
   (List.range b.length).find? fun k =>
-    !(decide (WellFormed (b.take (k + 1))) && solidAnswer ε (b.take (k + 1)))
+    !(wellFormedCheck (b.take (k + 1)) && solidAnswer ε (b.take (k + 1)))
 
 /-- `KaplaCore.PhysicsEngine.check`, done by the verified engine.
 
-`ok` is true exactly when every step places 1 to `hands` blocks, every block has a physics
-pose, and `checkPlan opts` accepts the blocks as a plan of at most `maxBlocks` planks.
+`ok` is true exactly when every step places 1 to `hands` blocks and `checkPlan opts`
+accepts the blocks as a plan of at most `maxBlocks` planks.
 
-If a block has no physics pose, or the build after a block is not shown to stand, the
-report has `unstable step block` for the first such block. The engine does not say which
-block would fall, so it names the block whose placement went wrong. -/
+If the build after a block is not shown to be well-formed and solid (for example because
+the block's turn is not allowed), the report has `unstable step block` for the first such
+block. The engine does not say which block would fall, so it names the block whose
+placement went wrong. -/
 def coreCheck (opts : PlanOptions) (h : HumanModel) (maxBlocks : Nat) (plan : BuildPlan) :
     PhysicsReport :=
+  let b : Build := plan.blocks
   let n := plan.blockCount
   let stepOf := fun i => (stepOfBlock plan).getD i 0
   let countDiags : List Diagnostic := if n > maxBlocks then [.tooManyBlocks n maxBlocks] else []
   let stepDiags := stepDiagnostics h plan
-  match buildOf plan.blocks with
-  | none =>
-      let bad := (plan.blocks.findIdx? fun p => (plankOf p).isNone).getD 0
-      { ok := false, diagnostics := countDiags ++ stepDiags ++ [.unstable (stepOf bad) bad] }
-  | some b =>
-      let safe := checkPlan opts h.epsRel maxBlocks b
-      let unsafeDiags : List Diagnostic :=
-        if safe then [] else
-          match firstUnsafeBlock h.epsRel b with
-          | some k => [.unstable (stepOf k) k]
-          | none => []
-      let reachDiags : List Diagnostic :=
-        ((hardToReach dropGap b).map stepOf).eraseDups.map .unreachable
-      { ok := stepDiags.isEmpty && safe,
-        diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++
-          (if opts.clearance then clearancePairs h.epsRel b else []) ++
-          unsafeDiags ++ reachDiags }
+  let safe := checkPlan opts h.epsRel maxBlocks b
+  let unsafeDiags : List Diagnostic :=
+    if safe then [] else
+      match firstUnsafeBlock h.epsRel b with
+      | some k => [.unstable (stepOf k) k]
+      | none => []
+  let reachDiags : List Diagnostic :=
+    ((hardToReach dropGap b).map stepOf).eraseDups.map .unreachable
+  { ok := stepDiags.isEmpty && safe,
+    diagnostics := countDiags ++ stepDiags ++ overlapPairs b ++
+      (if opts.clearance then clearancePairs h.epsRel b else []) ++
+      unsafeDiags ++ reachDiags }
 
 /-- The verified physics engine, for `app/Main.lean` to pass to the planner. Clearance is
 off (the default `PlanOptions`). -/

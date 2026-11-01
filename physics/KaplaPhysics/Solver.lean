@@ -1,4 +1,4 @@
-import KaplaSpecs.PhysicsRules.Rules
+import KaplaPhysics.Contacts
 
 /-! # Untrusted force solver
 
@@ -48,9 +48,8 @@ def unknowns (b : Build) : Array Unknown := Id.run do
   let mut out := #[]
   for i in List.range b.length do
     for s in allSupports b.length do
-      match restPatch b i s with
-      | some r => for (x, y) in r.corners do out := out.push ⟨i, s, x, y⟩
-      | none => pure ()
+      if restsCheck b i s then
+        for (x, y) in patchCorners b i s do out := out.push ⟨i, s, x, y⟩
   return out
 
 /-- The column of the equations for one unknown. Plank `i` has rows `3i` (force),
@@ -181,7 +180,7 @@ def solve (b : Build) (fuel : Nat := 100000) : Proposal :=
 /-- Insert `i` into `order`, keeping higher planks first. -/
 def insertByHeight (b : Build) (i : Nat) : List Nat → List Nat
   | [] => [i]
-  | j :: js => if (b.get i).z ≥ (b.get j).z then i :: j :: js else j :: insertByHeight b i js
+  | j :: js => if (b.get i).bottom ≥ (b.get j).bottom then i :: j :: js else j :: insertByHeight b i js
 
 /-- Fast version of `solve` for builds that stand: settle one plank at a time, from the top
 down. Each plank passes its weight and what it carries to the corners of its contact
@@ -197,9 +196,7 @@ def solveLocal (b : Build) (fuel : Nat := 10000) : Except Nat (List Push) := Id.
   for i in (List.range n).foldr (insertByHeight b) [] do
     let p := b.get i
     let us := (allSupports n).flatMap fun s =>
-      match restPatch b i s with
-      | some r => r.corners.map fun (x, y) => (s, x, y)
-      | none => []
+      if restsCheck b i s then (patchCorners b i s).map fun (x, y) => (s, x, y) else []
     let cols := us.toArray.map fun (_, x, y) => #[1, x - p.centerX, y - p.centerY]
     let rhs := #[1 + inF[i]!, inX[i]! - inF[i]! * p.centerX, inY[i]! - inF[i]! * p.centerY]
     let some f := (match phaseOne 3 cols rhs fuel with
@@ -223,7 +220,7 @@ def above (b : Build) (i : Nat) : List Nat := Id.run do
   -- Planks above rest on planks below, so one pass from the bottom up finds them all.
   for k in ((List.range n).foldr (insertByHeight b) []).reverse do
     if !inSet[k]! then
-      if (List.range n).any fun j => inSet[j]! && (restPatch b k (.plank j)).isSome then
+      if (List.range n).any fun j => inSet[j]! && restsCheck b k (.plank j) then
         inSet := inSet.set! k true
   return (List.range n).filter fun k => inSet[k]!
 
@@ -267,6 +264,6 @@ as `i`. -/
 def solveAbove (b : Build) (i : Nat) : Option (List Motion) :=
   match solveFree b (above b i) with
   | some ms => some ms
-  | none => solveFree b ((List.range b.length).filter fun k => (b.get k).z ≥ (b.get i).z)
+  | none => solveFree b ((List.range b.length).filter fun k => (b.get k).bottom ≥ (b.get i).bottom)
 
 end KaplaPhysics.Solver

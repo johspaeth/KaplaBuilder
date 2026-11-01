@@ -54,6 +54,25 @@ def Rot.valid (r : Rot) : Bool := r.cos * r.cos + r.sin * r.sin == 1
 #guard Rot.id.valid && Rot.quarter.valid && (Rot.ofTriple 3 4 5).valid
 #guard !(Rot.mk 1 1).valid
 
+/-- First turn by `b`, then by `a`: the angles add up. -/
+def Rot.comp (a b : Rot) : Rot :=
+  ⟨a.cos * b.cos - a.sin * b.sin, a.sin * b.cos + a.cos * b.sin⟩
+
+/-- About 30° (29.86°): the triple 209-120-241. Exact turns by 30° need `√3`, which is not
+a fraction; at the end of a block this one is off by 0.14 mm. -/
+def Rot.deg30 : Rot := Rot.ofTriple 209 120 241
+/-- About 45° (45.24°): the triple 119-120-169. Off by 0.24 mm at the end of a block. -/
+def Rot.deg45 : Rot := Rot.ofTriple 119 120 169
+/-- About 60° (60.14°): the triple 120-209-241. Off by 0.14 mm at the end of a block. -/
+def Rot.deg60 : Rot := Rot.ofTriple 120 209 241
+
+#guard Rot.deg30.valid && Rot.deg45.valid && Rot.deg60.valid
+#guard Rot.deg30 == ⟨209 / 241, 120 / 241⟩
+-- two quarter turns are a half turn; 30° and 60° come from the same triple, so together
+-- they are exactly a quarter turn
+#guard Rot.quarter.comp Rot.quarter == ⟨-1, 0⟩
+#guard Rot.deg30.comp Rot.deg60 == Rot.quarter
+
 /-- Turn the horizontal part of a vector by `r`. -/
 def Rot.apply (r : Rot) (v : Q3) : Q3 :=
   ⟨r.cos * v.x - r.sin * v.y, r.sin * v.x + r.cos * v.y, v.z⟩

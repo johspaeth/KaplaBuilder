@@ -13,7 +13,7 @@ After each theorem:
 * an example where every hypothesis holds, on a concrete build, so the theorem is not
   empty;
 * an example of a wrong answer that the theorem rules out.
-The builds (E1–E12 of the rules) and the facts about them are in
+The builds (E1–E19 of the rules) and the facts about them are in
 `specs/KaplaSpecs/PhysicsRules/Examples.lean`. -/
 
 namespace KaplaPhysics
@@ -103,14 +103,24 @@ example : ¬ SafePlan {} placementError 200 e12 := fun h =>
 example : ¬ SafePlan {} placementError 1 e2 := fun h => absurd h.1 (by decide)
 -- Ruled out: accepting a plan with a plank that rests on nothing (E5: an edge touch, P3).
 example : ¬ SafePlan {} placementError 200 e5 := fun h =>
-  absurd (h.2 2 (by decide) (by decide)).1 (by decide +kernel)
+  not_wellFormed_of_floats _ 1 (by decide) (by decide +kernel) (h.2 2 (by decide) (by decide)).1
+-- Ruled out: accepting a plan with a turn that B6 does not allow (E18, about 53°).
+example : ¬ SafePlan {} placementError 200 e18 := fun h =>
+  e18_not_wellFormed (h.2 1 (by decide) (by decide)).1
 -- Ruled out (clearance on): two planks 1/4 apart. Moving each 1/4 towards the other is
 -- within the 2 mm error and makes them share inside space (P1).
 example : ¬ SafePlan { clearance := true } placementError 200
-    [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 13 / 4, 0⟩] := fun h =>
+    [Plank.at .flatX 0 0 0, Plank.at .flatX 0 (13 / 4) 0] := fun h =>
   (h.2 2 (by decide) (by decide)).2.1 rfl
     (fun i => if i = 0 then (0, 1 / 4) else (0, -1 / 4)) (by unfold SmallShift; decide +kernel)
-    0 (by decide) 1 (by decide) (by decide +kernel) (by decide +kernel)
+    0 (by decide) 1 (by decide)
+    (by
+      rintro ⟨-, x, y, h1, h2⟩
+      simp only [List.take, Build.get, List.getD_cons_zero, List.getD_cons_succ] at h1 h2
+      rw [Plank.at_covers] at h1 h2
+      simp only [AxisPose.size] at h1 h2
+      grind)
+    ⟨by decide +kernel, 1, 31 / 10, by decide +kernel, by decide +kernel⟩
 
 /-- Property 5 ("reachable" is right): when the checker finds a direction, the drop gap
 `h` is above zero, and the plank can come in along it in a straight line from far away and
@@ -120,12 +130,13 @@ theorem reachDir_sound (placed : Build) (p : Plank) (h : Rat) (d : Dir)
   sorry
 
 -- The checker finds a way to slide a plank under a roof from the open side.
-example : reachDir? underRoof ⟨.flatY, 6, 0, 0⟩ dropGap = some .fromPlusY := by decide +kernel
+example : reachDir? underRoof (Plank.at .flatY 6 0 0) dropGap = some (.side 0 1) := by
+  decide +kernel
 -- Ruled out: coming straight down into a slot that has a plank right above it.
 example : ¬ StraightPath slotPlaced slotPlank dropGap Dir.fromAbove.vec := by
   intro ⟨_, _, _, hpath, _⟩
-  apply hpath 0 (by decide) ⟨.flatX, 0, 0, 1⟩ (by decide)
-  decide +kernel
+  apply hpath 0 (by decide) (Plank.at .flatX 0 0 1) (by simp [slotPlaced])
+  exact ⟨by decide +kernel, 1, 1, by decide +kernel, by decide +kernel⟩
 -- Ruled out: a path whose final drop has a gap of zero.
 example (v : Rat × Rat × Rat) : ¬ StraightPath slotPlaced slotPlank 0 v :=
   fun h => absurd h.1 (by decide)
@@ -148,11 +159,15 @@ is over the patch below that level. -/
 theorem column_stable_iff (b : Build) (hc : IsColumn b) : Stable b ↔ ColumnRule b := by
   sorry
 
--- E2 and E4 are columns; a bridge (E9) is not.
-example : IsColumn e2 ∧ IsColumn e4 ∧ ¬ IsColumn e9 := by decide +kernel
+-- E2 and E4 are columns; a bridge (E9) is not: its second standing plank rests on the
+-- ground, not on the plank before it.
+example : IsColumn e2 ∧ IsColumn e4 ∧ ¬ IsColumn e9 :=
+  ⟨columnCheck_sound _ (by decide +kernel), columnCheck_sound _ (by decide +kernel),
+   fun h => absurd ((h 1 (by decide) .ground trivial).mp (by decide +kernel)) (by decide)⟩
 -- Both sides agree on E1 (stands) and E4 (falls), each shown on its own.
-example : Stable e1 ∧ ColumnRule e1 := ⟨e1_stable, by decide +kernel⟩
-example : ¬ Stable e4 ∧ ¬ ColumnRule e4 := ⟨e4_not_stable, by decide +kernel⟩
+example : Stable e1 ∧ ColumnRule e1 := ⟨e1_stable, columnRuleCheck_sound _ (by decide +kernel)⟩
+example : ¬ Stable e4 ∧ ¬ ColumnRule e4 :=
+  ⟨e4_not_stable, fun h => absurd (h 1 (by decide)).2 (by decide +kernel)⟩
 
 /-- Property 8 (friction cannot hurt): a build that is stable without friction is stable
 with any friction coefficient `μ ≥ 0` (F3). -/
@@ -178,54 +193,47 @@ example : 0 ≤ placementError ∧ placementError ≤ 1 / 2 := by decide +kernel
 -- Ruled out: building a tower of `n` levels with fewer than `2 * n` planks.
 example : ¬ SafePlan {} placementError 1 (squareTower 1) := fun h => absurd h.1 (by decide +kernel)
 
-/-- Property 7 (contacts are right): the overlap of two rectangles holds exactly the points
-that lie in both. -/
-theorem Rect.inter_contains (r s : Rect) (x y : Rat) :
-    (r.inter s).Contains x y ↔ r.Contains x y ∧ s.Contains x y := by
+/-- Property 9 for turned towers: the square tower turned as a whole by an allowed turn
+`r` (B6; for example about 30°, 45° or 60°) is a safe plan at every height `n`, for
+placement errors up to `ε`. Seen along the turned planks, an error of `ε` along `x` and
+along `y` can be up to `ε * (|cos| + |sin|)`, so that must be at most 1/2. -/
+theorem turnedTower_safe (opts : PlanOptions) (r : KaplaCore.Rot) (hr : r.Allowed) (ε : Rat)
+    (hε0 : 0 ≤ ε) (hε : ε * (max r.cos (-r.cos) + max r.sin (-r.sin)) ≤ 1 / 2) (n : Nat) :
+    SafePlan opts ε (2 * n) (turnedTower r n) := by
   sorry
 
--- The planks of E2 overlap from `x = 5` to `x = 15`: the point (10, 1) is in both and in
--- the overlap; the point (2, 1) is only in the bottom plank, and not in the overlap.
-example : (e2.get 0).footprint.Contains 10 1 ∧ (e2.get 1).footprint.Contains 10 1 ∧
-    ((e2.get 0).footprint.inter (e2.get 1).footprint).Contains 10 1 := by
-  unfold Rect.Contains; decide +kernel
-example : (e2.get 0).footprint.Contains 2 1 ∧
-    ¬ ((e2.get 0).footprint.inter (e2.get 1).footprint).Contains 2 1 := by
-  unfold Rect.Contains; decide +kernel
+-- About 45° with the default error of 2 mm: the turn is allowed and the error is small
+-- enough.
+example : KaplaCore.Rot.deg45.Allowed ∧ 0 ≤ placementError ∧
+    placementError * (max KaplaCore.Rot.deg45.cos (-KaplaCore.Rot.deg45.cos) +
+      max KaplaCore.Rot.deg45.sin (-KaplaCore.Rot.deg45.sin)) ≤ 1 / 2 := by decide +kernel
+-- Ruled out: a tower turned by about 53°, which B6 does not allow.
+example : ¬ SafePlan {} placementError 2 (turnedTower (.ofTriple 3 4 5) 1) := fun h =>
+  absurd ((h.2 1 (by decide) (by decide)).1.turnsAllowed 0 (by decide)) (by decide +kernel)
 
-/-- Property 7: a rectangle has an area bigger than zero exactly when some point lies
-strictly inside it (C3). -/
-theorem Rect.hasArea_iff (r : Rect) :
-    r.HasArea ↔ ∃ x y, r.x0 < x ∧ x < r.x1 ∧ r.y0 < y ∧ y < r.y1 := by
+/-- Property 7 (planks are Core's blocks): a point that Core counts as inside a block
+(`KaplaCore.Pose.contains`) is under the plank seen from above, edges included, and
+between its bottom and its top. -/
+theorem covers_of_contains (p : Plank) (q : KaplaCore.Q3) (h : p.contains q = true) :
+    p.Covers q.x q.y ∧ p.bottom ≤ q.z ∧ q.z < p.top := by
   sorry
 
--- The overlap of E2's planks has an area; the overlap of E5's planks (an edge) has none.
-example : ((e2.get 0).footprint.inter (e2.get 1).footprint).HasArea := by decide +kernel
-example : ¬ ((e5.get 0).footprint.inter (e5.get 1).footprint).HasArea := by decide +kernel
+-- The middle of a block turned about 45° is inside it for Core.
+example : (e13.get 0).contains ⟨0, 0, 1 / 2⟩ = true := by decide +kernel
+-- Ruled out: a point 2 along the width of that block is not under it.
+example : ¬ (e13.get 0).Covers (-2 * 120 / 169) (2 * 119 / 169) := by decide +kernel
 
-/-- Property 7: plank `i` rests on plank `j` over `r` exactly when `i`'s bottom is at the
-height of `j`'s top, `r` is the overlap of their footprints, and `r` has an area (C1, C2). -/
-theorem restPatch_plank_iff (b : Build) (i j : Nat) (r : Rect) :
-    restPatch b i (.plank j) = some r ↔
-      (b.get i).z = (b.get j).top ∧ r = (b.get i).footprint.inter (b.get j).footprint ∧
-        r.HasArea := by
+/-- Property 7: a point strictly inside the plank (seen from above, and in height) is
+inside the block for Core. -/
+theorem contains_of_inside (p : Plank) (q : KaplaCore.Q3) (hxy : p.CoversInside q.x q.y)
+    (hb : p.bottom < q.z) (ht : q.z < p.top) : p.contains q = true := by
   sorry
 
--- E2's top plank rests on the bottom one over the 10 × 3 patch they share.
-example : restPatch e2 1 (.plank 0) = some ⟨5, 15, 0, 3⟩ := by decide +kernel
--- Ruled out: a contact along an edge only (E5, C3).
-example : restPatch e5 1 (.plank 0) = none := by decide +kernel
-
-/-- Property 7: plank `i` rests on the ground over `r` exactly when its bottom is at `z = 0`
-and `r` is its whole footprint (C1, C2). -/
-theorem restPatch_ground_iff (b : Build) (i : Nat) (r : Rect) :
-    restPatch b i .ground = some r ↔ (b.get i).z = 0 ∧ r = (b.get i).footprint := by
-  sorry
-
--- E1 rests on the ground over its whole footprint.
-example : restPatch e1 0 .ground = some ⟨0, 15, 0, 3⟩ := by decide +kernel
--- Ruled out: a plank in the air resting on the ground.
-example : restPatch floating 0 .ground = none := by decide +kernel
+-- The middle of E13's block is strictly inside it.
+example : (e13.get 0).CoversInside 0 0 ∧ (e13.get 0).bottom < 1 / 2 ∧
+    1 / 2 < (e13.get 0).top := by decide +kernel
+-- Ruled out: a point above the block is not inside it for Core.
+example : (e13.get 0).contains ⟨0, 0, 2⟩ = false := by decide +kernel
 
 /-! ## Certificates
 
@@ -247,16 +255,16 @@ example : checkPushes e4 [⟨0, .ground, 0, 0, 1⟩, ⟨1, .plank 0, 16, 0, 1⟩
 down by 1/2, and it turns so that every point it rests on goes up. -/
 def e4Motion : List Motion := [{}, ⟨-1 / 2, -2, 0⟩]
 
-/-- A fall certificate shows that the build is not stable (S3). -/
-theorem fallCertificate_sound (b : Build) (ms : List Motion) (hc : FallCertificate b ms) :
+/-- A motion that passes the fall check shows that the build is not stable (S3). -/
+theorem fallCertificate_sound (b : Build) (ms : List Motion) (hc : checkFall b ms = true) :
     ¬ Stable b := by
   sorry
 
--- The tipping motion is a fall certificate for E4.
-example : FallCertificate e4 e4Motion := by decide +kernel
+-- The tipping motion passes the fall check for E4.
+example : checkFall e4 e4Motion = true := by decide +kernel
 -- Ruled out: a fall certificate for E1, which stands. (Lowering it would push it into the
--- ground, so this motion is not one.)
-example : ¬ FallCertificate e1 [⟨-1, 0, 0⟩] := by decide +kernel
+-- ground, so this motion does not pass.)
+example : checkFall e1 [⟨-1, 0, 0⟩] = false := by decide +kernel
 example : ¬ ¬ Stable e1 := fun h => h e1_stable
 
 /-- A passing solidity certificate makes the build solid (R3). -/
@@ -266,7 +274,7 @@ theorem solidCertificate_sound (ε : Rat) (b : Build) (ls : List Load)
 
 -- E6 (one standing plank): the ground carries its weight at its centre, which moves with
 -- the plank's error.
-example : SolidCertificate placementError e6 [⟨0, .ground, 1, 3 / 2, 1 / 2, #[1]⟩] := by
+example : SolidCertificate placementError e6 [⟨0, .ground, 1, 3 / 2, 1 / 2, #[1], 0, 0⟩] := by
   decide +kernel
 -- Ruled out: a certificate for E3, which is not solid.
 example : ¬ SolidWithin placementError e3 := e3_not_solid
@@ -274,55 +282,44 @@ example : ¬ SolidWithin placementError e3 := e3_not_solid
 /-- No build gets both answers: a push set that passes the check and a fall certificate
 cannot exist for the same build. -/
 theorem not_stands_and_falls (b : Build) (ps : List Push) (ms : List Motion)
-    (h1 : checkPushes b ps = true) (h2 : FallCertificate b ms) : False := by
+    (h1 : checkPushes b ps = true) (h2 : checkFall b ms = true) : False := by
   sorry
 
 -- The two hypotheses cannot hold together (that is the point of the theorem), but each
 -- one can hold on its own, so neither is impossible by itself.
 example : checkPushes e1 e1Pushes = true := by decide +kernel
-example : FallCertificate e4 e4Motion := by decide +kernel
+example : checkFall e4 e4Motion = true := by decide +kernel
 
 /-! ## The engine behind KaplaCore's interface
 
 The planner and the app see the engine through `KaplaCore.PhysicsEngine`, which works on
-core blocks (centre, any turn, 1 or 2 blocks per step). `plankOf` and `buildOf`
-(`specs/KaplaSpecs/PhysicsRules/FromCore.lean`) turn core blocks into planks. -/
+core blocks (`KaplaCore.Pose`: centre, upright, turn; 1 or 2 blocks per step). A core block
+is a physics plank, so the engine checks the blocks as they are. -/
 
-/-- The conversion keeps each block where it is: for a block with a physics pose, core's box
-for it and the plank's box are the same. -/
-theorem plankOf_box (p : KaplaCore.Pose) (q : Plank) (h : plankOf p = some q) :
-    p.box = q.toBox := by
-  sorry
-
--- Core's example block (flat, centre at height 1/2) is a flat plank on the ground.
-example : plankOf KaplaCore.Pose.example = some ⟨.flatX, -15 / 2, -3 / 2, 0⟩ := by
-  decide +kernel
--- Ruled out: reading core's centre as the plank's corner puts the block somewhere else.
-example : KaplaCore.Pose.example.box ≠ (⟨.flatX, 0, 0, 1 / 2⟩ : Plank).toBox := fun h =>
-  absurd (congrArg (·.lo.z) h) (by decide +kernel)
-
-/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, every
-block has a physics pose, and the blocks, placed one after the other in plan order, are a
-safe plan with options `opts`: at most `maxBlocks` of them, and after every block
-well-formed, solid for every placement error up to `epsRel`, and (if `opts.clearance` is on)
+/-- When the engine says a core plan is `ok`: every step places 1 to `hands` blocks, and the
+blocks, placed one after the other in plan order, are a safe plan with options `opts`: at
+most `maxBlocks` of them, and after every block well-formed (so every turn is allowed by
+B6), solid for every placement error up to `epsRel`, and (if `opts.clearance` is on)
 keeping its gaps for every such error (R1, K4, K5). `physicsEngine` uses the default
 options. Core's errors that add up from level to level are not covered (R1 is the model). -/
 theorem coreCheck_ok_sound (opts : PlanOptions) (h : KaplaCore.HumanModel) (maxBlocks : Nat)
     (plan : KaplaCore.BuildPlan) (hok : (coreCheck opts h maxBlocks plan).ok = true) :
     (∀ st ∈ plan.steps, 1 ≤ st.blocks.length ∧ st.blocks.length ≤ h.hands) ∧
-      ∃ b, buildOf plan.blocks = some b ∧ SafePlan opts h.epsRel maxBlocks b := by
+      SafePlan opts h.epsRel maxBlocks plan.blocks := by
   sorry
 
 -- One flat block on the ground, with the default builder: the engine says `ok`.
 example : (coreCheck {} .default 200 ⟨[{ blocks := [KaplaCore.Pose.example] }]⟩).ok = true := by
   decide +kernel
+-- A block turned by about 45°, too.
+example : (coreCheck {} .default 200 ⟨[{ blocks := e13 }]⟩).ok = true := by decide +kernel
 -- Ruled out: `ok` for a block that floats one unit above the ground (P3).
-example : (coreCheck {} .default 200
-    ⟨[{ blocks := [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] }]⟩).ok ≠ true := fun hok => by
-  obtain ⟨_, b, hb, hs⟩ := coreCheck_ok_sound _ _ _ _ hok
-  have hf : buildOf [⟨.flat, .id, ⟨15 / 2, 3 / 2, 3 / 2⟩⟩] = some floating := by decide +kernel
-  obtain rfl : b = floating := Option.some.inj (hb.symm.trans hf)
-  exact absurd (hs.2 1 (by decide) (by decide)).1 (by decide +kernel)
+example : (coreCheck {} .default 200 ⟨[{ blocks := floating }]⟩).ok ≠ true := fun hok =>
+  not_wellFormed_of_floats _ 0 (by decide) (by decide +kernel)
+    ((coreCheck_ok_sound _ _ _ _ hok).2.2 1 (by decide) (by decide)).1
+-- Ruled out: `ok` for a block turned by about 53°, which B6 does not allow.
+example : (coreCheck {} .default 200 ⟨[{ blocks := e18 }]⟩).ok ≠ true := fun hok =>
+  e18_not_wellFormed ((coreCheck_ok_sound _ _ _ _ hok).2.2 1 (by decide) (by decide)).1
 -- Ruled out: `ok` for a step with two blocks when the builder has one hand.
 example : (coreCheck {} { KaplaCore.HumanModel.default with hands := 1 } 200
     ⟨[{ blocks := [KaplaCore.Pose.example, ⟨.flat, .id, ⟨0, 0, 3 / 2⟩⟩] }]⟩).ok ≠ true :=

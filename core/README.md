@@ -13,7 +13,7 @@ Owner: all (stewarded by D). Scope: see [docs/WORKSPLIT.md](../docs/WORKSPLIT.md
 |---|---|
 | `Basic.lean` | `Q` (= `Rat`), `Q3`, `Box` |
 | `Bubble.lean` | `Bubble`, `BubbleModel`, `contains`, `wellFormed`, `place` (takes a height), the egg example |
-| `Block.lean` | block size, `Upright`, `Rot` (exact turn about the vertical axis), `Pose`, corners, bounding box |
+| `Block.lean` | block size, `Upright`, `Rot` (exact turn about the vertical axis; `comp`, and `deg30`, `deg45`, `deg60`), `Pose`, corners, bounding box. `Pose`, `Rot`, `Rot.comp` and `Rot.apply` are also part of the physics rules (a physics plank is a core block), so a change to them needs a spec review |
 | `Plan.lean` | `Grip`, `Approach`, `Step`, `BuildPlan`, `HumanModel` and its default |
 | `Target.lean` | `PartTag` (kind + box), `TargetSpec`, `TargetSpec.ofBubbles`, `Request` |
 | `Report.lean` | `Diagnostic`, `PhysicsReport`, `ScoreReport` with `accepted`, `Verdict`, `Difficulty` |

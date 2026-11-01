@@ -10,15 +10,26 @@ namespace KaplaPhysics
 
 /-! ## Legal placement (P1–P3) -/
 
-/-- Two planks share some inside space: their boxes overlap by more than a face, edge or
-corner along all three axes. -/
-def Overlap (a b : Plank) : Prop :=
-  (a.x < b.x1 ∧ b.x < a.x1) ∧ (a.y < b.y1 ∧ b.y < a.y1) ∧ (a.z < b.top ∧ b.z < a.top)
+/-- Seen from above, two planks share some area: a point lies strictly inside both. Touching
+along an edge or at a corner does not count (C3). -/
+def SharesArea (a b : Plank) : Prop := ∃ x y, a.CoversInside x y ∧ b.CoversInside x y
 
-instance (a b : Plank) : Decidable (Overlap a b) := by unfold Overlap; infer_instance
+/-- Two planks share some inside space: seen from above they share some area, and their
+heights overlap by more than a face. -/
+def Overlap (a b : Plank) : Prop :=
+  (a.bottom < b.top ∧ b.bottom < a.top) ∧ SharesArea a b
 
 /-- Example: two flat planks side by side, touching along a face, do not overlap. -/
-example : ¬ Overlap ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
+example : ¬ Overlap (Plank.at .flatX 0 0 0) (Plank.at .flatX 0 3 0) := by
+  rintro ⟨-, x, y, h1, h2⟩
+  rw [Plank.at_coversInside] at h1 h2
+  simp only [AxisPose.size] at h1 h2
+  grind
+
+/-- Example: a flat block turned by 45° on the middle of a flat block along `x`, at the
+same height, overlaps it. -/
+example : Overlap (Plank.at .flatX 0 0 0) ⟨.flat, .deg45, ⟨15 / 2, 3 / 2, 1 / 2⟩⟩ :=
+  ⟨by decide +kernel, 15 / 2, 3 / 2, by decide +kernel, by decide +kernel⟩
 
 /-- What a plank can rest on: the ground, or plank number `j`. -/
 inductive Support where
@@ -26,24 +37,35 @@ inductive Support where
   | plank (j : Nat)
   deriving Repr, DecidableEq, Inhabited
 
-/-- C1–C3. The contact patch where plank `i` rests on support `s`, if there is one.
+/-- C1–C3. Plank `i` rests on support `s`:
+* on the ground: its bottom is at `z = 0`;
+* on plank `j`: its bottom is at the height of `j`'s top, and seen from above the two share
+  some area. Edge and corner touches do not count (C3).
 
-* On the ground: the plank's bottom is at `z = 0`; the patch is its whole bottom face.
-* On plank `j`: `i`'s bottom is at the height of `j`'s top, and the two faces overlap in
-  a rectangle with area bigger than zero. Edge and corner touches do not count (C3).
+Side-by-side touches never count (C4). -/
+def RestsOn (b : Build) (i : Nat) : Support → Prop
+  | .ground => (b.get i).bottom = 0
+  | .plank j => (b.get i).bottom = (b.get j).top ∧ SharesArea (b.get i) (b.get j)
 
-Side-by-side touches never give a patch (C4). -/
-def restPatch (b : Build) (i : Nat) : Support → Option Rect
-  | .ground =>
-      if (b.get i).z = 0 then some (b.get i).footprint else none
-  | .plank j =>
-      let r := (b.get i).footprint.inter (b.get j).footprint
-      if (b.get i).z = (b.get j).top ∧ r.HasArea then some r else none
+instance (b : Build) (i : Nat) : Decidable (RestsOn b i .ground) := by
+  unfold RestsOn; infer_instance
 
-/-- Example (E2): a flat plank shifted 5 along `x` on top of another rests on the
-10 × 3 patch they share. -/
-example : restPatch [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 5, 0, 1⟩] 1 (.plank 0)
-    = some ⟨5, 15, 0, 3⟩ := by decide +kernel
+/-- C2. The point `(x, y)` is in the contact patch where plank `i` rests on `s`: it is
+under plank `i`, and under plank `j` if `s` is plank `j` (edges included). -/
+def InPatch (b : Build) (i : Nat) (s : Support) (x y : Rat) : Prop :=
+  (b.get i).Covers x y ∧
+    match s with
+    | .ground => True
+    | .plank j => (b.get j).Covers x y
+
+instance (b : Build) (i : Nat) (s : Support) (x y : Rat) : Decidable (InPatch b i s x y) := by
+  unfold InPatch; cases s <;> infer_instance
+
+/-- Example (E2): a flat plank shifted 5 along `x` on top of another rests on it, and the
+point (10, 1) is in the patch they share. -/
+example : RestsOn [Plank.at .flatX 0 0 0, Plank.at .flatX 5 0 1] 1 (.plank 0) ∧
+    InPatch [Plank.at .flatX 0 0 0, Plank.at .flatX 5 0 1] 1 (.plank 0) 10 1 :=
+  ⟨⟨by decide +kernel, 10, 1, by decide +kernel, by decide +kernel⟩, by decide +kernel⟩
 
 /-- `s` names the ground or a plank that is part of a build of `n` planks. -/
 def Support.InBuild (n : Nat) : Support → Prop
@@ -53,31 +75,23 @@ def Support.InBuild (n : Nat) : Support → Prop
 instance (n : Nat) (s : Support) : Decidable (s.InBuild n) := by
   cases s <;> unfold Support.InBuild <;> infer_instance
 
-/-- The build is well-formed (P1–P3):
+/-- The build is well-formed (P1–P3, B6):
+0. every plank is turned by an allowed turn (B6),
 1. no two planks share inside space,
 2. every plank is above the ground,
 3. every plank rests on the ground or on another plank. -/
 structure WellFormed (b : Build) : Prop where
+  turnsAllowed : ∀ i < b.length, (b.get i).rot.Allowed
   noOverlap : ∀ i < b.length, ∀ j < b.length, i ≠ j → ¬ Overlap (b.get i) (b.get j)
-  aboveGround : ∀ i < b.length, 0 ≤ (b.get i).z
-  resting : ∀ i < b.length,
-    (restPatch b i .ground).isSome ∨ ∃ j < b.length, (restPatch b i (.plank j)).isSome
-
-instance (b : Build) : Decidable (WellFormed b) :=
-  if h : (∀ i < b.length, ∀ j < b.length, i ≠ j → ¬ Overlap (b.get i) (b.get j)) ∧
-      (∀ i < b.length, 0 ≤ (b.get i).z) ∧
-      (∀ i < b.length,
-        (restPatch b i .ground).isSome ∨ ∃ j < b.length, (restPatch b i (.plank j)).isSome)
-  then isTrue ⟨h.1, h.2.1, h.2.2⟩
-  else isFalse fun w => h ⟨w.noOverlap, w.aboveGround, w.resting⟩
+  aboveGround : ∀ i < b.length, 0 ≤ (b.get i).bottom
+  resting : ∀ i < b.length, RestsOn b i .ground ∨ ∃ j < b.length, RestsOn b i (.plank j)
 
 /-! ## Forces and balance (F1–F4, S1–S4)
 
 Each plank weighs 1 (B2), so all pushes are measured in plank weights. -/
 
-/-- F2, F4. One push at a corner of a contact patch: plank `upper` is pushed up with
-strength `force` at the point `(x, y)`, and its support `lower` is pushed down with the
-same strength. -/
+/-- F2, F4. One push between two planks: plank `upper` is pushed up with strength `force`
+at the point `(x, y)`, and its support `lower` is pushed down with the same strength. -/
 structure Push where
   upper : Nat
   lower : Support
@@ -87,16 +101,15 @@ structure Push where
   deriving Repr, DecidableEq
 
 /-- The push is allowed (F2, F4): it pushes, never pulls; it is between planks of the
-build; and it sits at a corner of the patch where `upper` rests on `lower`. -/
+build; `upper` rests on `lower`; and the push acts at a point of their contact patch
+(edges included).
+
+F4: a push anywhere in the patch has the same effect as pushes at the patch's corners
+that add up to it, because the patch is convex. So it does not matter which of the two
+ways the rule is written. -/
 def Push.Allowed (b : Build) (p : Push) : Prop :=
   0 ≤ p.force ∧ p.upper < b.length ∧ p.lower.InBuild b.length ∧
-    match restPatch b p.upper p.lower with
-    | some r => (p.x, p.y) ∈ r.corners
-    | none => False
-
-instance (b : Build) (p : Push) : Decidable (p.Allowed b) := by
-  unfold Push.Allowed
-  cases restPatch b p.upper p.lower <;> infer_instance
+    RestsOn b p.upper p.lower ∧ InPatch b p.upper p.lower p.x p.y
 
 /-- How much push `p` lifts plank `i`: `+force` if `i` is the upper plank, `-force` if
 `i` is the lower plank, `0` otherwise. -/
@@ -130,13 +143,14 @@ namespace KaplaPhysics
 def placementError : Rat := 10 / 39
 
 /-- R1, R2. The build after plank `i` lands `(d i).1` off along `x` and `(d i).2` off
-along `y`. Heights do not change. -/
+along `y`. Heights and turns do not change. -/
 def Build.shift (b : Build) (d : Nat → Rat × Rat) : Build :=
-  b.mapIdx fun i p => { p with x := p.x + (d i).1, y := p.y + (d i).2 }
+  b.mapIdx fun i p => p.moveBy (d i).1 (d i).2 0
 
 /-- Example: moving plank 1 of E2 by 1/4 along `x`. -/
-example : Build.shift [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 5, 0, 1⟩] (fun i => if i = 1 then (1/4, 0) else (0, 0))
-    = [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 21/4, 0, 1⟩] := by decide +kernel
+example : Build.shift [Plank.at .flatX 0 0 0, Plank.at .flatX 5 0 1]
+      (fun i => if i = 1 then (1/4, 0) else (0, 0))
+    = [Plank.at .flatX 0 0 0, Plank.at .flatX (21/4) 0 1] := by decide +kernel
 
 /-- R1. Every plank of a build of `n` planks lands at most `ε` off along `x` and at most
 `ε` off along `y`. -/
@@ -159,18 +173,22 @@ def Solid (b : Build) : Prop := SolidWithin placementError b
 
 /-! ## Build plans (K1, K4, K5) -/
 
-/-- Planks `a` and `b` meet: their boxes touch at a face, an edge or a corner, or share
-inside space. There is no gap between them along `x`, along `y` or along `z`. -/
+/-- Planks `a` and `b` meet: they touch at a face, an edge or a corner, or share inside
+space. Seen from above some point is under both (edges included), and there is no gap
+between them in height. -/
 def Meets (a b : Plank) : Prop :=
-  (a.x ≤ b.x1 ∧ b.x ≤ a.x1) ∧ (a.y ≤ b.y1 ∧ b.y ≤ a.y1) ∧ (a.z ≤ b.top ∧ b.z ≤ a.top)
-
-instance (a b : Plank) : Decidable (Meets a b) := by unfold Meets; infer_instance
+  (a.bottom ≤ b.top ∧ b.bottom ≤ a.top) ∧ ∃ x y, a.Covers x y ∧ b.Covers x y
 
 /-- Example: two flat planks side by side, touching along a face, meet. -/
-example : Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 3, 0⟩ := by decide +kernel
+example : Meets (Plank.at .flatX 0 0 0) (Plank.at .flatX 0 3 0) :=
+  ⟨by decide +kernel, 1, 3, by decide +kernel, by decide +kernel⟩
 
 /-- Example: with a gap of 1/4 between them, they do not meet. -/
-example : ¬ Meets ⟨.flatX, 0, 0, 0⟩ ⟨.flatX, 0, 13 / 4, 0⟩ := by decide +kernel
+example : ¬ Meets (Plank.at .flatX 0 0 0) (Plank.at .flatX 0 (13 / 4) 0) := by
+  rintro ⟨-, x, y, h1, h2⟩
+  rw [Plank.at_covers] at h1 h2
+  simp only [AxisPose.size] at h1 h2
+  grind
 
 /-- R1 with P1 (H6 in docs/DESIGN.md: gaps are 0 or big enough). Planks with a gap between
 them in the plan keep a gap: for every combination of placement errors of at most `ε`, two
@@ -208,10 +226,6 @@ end KaplaPhysics
 namespace KaplaPhysics
 
 /-! ## Reaching the spot (K2, K3) -/
-
-/-- The plank moved by `dx`, `dy`, `dz`. -/
-def Plank.moveBy (p : Plank) (dx dy dz : Rat) : Plank :=
-  { p with x := p.x + dx, y := p.y + dy, z := p.z + dz }
 
 /-- K3. The gap `h` for the final drop: 1 unit (7.8 mm). -/
 def dropGap : Rat := 1
@@ -269,10 +283,7 @@ def Push.side (i : Nat) (p : Push) : Rat :=
   (if p.upper = i then 1 else 0) - (if p.lower = .plank i then 1 else 0)
 
 /-- Height of a push: the bottom of its upper plank. -/
-def Push.height (b : Build) (p : Push) : Rat := (b.get p.upper).z
-
-/-- Height of plank `i`'s centre. -/
-def Plank.centerZ (p : Plank) : Rat := p.z + p.pose.size.dz / 2
+def Push.height (b : Build) (p : Push) : Rat := (b.get p.upper).bottom
 
 /-- Plank `i` is balanced by pushes with friction: all six conditions of S1.
 1. net push up is 1 (its weight); net push along `x` and along `y` is 0;
