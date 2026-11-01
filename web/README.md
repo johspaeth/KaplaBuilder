@@ -26,6 +26,9 @@ step cards work without it.
   "title": "House",                      // optional
   "subtitle": "60 blocks",               // optional
   "notes": ["stands after every step"],  // optional, shown under the title
+  "bubbles": [                           // optional: the target, drawn see-through
+    { "label": "head", "center": [0, 0, 20], "semi": [5, 5, 5] }  // semi = half-widths
+  ],
   "plan": {                              // or put "steps" at the top level
     "steps": [
       { "blocks": [
@@ -43,7 +46,8 @@ step cards work without it.
 
 A block is 15 × 3 × 1 (one unit is one block thickness). `flat` lies on its wide face, `edge` on its long narrow
 face, `upright` stands on its end. `center` is the centre of the block, so a flat block on
-the ground has `z = 1/2`. Steps are shown in order; a step with two blocks is marked
+the ground has `z = 1/2`. Bubbles are ellipsoids with axes along x, y and z, in the same units, cut off at the ground;
+the "Hide bubbles" button turns them off and on. Steps are shown in order; a step with two blocks is marked
 "two hands". Other fields are ignored.
 
 `web/examples/` has a house (27 blocks) and a duck (15 blocks).
