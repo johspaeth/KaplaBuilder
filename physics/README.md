@@ -93,9 +93,11 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `coreCheck_ok_sound`: when `coreCheck opts` says a core plan is `ok`, every step places 1 to
   `hands` blocks, and either every block has a physics pose and the blocks, one after the
   other, are a safe plan (with `opts`) for placement errors up to `epsRel` (K4, K5), or some
-  block is turned by a 15° step and the blocks are a safe turned plan (B6). The planner has
-  no proofs at the moment, so nothing yet says that its candidates are `ok`; the app must
-  run `coreCheck` on a candidate before it calls the candidate safe.
+  block is turned by a 15° step and the blocks are a safe turned plan (B6). For the planner's
+  `ai` strategy, `judge_checked_passed` says a passing design has `physics.ok = true`. That
+  report comes from `ph.check` on the design's plan, but the theorem does not say so, so it
+  does not yet chain with `coreCheck_ok_sound`. Stating `c.physics = ph.check req.human
+  req.blocks c.plan` would close the link. `ai-unchecked` designs are not checked.
 
 Axioms: `propext`, `Classical.choice`, `Quot.sound` only. No `opaque` contracts.
 
