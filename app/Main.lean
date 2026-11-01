@@ -14,6 +14,11 @@ import KaplaWeb
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
 
+* `kapla strategies` lists the planner strategies.
+* `kapla plan [--blocks N] [--strategy NAME]` runs a planner strategy (default `portfolio`)
+  on the egg target, with the verified physics engine and the mock semantic engine, and lists
+  the candidates.
+
 `--clearance` also asks that a 3.9 mm error can never close a gap between two blocks. Blocks
 that touch in the plan (side by side, end to end, one on another) are fine either way.
 -/
@@ -141,9 +146,27 @@ def view (opts : KaplaPhysics.PlanOptions) (file : String) (out : String) : IO U
     IO.println s!"wrote {path} ({p.steps.length} steps, physics {if r.ok then "ok" else "not ok"})"
     return 0
 
+/-! ## Running the planner -/
+
+/-- Run a planner strategy on the egg target and list its candidates. -/
+def plan (name : String) (blocks : Nat) : IO UInt32 := do
+  match KaplaPlanner.strategyByName? name with
+  | none =>
+    IO.eprintln s!"unknown strategy \"{name}\"; see `kapla strategies`"
+    return 64
+  | some s =>
+    let req : KaplaCore.PlanRequest := { target := .egg, blocks }
+    let cands ← s.toPlanner.plan req KaplaPhysics.physicsEngine KaplaCore.semanticMock
+    IO.println s!"strategy {s.name}: {cands.length} candidates"
+    for c in cands do
+      IO.println s!"  {c.plan.blockCount} blocks, score {c.score.score}"
+    return 0
+
 def usage : String :=
   "usage: kapla check BLUEPRINT.json [--max N] [--clearance]\n" ++
-  "       kapla view BLUEPRINT.json [--out DIR] [--clearance]"
+  "       kapla view BLUEPRINT.json [--out DIR] [--clearance]\n" ++
+  "       kapla strategies\n" ++
+  "       kapla plan [--blocks N] [--strategy NAME]"
 
 def main (args : List String) : IO UInt32 := do
   let opts : KaplaPhysics.PlanOptions := { clearance := args.contains "--clearance" }
@@ -155,6 +178,18 @@ def main (args : List String) : IO UInt32 := do
     | none => IO.eprintln usage; return 64
   | ["view", file] => view opts file "out"
   | ["view", file, "--out", out] => view opts file out
+  | ["strategies"] =>
+    for s in KaplaPlanner.strategies do IO.println s.name
+    return 0
+  | "plan" :: rest =>
+    let rec go (name : String) (blocks : Nat) : List String → IO UInt32
+      | [] => plan name blocks
+      | "--strategy" :: n :: r => go n blocks r
+      | "--blocks" :: n :: r => match n.toNat? with
+        | some n => go name n r
+        | none => do IO.eprintln usage; return 64
+      | _ => do IO.eprintln usage; return 64
+    go "portfolio" defaultMaxBlocks rest
   | [] =>
     IO.println "KaplaBuilder scaffold. Components:"
     for name in [KaplaPhysics.componentName, KaplaSemantics.componentName,
