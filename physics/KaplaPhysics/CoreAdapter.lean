@@ -16,7 +16,7 @@ How core's plan is read:
   example a counterweight put on at the same time) is refused.
 * **Placement error: R1 is the model.** `epsRel` is used as `ε` of rule R1: every block
   may land up to `epsRel` off its own planned spot along `x` and along `y`. The default is
-  10/39 (2 mm), as in the rules. Core's `HumanModel` also allows errors that add up from
+  1/2 (3.9 mm), as in the rules. Core's `HumanModel` also allows errors that add up from
   level to level (up to `eAbs`); those are not covered. With `ε = eAbs`, no build taller
   than one level would pass, so the team chose R1.
 * **Clearance.** `coreCheck` takes the `PlanOptions`; `physicsEngine` uses the default

@@ -79,9 +79,9 @@ structure HumanModel where
   muSafe : Q
   deriving Repr, BEq, Inhabited
 
-/-- The builder we assume. `epsRel = 10/39` is the 2 mm of the physics rules (R1). -/
+/-- The builder we assume. `epsRel = 1/2` is the 3.9 mm of the physics rules (R1). -/
 def HumanModel.default : HumanModel :=
-  { epsRel := 10 / 39, eAbs := 50 / 39, press := 1 / 2, hands := 2, clear := 25 / 39, muSafe := 3 / 10 }
+  { epsRel := 1 / 2, eAbs := 50 / 39, press := 1 / 2, hands := 2, clear := 25 / 39, muSafe := 3 / 10 }
 
 #guard HumanModel.default.hands == 2
 

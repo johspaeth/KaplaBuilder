@@ -10,7 +10,7 @@ Details: [docs/DESIGN.md](docs/DESIGN.md). Who does what: [docs/WORKSPLIT.md](do
 
 - It uses **at most N blocks**.
 - It **stays standing after every step**, not only at the end.
-- It stays standing **even if your hands are a bit imprecise** (default: 10/39 of a block
+- It stays standing **even if your hands are a bit imprecise** (default: 1/2 of a block
   thickness per block, 50/39 total drift), and while you **press down** on the block you are placing.
 - You can **put every block in place by hand**: no closed pockets, no gaps that are exactly
   one block wide, and no step that needs more than two hands.

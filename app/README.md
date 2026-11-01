@@ -14,7 +14,7 @@ Owner: D. The only place where the real engines meet. May import every component
   (`web/README.md`), with the physics result in its notes.
 
 The blueprint is read twice: as `Float`s for drawing (KaplaWeb), and with exact fractions for
-the physics engine. `--clearance` also refuses a plan when a 2 mm error could close a gap
+the physics engine. `--clearance` also refuses a plan when a 3.9 mm error could close a gap
 between two blocks (a near miss). Blocks that touch in the plan, like the walls in
 `web/examples/`, are fine with or without it.
 
