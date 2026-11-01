@@ -226,13 +226,38 @@ def withClearance : PlanOptions := { clearance := true }
 /-- With the clearance check on, the plan is not safe: the errors `towardsEachOther` are
 allowed and close the gap (P1). -/
 example : ¬ SafePlan withClearance placementError 200 nearlyTouching := fun h =>
-  (h.2 2 (by decide) (by decide)).2.1 rfl towardsEachOther
+  ((h.2 2 (by decide) (by decide)).2.1 rfl).1 towardsEachOther
     (by unfold SmallShift; decide +kernel) 0 (by decide) 1 (by decide)
     (by decide +kernel) (by decide +kernel)
 
--- The clearance check is off by default. Then the plan is accepted: each step is
+/-- The clearance check, switched off. -/
+def noClearance : PlanOptions := { clearance := false }
+
+-- The clearance check is on by default. Switched off, the plan is accepted: each step is
 -- well-formed at the planned positions and solid.
-#guard checkPlan {} placementError 200 nearlyTouching
+#guard !checkPlan {} placementError 200 nearlyTouching
+#guard checkPlan noClearance placementError 200 nearlyTouching
+
+/-! ## Tight slots (H6) -/
+
+/-- Two planks 3 apart, then a third dropped into the gap between them. -/
+def tightSlot : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 6, 0⟩, ⟨.flatX, 0, 3, 0⟩]
+
+/-- The same three planks, but the middle one goes down second: each plank is pushed
+against the one before it, so there is no slot to fit into. -/
+def wallInOrder : Build := [⟨.flatX, 0, 0, 0⟩, ⟨.flatX, 0, 3, 0⟩, ⟨.flatX, 0, 6, 0⟩]
+
+#guard !checkPlan {} placementError 200 tightSlot
+#guard checkPlan noClearance placementError 200 tightSlot
+#guard checkPlan {} placementError 200 wallInOrder
+
+/-- Why a tight slot is refused: when each wall lands 1/2 towards the other, the middle
+plank shares inside space with a wall wherever it lands within 1/2 of its spot. -/
+example (e : Rat) (he : -(1 / 2) ≤ e ∧ e ≤ 1 / 2) :
+    Overlap ⟨.flatX, 0, 3 + e, 0⟩ ⟨.flatX, 0, 1 / 2, 0⟩ ∨
+      Overlap ⟨.flatX, 0, 3 + e, 0⟩ ⟨.flatX, 0, 11 / 2, 0⟩ := by
+  simp only [Overlap, Plank.x1, Plank.y1, Plank.top, Pose.size]
+  grind
 
 -- Switching the check off never lets through a plan that falls or is risky.
 #guard !checkPlan {} placementError 200 e7
@@ -301,6 +326,8 @@ def coreE2 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 5 0 1]
 def coreE7 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt (15 / 4) 0 1, flatAt (45 / 4) 0 2]
 /-- E12 as a core plan. -/
 def coreE12 : BuildPlan := .ofBlocks [flatAt 0 0 0, flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)]
+/-- A builder who may place two blocks in one step, one in each hand. -/
+def twoHands : HumanModel := { HumanModel.default with hands := 2 }
 /-- E12 with B and C put on in the same step, one in each hand. -/
 def coreE12TwoHands : BuildPlan :=
   ⟨[{ blocks := [flatAt 0 0 0] }, { blocks := [flatAt 9 0 1, flatAt 9 (-6) 2 (turned := true)] }]⟩
@@ -327,7 +354,7 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 -- E12: B falls before C can hold it down.
 #guard coreCheck {} .default 200 coreE12 == { ok := false, diagnostics := [.unstable 1 1] }
 -- Blocks of one step are checked one after the other, so two hands do not save E12.
-#guard coreCheck {} .default 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
+#guard coreCheck {} twoHands 200 coreE12TwoHands == { ok := false, diagnostics := [.unstable 1 1] }
 -- A block turned by the 3-4-5 angle has no physics pose.
 #guard coreCheck {} .default 200 (.ofBlocks [⟨.flat, .ofTriple 3 4 5, ⟨0, 0, 1 / 2⟩⟩]) ==
   { ok := false, diagnostics := [.unstable 0 0] }
@@ -341,11 +368,15 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 #guard coreCheck { clearance := true } .default 200
     (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) ==
   { ok := false, diagnostics := [.clearance 0 1] }
-#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) == { ok := true }
+#guard coreCheck { clearance := false } .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 (13 / 4) 0]) ==
+  { ok := true }
+#guard coreCheck {} .default 200 (.ofBlocks [flatAt 0 0 0, flatAt 0 6 0, flatAt 0 3 0]) ==
+  { ok := false, diagnostics := [.tightSlot 2] }
 #guard coreCheck {} .default 3 coreTower == { ok := false, diagnostics := [.tooManyBlocks 4 3] }
 #guard coreCheck {} .default 200 ⟨[{ blocks := [] }]⟩ ==
   { ok := false, diagnostics := [.emptyStep 0] }
-#guard coreCheck {} { HumanModel.default with hands := 1 } 200 coreE12TwoHands ==
+-- The default builder places one block per step, so a two-block step is refused.
+#guard coreCheck {} .default 200 coreE12TwoHands ==
   { ok := false, diagnostics := [.tooManyHands 1, .unstable 1 1] }
 -- Hard to reach is a warning only (K3): the plan is still `ok`.
 #guard coreCheck {} .default 200 coreBoxedIn == { ok := true, diagnostics := [.unreachable 9] }
@@ -353,7 +384,7 @@ def coreBoxedIn : BuildPlan := .ofBlocks
 -- Where the mock is too kind: it ignores placement error and lets two blocks of a step hold
 -- each other up.
 #guard (physicsMock.check .default 200 coreE7).ok
-#guard (physicsMock.check .default 200 coreE12TwoHands).ok
+#guard (physicsMock.check twoHands 200 coreE12TwoHands).ok
 
 end Core
 

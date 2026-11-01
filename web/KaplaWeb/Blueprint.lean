@@ -112,12 +112,19 @@ def readBlock (j : Json) : Except String ViewBlock := do
   let center ← j.getObjValAs? (Array Json) "center"
   unless center.size == 3 do throw "\"center\" needs three numbers"
   let rot := (j.getObjVal? "rot").toOption
-  let c ← match rot.bind (·.getObjVal? "c" |>.toOption) with
-    | some v => readNum v
-    | none => pure 1
-  let s ← match rot.bind (·.getObjVal? "s" |>.toOption) with
-    | some v => readNum v
-    | none => pure 0
+  let (c, s) ← match rot.bind (·.getObjVal? "deg" |>.toOption) with
+    | some v => do
+      let d ← readNum v
+      let t := d * 3.141592653589793 / 180
+      pure (Float.cos t, Float.sin t)
+    | none => do
+      let c ← match rot.bind (·.getObjVal? "c" |>.toOption) with
+        | some v => readNum v
+        | none => pure 1
+      let s ← match rot.bind (·.getObjVal? "s" |>.toOption) with
+        | some v => readNum v
+        | none => pure 0
+      pure (c, s)
   return { up, x := ← readNum center[0]!, y := ← readNum center[1]!, z := ← readNum center[2]!, c, s }
 
 /-- Read one bubble: `label` (optional), `center` and `semi` (half-widths). -/

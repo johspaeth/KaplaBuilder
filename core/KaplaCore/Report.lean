@@ -16,14 +16,15 @@ inductive Diagnostic where
   | unstable (step block : Nat)
   /-- After `step`, a leaning block slides at contact number `contact`. -/
   | slides (step contact : Nat)
-  /-- Pressing on corner `corner` of the new block(s) in `step` makes something tip. -/
-  | pressTips (step corner : Nat)
   /-- The block(s) of `step` cannot be put in place by hand. -/
   | unreachable (step : Nat)
   /-- Blocks `i` and `j` overlap. -/
   | overlap (i j : Nat)
   /-- Blocks `i` and `j` do not touch, but the gap between them is too small. -/
   | clearance (i j : Nat)
+  /-- The block of `step` goes into a slot exactly its own width, between two blocks placed
+  before it. A small error of either wall can close the slot. -/
+  | tightSlot (step : Nat)
   /-- `block` rests on support stacks that are built differently. -/
   | unevenSupports (block : Nat)
   /-- `step` places more blocks than the builder has hands. -/

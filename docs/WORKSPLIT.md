@@ -138,7 +138,6 @@ classDiagram
   class HumanModel {
     +Q epsRel
     +Q eAbs
-    +Q press
     +Nat hands
     +Q clear
     +Q muSafe
@@ -158,7 +157,6 @@ classDiagram
     <<enumeration>>
     Unstable(step, block)
     Slides(step, contact)
-    PressTips(step, corner)
     Unreachable(step)
     Overlap(i, j)
     Clearance(i, j)
@@ -336,8 +334,7 @@ between the teams.
 - **Owns**: contact detection (polygons, segments, points), polygon clipping and shrinking,
   3D separating-axis tests, the LP solver that generates force certificates, the robust
   certificates (margins, shift budgets), the friction pyramid for tilted blocks, and the
-  Human Model rules H1–H9 (`Reachable`, `Clearance`, `ParallelSupportsOK`, press load
-  cases).
+  Human Model rules H1–H9 (`Reachable`, `Clearance`, `ParallelSupportsOK`).
 - **Delivers**: `PhysicsEngine` implementation, `certify`, `Valid`, `certify_sound`,
   `robust_sound`.
 - **Does not care about**: what the structure is supposed to look like.
