@@ -89,6 +89,9 @@ what a theorem means, you must change `specs/`, which needs a spec review.
 - `Rect.inter_contains`, `Rect.hasArea_iff`, `restPatch_plank_iff`, `restPatch_ground_iff`:
   the contact patches are exactly the overlaps of C1–C3, as sets of points (property 7).
 - `plankOf_box`: a core block and the plank it becomes fill the same box.
+- `stable_iff_tStable`: the two forms of F4 agree. An axis-aligned build is stable with
+  pushes at the corners of its patches (`Stable`) exactly when, read as turned planks at 0°
+  or 90° (`Plank.toT`), it is stable with pushes anywhere in its patches (`TStable`).
 - `checkTPushes_sound`, `checkTurnedPlan_sound` (B6): for planks turned in steps of 15°, an
   accepted plan has at most N planks and after every step is well-formed and stable at the
   planned positions. Placement errors, gaps and reach are not checked for turned plans yet.
@@ -162,11 +165,11 @@ R5 only removes some of these errors, so "solid" here implies solid under R5.
 
 ## Not done yet
 
-- **Two forms of F4.** `Stable` puts pushes at patch corners only; `TStable` allows any point
-  of the patch. No theorem says the two agree on builds with only quarter turns.
 - **Only soundness is proven.** An engine that never says "yes" would pass every theorem.
   Only the `#guard`s in `Examples.lean` show that the engine accepts good builds. A theorem
-  such as `checkPlan {} ε (2 * n) (squareTower n) = true` would close this.
+  such as `checkPlan {} ε (2 * n) (squareTower n) = true` would close this, but it means
+  proving what the exact simplex returns on every tower, which is a large piece of work.
+  `squareTower_safe` proves the rules side (the tower *is* a safe plan) for every height.
 - K3 tries only five directions; a plank reachable only along a slanted line is flagged.
 - Speed: the engine first tries fast top-down solvers (one small LP per plank) and uses
   the global LPs only for builds of at most 40 planks. Measured with the interpreter on a
