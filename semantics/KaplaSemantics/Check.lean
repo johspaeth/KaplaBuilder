@@ -11,13 +11,15 @@ open KaplaCore
 
 /-- Every block has at least one cube inside some bubble. No block is fully outside. -/
 def WithinTarget (m : BubbleModel) (height : Q) (plan : List Pose) : Prop :=
-  ∀ blk ∈ plan, ∃ g ∈ poseCells blk, ∃ b ∈ m.bubbles, (placeAt height b).contains g.centre = true
+  ∀ blk ∈ plan, ∃ g : GridPt, blk.contains g.centre = true ∧
+    ∃ b ∈ m.bubbles, (placeAt height b).contains g.centre = true
 
-/-- Every bubble that has at least one cube at this height has a block cube inside it. A bubble
-with no cube can never have one, so it is skipped. -/
+/-- Every bubble that has at least one cube at this height shares a cube with some block. A bubble
+with no cube can never share one, so it is skipped. -/
 def CoversTarget (m : BubbleModel) (height : Q) (plan : List Pose) : Prop :=
-  ∀ b ∈ m.bubbles, bubbleCells (placeAt height b) ≠ [] →
-    ∃ g ∈ blockCells plan, (placeAt height b).contains g.centre = true
+  ∀ b ∈ m.bubbles, (∃ g : GridPt, (placeAt height b).contains g.centre = true) →
+    ∃ blk ∈ plan, ∃ g : GridPt, blk.contains g.centre = true ∧
+      (placeAt height b).contains g.centre = true
 
 /-- Is this block fully outside all bubbles at their real size? -/
 def blockOutside (placed : List Bubble) (blk : Pose) : Bool :=
@@ -47,9 +49,6 @@ def uncoveredBubbles (placed : List Bubble) (built : List GridPt) : List String 
 def tooSmallBubbles (placed : List Bubble) : List String :=
   (placed.filter fun b => (bubbleCells b).isEmpty).map (·.label)
 
-/-- Example: `flatBlock` moved far away. -/
-private def farBlock : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
-
 -- A block touching the ball passes both checks. A block far away fails both.
 #guard checkWithin ballModel 2 [flatBlock] && checkCovers ballModel 2 [flatBlock]
 #guard !checkWithin ballModel 2 [farBlock] && !checkCovers ballModel 2 [farBlock]
@@ -57,7 +56,7 @@ private def farBlock : Pose := ⟨.flat, .id, ⟨100, 3 / 2, 1 / 2⟩⟩
 #guard outsideBlocks (ballModel.bubbles.map (placeAt 2)) [flatBlock, farBlock] == [1]
 #guard checkCovers ballModel 2 [flatBlock, farBlock]
 -- A block whose middle is outside but whose end is inside is not outside.
-#guard !blockOutside (ballModel.bubbles.map (placeAt 2)) ⟨.flat, .id, ⟨7, 0, 1 / 2⟩⟩
+#guard !blockOutside (ballModel.bubbles.map (placeAt 2)) endBlock
 -- A ball too small to hold a cube is listed, and it needs no block.
 #guard tooSmallBubbles (ballModel.bubbles.map (placeAt (1 / 2))) == ["ball"]
 #guard checkCovers ballModel (1 / 2) []
