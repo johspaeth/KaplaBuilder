@@ -2,7 +2,7 @@
 
 Owner: C. Status: **v2 is implemented, except turns other than quarter turns (stalled).**
 Sections 1–9 are the first plan. Section 10 says what v1 does. Section 11 is v2 (standing
-blocks, branch-and-cut search under a time limit); §11.13 says what was built and measured.
+blocks, branch-and-bound search under a time limit); §11.13 says what was built and measured.
 Context: [docs/DESIGN.md](../docs/DESIGN.md), [docs/WORKSPLIT.md](../docs/WORKSPLIT.md),
 [semantics/APPROACH.md](../semantics/APPROACH.md) §3–4 (the score).
 
@@ -35,11 +35,11 @@ physics engine and the scorer check every plan we return.
 | Physics checks the build after **every block**, with an exact LP | `CoreAdapter.lean`, `Engine.lean` | One check is slow, and it gets slower with more blocks. `maxChecks` is 50. We call it only on finished candidates. |
 | The score is a pure function and much cheaper than physics, but it recounts the whole target on every call | `Engine.lean` (semantics) | Fine for ranking a few hundred plans. Too slow to try each single-block move. |
 
-## 3. How big the search space is, and how we cut it
+## 3. How big the search space is, and how we make it smaller
 
 With 6 poses and positions on a 1-unit grid in a 60 × 60 × 60 box there are about 10⁶
-places for each block, and `N` of them to choose. A full search is not possible. We cut it in
-five ways:
+places for each block, and `N` of them to choose. A full search is not possible. We make it
+smaller in five ways:
 
 1. **Grid.** Every block corner is on the integer grid, and every turn is a quarter turn. Then
    a block fills exactly 45 whole cells, and every test (overlap, rests on, inside a bubble) is
@@ -319,15 +319,16 @@ All 3 candidates of each model were accepted by the scorer and the physics engin
 - Only flat blocks with quarter turns.
 - The physics engine is the slow part for large plans (see §9 question 3).
 
-## 11. v2 design: standing blocks, turns, branch-and-cut search (not built)
+## 11. v2 design: standing blocks, turns, branch-and-bound search
 
 ### 11.1 Goals
 
 1. **Standing and on-edge blocks**, and blocks that rest on them.
 2. **Turns about the vertical axis** of 30°, 45° and 60° (and their multiples), as well as
    quarter turns.
-3. **A search with guarantees about its effort:** branch-and-cut first, then a heuristic
-   improvement phase, with backtracking. A **time limit of 30 seconds** (and a maximum number
+3. **A search with guarantees about its effort:** branch-and-bound first (search a tree of
+   partial builds, and skip every branch that cannot beat the best plan so far), then a
+   heuristic improvement phase, with backtracking. A **time limit of 30 seconds** (and a maximum number
    of tries as a safety limit). When the time runs out, the search stops and returns the best
    plans found so far, ranked by likeness score.
 
@@ -444,11 +445,15 @@ Duplicate course plans are removed. Each node has at most `K` children (K = 4 to
 order of value. Unlike v1, the choice can change from course to course: v1 fixes one setting
 for the whole build.
 
-#### Branch and bound
+#### Branch-and-bound
 
-The search goes depth first: it takes the best child first and goes up again (backtracks)
-when a branch is finished or cut. It keeps the **incumbent**: the best complete build found
-so far that physics accepted.
+**Branch-and-bound:** search the tree of partial builds, and skip every branch that cannot beat
+the best plan so far. The search goes depth first: it takes the best child first and goes up
+again (backtracks) when a branch is finished or pruned (not explored). It keeps the
+**incumbent**: the best complete build found so far that physics accepted. It is an *anytime*
+search: it can stop at any moment and return the incumbent. It is not exact: it keeps only a
+few children per node, and some pruning rules are heuristic, so it does not promise the best
+possible build.
 
 For each node it computes an **upper bound**: a score that no build below this node can beat.
 
@@ -469,35 +474,35 @@ on the lines through its own cells. We precompute the largest such number over a
 this height and multiply it by the blocks left.
 
 Outside cells only ever go up, so the denominator is correct. If `bound ≤ incumbent score`,
-the node is cut: no build below it can win.
+the node is pruned: no build below it can win.
 
-The bound is loose (the fill rule lets one block cover a long line), so on real models it cuts
-less than in textbook problems. That is why the tries limit and the heuristic phase matter.
+The bound is a counting formula, not the result of a linear program. It is loose (the fill rule
+lets one block cover a long line), so on real models it prunes less than in textbook problems. That is why the tries limit and the heuristic phase matter.
 
-#### Cuts
+#### Pruning rules
 
-A cut removes a node or a child before it is explored. There are two kinds.
+**Pruning** a node means not exploring it. There are two kinds of rule.
 
-**Exact cuts** (they never remove a build that could be the best):
+**Safe pruning rules** (they never remove a build that could be the best):
 
-| Cut | Rule |
+| Rule | What it skips |
 |---|---|
-| bound | `bound ≤ incumbent score` (above) |
-| budget | blocks used + blocks still needed > N. "Still needed": one block for each bubble with no block yet, plus a pillar under it if nothing can carry it (one flat block per course of gap; one standing block per 15 courses once standing blocks may carry) |
-| dead bubble | a bubble with no block yet whose top is below course z can never get one, so the scorer would not accept the build |
-| overlap | a block shares cells with a block already built |
-| symmetry | if the model is its own mirror image (left-right), the first course that differs between a plan and its mirror image is explored on one side only |
+| bound pruning | a node when no build below it can beat the best plan so far: `bound ≤ incumbent score` (above) |
+| feasibility pruning: budget | blocks used + blocks still needed > N. "Still needed": one block for each bubble with no block yet, plus a pillar under it if nothing can carry it (one flat block per course of gap; one standing block per 15 courses once standing blocks may carry) |
+| feasibility pruning: dead bubble | a bubble with no block yet whose top is below course z can never get one, so the scorer would not accept the build |
+| feasibility pruning: overlap | a block shares cells with a block already built |
+| symmetry breaking | if the model is its own mirror image (left-right), the first course that differs between a plan and its mirror image is explored on one side only |
 
-**Learned cuts** (they may remove good builds; they keep the search away from builds that
-physics refused):
+**Heuristic pruning rules** (they may remove good builds; they keep the search away from builds
+that physics would refuse, or that look no better than one already seen):
 
-| Cut | Rule |
+| Rule | What it skips |
 |---|---|
-| local rule | the load rule of §11.4 (cautious: it accepts less than physics does) |
-| no-good | after physics fails at block b (§11.6): the pair (supports under b, pose of b) is stored and never tried again |
-| same frontier | two nodes at the same course with the same top two courses and the same number of blocks: keep only the one with the higher score so far |
+| local stability rule | blocks the load rule of §11.4 rejects (cautious: it accepts less than physics does) |
+| no-good learning | after physics fails at block b: the pair (supports under b, pose of b) is stored as a no-good and never tried again |
+| dominance pruning | of two nodes at the same course with the same top two courses and the same number of blocks, the one with the lower score so far |
 
-#### Physics in the loop and backtracking
+#### Physics in the loop and conflict-directed backjumping
 
 Physics is called only on complete builds whose fast score beats the incumbent. Each call
 costs one try of the physics budget (`maxChecks`, 50 by default).
@@ -505,9 +510,10 @@ costs one try of the physics budget (`maxChecks`, 50 by default).
 Physics checks after every block, so a failure names the **first** block b that is
 unstable; everything placed before b stands. The search then:
 
-1. stores a no-good for b;
-2. **jumps back** to the course of b (not just one level up). Everything above that course was
-   built on a part that fails, so trying other choices up there is wasted effort;
+1. stores a no-good for b (no-good learning);
+2. **conflict-directed backjumping:** goes back to where the failure started, the course of b,
+   not just one level up. Everything above that course was built on a part that fails, so
+   trying other choices up there is wasted effort;
 3. tries the next child at that course.
 
 This replaces v1's repair step ("remove blamed blocks and what rests on them").
@@ -560,8 +566,8 @@ the search is deterministic.
 
 #### Order inside the tree
 
-Pure depth first spends all tries deep in the first branch. We use **limited discrepancy**
-order instead: first the path that always takes the best child (this is the v1 build, and
+Pure depth first spends all tries deep in the first branch. We use **limited discrepancy search
+(LDS)** instead: try the paths that differ least from the default first. That is, first the path that always takes the best child (this is the v1 build, and
 gives the first incumbent quickly), then all paths that take a worse child once, then twice,
 and so on. Bad early choices are corrected first, which matters most because everything above
 depends on them.
@@ -569,7 +575,8 @@ depends on them.
 ### 11.6 Heuristic phase: improve the incumbents
 
 The tree search gets about 60 % of the time. The rest goes to improving the best incumbents
-with **large-neighbourhood search**:
+with **large neighbourhood search (LNS)**: throw away a large part of the plan and search that
+part again.
 
 1. Choose a course z (more often where the build covers its slice badly).
 2. Remove every block at or above course z.
@@ -577,7 +584,7 @@ with **large-neighbourhood search**:
    with the incumbent's score as the bar to beat.
 4. Keep the new build if physics accepts it and it scores higher.
 
-Then small moves on single blocks, kept if the fast score goes up and the local rule still
+Then **local search**: small moves on single blocks, kept if the fast score goes up and the local rule still
 holds: remove a block that carries nothing, move a block by half a unit, change its turn to
 the next one, change flat to on edge. Physics checks the result only when it beats the
 incumbent.
@@ -633,7 +640,7 @@ As in v1 (§7): every result uses at most N blocks and passed physics. New:
 - the contact polygon of two blocks is inside both blocks' faces (a test with `#guard` on
   turned examples, a theorem if cheap).
 
-We do not claim that the result is the best possible build. The cuts marked "learned" and the
+We do not claim that the result is the best possible build. The heuristic pruning rules and the
 limit of K children per node rule that out.
 
 ### 11.11 Steps
@@ -642,8 +649,8 @@ limit of K children per node rule that out.
 |---|---|---|
 | B1 | poses with upright and turn; cells by `Pose.contains`; contact polygons | fast score equals the real scorer on turned and standing blocks |
 | B2 | load rule for every pose; `minPatch`; the probes | the five plans of §11.2 get the same answer from the local rule as from physics |
-| B3 | course-plan generator; tree search with bound, exact cuts, fuel, limited discrepancy order | at N = 40 the score is at least v1's on egg, ball and bunny |
-| B4 | physics in the loop: no-goods, jump back | at N = 100 every model returns a plan that passes physics |
+| B3 | course-plan generator; branch-and-bound with bound pruning, safe pruning rules, fuel, LDS order | at N = 40 the score is at least v1's on egg, ball and bunny |
+| B4 | physics in the loop: no-good learning, conflict-directed backjumping | at N = 100 every model returns a plan that passes physics |
 | B5 | heuristic phase; successive halving over heights; 30 s time limit | higher scores than B4 within 30 s; every call returns within 31 s |
 | B6 | theorems of §11.10; README and §10 updated | CI green |
 
@@ -668,9 +675,9 @@ switch both on with no change in the planner.
 |---|---|
 | poses with turns, contact polygons (§11.3, §11.4) | quarter turns only (turns stalled). On-edge and standing blocks (`Grid.lean`), with `UprightRules` (`Support.lean`): by default upright blocks only on the ground, carrying nothing |
 | three probes (§11.8) | two: an upright block on a flat one (`onFlat`), a flat block on two standing ones (`carry`). Both are not ok today |
-| tree search, bound, cuts, no-goods, jump back, limited discrepancy order (§11.5) | as designed (`Tree.lean`). Children: the default setting, the other flat direction, both directions, one more block in the course, no limit, upright blocks (where allowed). The limit per course is the blocks left shared over the courses left. At most 3 children, 200 waiting nodes per height |
-| exact symmetry cut | the model must be its own mirror image across `y = 0`, bubble by bubble |
-| heuristic phase (§11.6) | restarts from the incumbent above a random course, and removing single blocks that carry nothing |
+| branch-and-bound, pruning rules, no-good learning, conflict-directed backjumping, LDS (§11.5) | as designed (`Tree.lean`). Children: the default setting, the other flat direction, both directions, one more block in the course, no limit, upright blocks (where allowed). The limit per course is the blocks left shared over the courses left. At most 3 children, 200 waiting nodes per height |
+| symmetry breaking | the model must be its own mirror image across `y = 0`, bubble by bubble |
+| heuristic phase (§11.6) | LNS: search again above a random course of the incumbent; local search: only block removal (removing single blocks that carry nothing) |
 | heights (§11.7) | v1's coarse sweep first (36 builds), then tree searches at 8 heights (the two best, ±8 % and ±15 % around each, then the rest); halved at ⅓ and ⅔ of the time |
 | time limit (§11.5) | `PlannerConfig.timeLimitMs` = 30,000, 2 s reserve; checks run in their own tasks, at most 4 at a time; a check not done at the end is not waited for |
 | theorems (§11.10) | `candidatesOf_sound`, `candidatesOf_length` (every result within `N` blocks and passed physics; at most `maxCandidates`). The search runs in `IO`, so "at most `maxTries`" is a loop limit, not a theorem |

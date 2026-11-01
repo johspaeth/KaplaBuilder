@@ -7,13 +7,15 @@ The planner (`planner`, `planner/DESIGN.md` §11) runs for at most a time limit 
 1. **Probes.** Two tiny plans tell whether the physics engine lets upright blocks stand on
    flat blocks, and carry blocks (`probeRules`).
 2. **First sweep.** v1's builds at a coarse spread of heights (below). The best heights get a
-   tree search each (`Tree.lean`), starting from the best v1 setting of that height.
+   tree search each (branch-and-bound, `Tree.lean`), starting from the best v1 setting of that
+   height.
 3. **Rounds.** The tree searches run in parallel, a few steps each per round. Leaves that beat
    a search's incumbent go to the physics engine, each in its own task, at most a few at a
    time. Reports come back to their search. After `treeShare` of the time, the searches also
-   restart from their incumbents (the heuristic phase). At a third and two thirds of the
-   time, the worse half of the searches stops, but at least 4 keep going (so the cores stay
-   busy; each search also builds the children of a node in parallel).
+   improve their incumbents by large neighbourhood search and block removal (the heuristic
+   phase). At a third and two thirds of the time, the worse half of the searches stops, but at
+   least 4 keep going (so the cores stay busy; each search also builds the children of a node
+   in parallel).
 4. **Stop** at the time limit (less a reserve for scoring), at `maxTries`, or when nothing is
    left to do. Checks still running are not waited for. A check cannot be stopped, and a
    program does not end before its checks do, so near the end no check starts that would
@@ -364,7 +366,7 @@ structure SearchLog where
   rounds : Nat := 0
   tries : Nat := 0
   checks : Nat := 0
-  cuts : Nat := 0
+  pruned : Nat := 0
   timedOut : Nat := 0
   up : UprightRules := {}
   deriving Repr, Inhabited
@@ -455,7 +457,7 @@ def runSearch (cfg : PlannerConfig) (req : PlanRequest) (ph : PhysicsEngine) (m 
     let dt := (← IO.monoMsNow) - t0
     steps := if dt < 150 then min 256 (steps * 2) else if dt > 600 then max 1 (steps / 2) else steps
     log := { log with rounds := log.rounds + 1 }
-  log := { log with timedOut := pending.size, cuts := trees.foldl (· + ·.cuts) 0 }
+  log := { log with timedOut := pending.size, pruned := trees.foldl (· + ·.pruned) 0 }
   return (trees.toList, log)
 
 /-- The planner with settings: tree searches under the time limit (`runSearch`), then the

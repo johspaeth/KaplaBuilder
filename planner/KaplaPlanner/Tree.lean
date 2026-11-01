@@ -1,35 +1,46 @@
 import KaplaPlanner.Build
 
-/-! # The tree search: branch and cut over courses
+/-! # The tree search: branch-and-bound over courses
 
-At one height, the search builds the model course by course (`planner/DESIGN.md` §11.5).
+At one height, the search builds the model course by course (`planner/DESIGN.md` §11.5). It is
+an *anytime* search: it always has a best plan so far (the **incumbent**), and it can stop at
+any moment. It does not promise the best possible plan: it keeps only a few children per node,
+and some pruning rules are heuristic.
 
-* A **node** is a partial build: courses below `z` are done. Its **children** each add one
-  course. The course's candidates and what each would change are worked out once per node
-  (`prepare`); each child then comes from `buildCourseWith` with one of a few settings, in
-  parallel (which way the blocks
-  lie, how many blocks the course may use, upright blocks or not). Equal children are merged;
-  at most `k` are kept, the default setting first, then by score.
-* **Order.** Nodes wait in buckets by their number of *discrepancies*: how often their path
-  took a child other than the first. The search always takes the newest node of the lowest
-  bucket. So it first follows the default path to the top (a v1 build), then paths that differ
-  once, then twice, and so on.
+* **Branch-and-bound.** A **node** is a partial build: courses below `z` are done. Its
+  **children** each add one course. The course's candidates and what each would change are
+  worked out once per node (`prepare`); each child then comes from `buildCourseWith` with one
+  of a few settings, in parallel (which way the blocks lie, how many blocks the course may
+  use, upright blocks or not). Equal children are merged; at most `k` are kept, the default
+  setting first, then by score.
+* **Limited discrepancy search (LDS):** try the paths that differ least from the default
+  first. Nodes wait in buckets by their number of *discrepancies*: how often their path took a
+  child other than the first. The search always takes the newest node of the lowest bucket. So
+  it first follows the default path to the top (a v1 build), then paths that differ once, then
+  twice, and so on.
 * **Leaves.** A build that reaches the top, or the block limit, is a leaf. A leaf that beats
   the incumbent is sent to the physics engine (the caller does this, `Search.lean`).
-* **Bound.** `bound` is a score no build below a node can beat. A node whose bound is not
-  above the incumbent's score is cut.
-* **Cuts.** Besides the bound: a bubble with no block yet whose top is below the node can
-  never get one; too few blocks left to reach every bubble; two nodes at the same course with
-  the same top two courses (only the better is kept); placements the physics engine refused
-  (`nogood`); at the first course, a child that is the mirror image of another (when the model
-  is its own mirror image).
-* **Backtracking.** When physics refuses a leaf at block `b`, the placement of `b` on its
-  supports is stored as a no-good, every waiting node that contains the same blocks up to
-  `b` is dropped, and the search goes on with the remaining nodes, which branch off below or
-  at `b`'s course. The blocks before `b` stood, so they are sent to physics as a smaller plan.
-* **Heuristic phase.** When the caller says so, the search also restarts from the
-  incumbent: it keeps the incumbent's courses below a course chosen at random and searches
-  again above it. And it tries to remove single blocks that carry nothing.
+* **Pruning** a node means not exploring it. The rules:
+  * **bound pruning** (safe): skip a node when no build below it can beat the incumbent.
+    `bound` is a score that no build below the node can beat.
+  * **feasibility pruning** (safe): skip a node that can no longer give a plan the scorer
+    accepts: a bubble with no block yet whose top is below the node, or too few blocks left
+    to reach every bubble.
+  * **symmetry breaking** (safe): at the first course, drop a child that is the mirror image of
+    another (when the model is its own mirror image).
+  * **dominance pruning** (heuristic): of two nodes at the same course with the same top two
+    courses, keep only the better.
+  * **no-good learning** (heuristic): never again make a placement the physics engine refused
+    (`nogood`).
+* **Conflict-directed backjumping:** when physics refuses a leaf at block `b`, go back to
+  where the failure started, not just one step. The placement of `b` on its supports is stored
+  as a no-good, every waiting node that contains the same blocks up to `b` is dropped, and the
+  search goes on with the remaining nodes, which branch off below or at `b`'s course. The
+  blocks before `b` stood, so they are sent to physics as a smaller plan.
+* **Heuristic phase.** When the caller says so, the search also improves the incumbent:
+  * **large neighbourhood search (LNS):** keep the incumbent's courses below a course chosen at
+    random, and search again above it;
+  * **local search (block removal):** try removing single blocks that carry nothing.
 
 Every function here is pure and ends: the caller gives a number of steps. -/
 
@@ -39,7 +50,7 @@ open KaplaCore
 
 /-! ## Facts about the table -/
 
-/-- Facts about a table that the bound and the cuts use. -/
+/-- Facts about a table that the bound and the pruning rules use. -/
 structure TableInfo where
   /-- For each course `z` (and `nz`): the number of target cells at course `z` or higher. -/
   targetFrom : Array Nat
@@ -182,16 +193,17 @@ structure Tree where
   requests : Array Leaf := #[]
   /-- Leaves already sent (or waiting), by `blocksHash`. -/
   sent : Std.HashSet UInt64 := {}
-  /-- Placements the physics engine refused (`Stack.supportKey`). -/
+  /-- Placements the physics engine refused (`Stack.supportKey`; no-good learning). -/
   nogood : Std.HashSet UInt64 := {}
-  /-- For a node's course, block count and top two courses: the best score seen. -/
+  /-- For a node's course, block count and top two courses: the best score seen (dominance
+  pruning). -/
   frontier : Std.HashMap UInt64 Q := {}
   /-- Incumbents already tried for removing single blocks. -/
   trimmed : Std.HashSet UInt64 := {}
   /-- Builds and evaluations done. -/
   tries : Nat := 0
-  /-- Nodes cut, for reports. -/
-  cuts : Nat := 0
+  /-- Nodes pruned, for reports. -/
+  pruned : Nat := 0
   /-- A random number, for the heuristic phase. -/
   rng : Nat := 12345
   deriving Inhabited
@@ -264,8 +276,9 @@ def stackOf (p : BuildParams) (bs : List GBlock) : Stack :=
   bs.foldl (fun st b => (st.place b p.margin p.strict p.up).getD st) {}
 
 /-- Take in the physics engine's report on a leaf. If it is ok, the leaf may become the
-incumbent. If block `b` is unstable: remember the placement of `b` as a no-good, drop the
-waiting nodes that contain the same blocks up to `b`, and offer the blocks before `b`. -/
+incumbent. If block `b` is unstable (conflict-directed backjumping): remember the placement of
+`b` as a no-good, drop the waiting nodes that contain the same blocks up to `b`, and offer the
+blocks before `b`. -/
 def Tree.report (tr : Tree) (lf : Leaf) (r : PhysicsReport) : Tree :=
   if r.ok then
     let passed := ((tr.passed ++ [(lf, r)]).mergeSort fun a b => a.1.better b.1).take 4
@@ -317,7 +330,7 @@ def GBlock.mirrorY (b : GBlock) : GBlock := { b with y := -b.y - b.sy }
 def setHash (bs : List GBlock) : UInt64 :=
   ((bs.map hash).mergeSort (· ≤ ·)).foldl mixHash 11
 
-/-- The key of a node for the same-frontier cut: its course, its block count, which bubbles
+/-- The key of a node for dominance pruning: its course, its block count, which bubbles
 have a block, and the blocks in the two courses below it. -/
 def Tree.frontierKey (nd : Node) : UInt64 :=
   let st := nd.built.stack
@@ -325,8 +338,9 @@ def Tree.frontierKey (nd : Node) : UInt64 :=
   mixHash (mixHash (hash nd.z) (hash nd.built.blocks.size))
     (mixHash (hash nd.built.state.touched) (setHash (near.map fun j => (st.blocks[j]!).blk)))
 
-/-- Should the node be cut? Returns the reason, for counting. -/
-def Tree.cutReason (tr : Tree) (nd : Node) : Option String :=
+/-- Should the node be pruned (bound pruning, feasibility pruning)? Returns the reason, for
+counting. -/
+def Tree.pruneReason (tr : Tree) (nd : Node) : Option String :=
   let used := nd.built.blocks.size
   let s := nd.built.state
   match tr.incumbent with
@@ -340,18 +354,18 @@ def Tree.cutReason (tr : Tree) (nd : Node) : Option String :=
       else none
   | none => none
 
-/-- Expand one node: a leaf is offered; otherwise the node is cut or its children wait. -/
+/-- Expand one node: a leaf is offered; otherwise the node is pruned or its children wait. -/
 def Tree.expand (tr : Tree) (nd : Node) : Tree := Id.run do
   let used := nd.built.blocks.size
   if nd.z ≥ tr.t.nz || used ≥ tr.n || tr.info.targetFrom[nd.z]! == 0 then
     return tr.offer (Leaf.ofBuilt tr.t tr.info nd.built)
-  if (tr.cutReason nd).isSome then return { tr with cuts := tr.cuts + 1 }
-  -- same frontier: keep only the better node
+  if (tr.pruneReason nd).isSome then return { tr with pruned := tr.pruned + 1 }
+  -- dominance pruning: of two nodes with the same frontier, keep only the better
   let key := Tree.frontierKey nd
   let sc := nd.built.state.score tr.t
   let mut tr := tr
   match tr.frontier[key]? with
-  | some v => if sc ≤ v && nd.disc > 0 then return { tr with cuts := tr.cuts + 1 }
+  | some v => if sc ≤ v && nd.disc > 0 then return { tr with pruned := tr.pruned + 1 }
   | none => pure ()
   tr := { tr with frontier := tr.frontier.insert key sc }
   -- the children: the candidates of the course are worked out once, for every way a block
@@ -378,9 +392,10 @@ def Tree.expand (tr : Tree) (nd : Node) : Tree := Id.run do
     tr := tr.push { z := nd.z + 1, built := b.1, disc := nd.disc + i }
   return tr
 
-/-! ## The heuristic phase -/
+/-! ## The heuristic phase: large neighbourhood search and local search -/
 
-/-- Restart from the incumbent: keep its blocks below a random course, and search above it. -/
+/-- Large neighbourhood search (LNS): keep the incumbent's blocks below a random course, and
+search again above it. -/
 def Tree.restart (tr : Tree) : Tree :=
   match tr.incumbent with
   | none => tr
@@ -394,7 +409,8 @@ def Tree.restart (tr : Tree) : Tree :=
     let built : Built := { blocks := pre, state := fastScore tr.t pre.toList, stack := st }
     { tr.push { z, built, disc := 0 } with tries := tr.tries + 1 }
 
-/-- Try removing each block of the incumbent that carries nothing. Every removal that keeps all
+/-- Local search (block removal): try removing each block of the incumbent that carries
+nothing. Every removal that keeps all
 bubbles reached and raises the score is offered to the physics engine. -/
 def Tree.trim (tr : Tree) : Tree := Id.run do
   match tr.incumbent with
@@ -413,8 +429,9 @@ def Tree.trim (tr : Tree) : Tree := Id.run do
         if lf.better inc then tr := tr.offer lf
     return tr
 
-/-- Do at most `steps` steps. In the heuristic phase, restart from the incumbent when no node
-is waiting, and every 16 steps; and try to trim the incumbent. -/
+/-- Do at most `steps` steps. In the heuristic phase, start a large neighbourhood search from
+the incumbent when no node is waiting, and every 16 steps; and try block removal on the
+incumbent. -/
 def Tree.run (tr : Tree) (steps : Nat) (heuristic : Bool) : Tree := Id.run do
   let mut tr := tr
   for i in [0:steps] do

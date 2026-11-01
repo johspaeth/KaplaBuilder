@@ -12,8 +12,10 @@ Owner: C. Scope: see [docs/WORKSPLIT.md](../docs/WORKSPLIT.md). Design: [DESIGN.
 
 `KaplaPlanner.planner : KaplaCore.Planner`. Give it a `PlanRequest` whose target is a bubble
 model (`TargetSpec.ofBubbles`), and the two engines. It searches for **at most 30 seconds**
-(branch and cut over courses at several heights, then improving the best plans) and returns up
-to `maxCandidates` plans, from different heights first, best first. Every plan uses at most `N`
+(branch-and-bound over courses at several heights: search a tree of partial builds and skip
+branches that cannot beat the best plan so far; then improve the best plans by large
+neighbourhood search) and returns up to `maxCandidates` plans, from different heights first,
+best first. Every plan uses at most `N`
 blocks and passed `PhysicsEngine.check` (theorem `candidatesOf_sound`). Other kinds of target
 get no candidates. `plannerWith cfg` sets the time limit and other settings (`PlannerConfig`).
 `planPure` is v1, a pure function without a time limit.
