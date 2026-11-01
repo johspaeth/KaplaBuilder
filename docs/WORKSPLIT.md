@@ -1,5 +1,8 @@
 # KaplaBuilder: Component Split for a Team of Four
 
+> **Team working notes**, kept for history. Not needed to understand or judge the project.
+> What is built and proven: [README.md](../README.md).
+
 This document splits the system described in [DESIGN.md](DESIGN.md) into **four independent
 components**, one per person. They share **one small contract package**, `KaplaCore`. Every
 team codes only against `KaplaCore` (types, JSON formats, interfaces, mocks), so nobody is
