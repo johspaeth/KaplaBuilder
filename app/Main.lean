@@ -15,11 +15,12 @@ import KaplaWeb
   `out/`): a 3D view and step-by-step cards for the blueprint, with the physics engine's
   result in the notes. Format: `web/README.md`.
 
-* `kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]`
+* `kapla plan [--blocks N] [--strategy NAME] [--effort LEVEL] [--target MODEL.json] [--out BLUEPRINT.json]`
   runs a planner strategy (default `empty`) on a bubble model (default: the egg), with the
   verified physics engine and the verified scorer, and shows its plan. `--out` writes the
   plan as a blueprint for `kapla view`. The strategies `ai` and `ai-unchecked` call
-  Claude and need `ANTHROPIC_API_KEY`.
+  Claude and need `ANTHROPIC_API_KEY`. `--effort` (`low`, `medium` or `high`, default `high`)
+  sets how much Claude thinks: lower is faster, and fewer designs pass.
 
 * `kapla serve [--port N]` starts the website on this computer only (default port 8000). Run it
   from the top folder of the repo: the gallery is in `gallery/`. Requests: `web/README.md`.
@@ -205,8 +206,9 @@ def blueprintJson (title : String) (target : KaplaCore.TargetSpec) (c : KaplaCor
         Json.mkObj [("blocks", Json.arr (st.blocks.map pose).toArray)]).toArray)]) ]
 
 /-- Run a planner strategy on a target and list its candidates. -/
-def plan (name : String) (blocks : Nat) (targetFile out : Option String) : IO UInt32 := do
-  match KaplaPlanner.strategyByName? name with
+def plan (name : String) (effort : KaplaPlanner.Claude.Effort) (blocks : Nat)
+    (targetFile out : Option String) : IO UInt32 := do
+  match KaplaPlanner.strategyWithEffort? name effort with
   | none =>
     IO.eprintln s!"unknown strategy \"{name}\"; known: {KaplaPlanner.strategies.map (·.name)}"
     return 64
@@ -220,7 +222,8 @@ def plan (name : String) (blocks : Nat) (targetFile out : Option String) : IO UI
     let some target := target | return 1
     let req : KaplaCore.PlanRequest := { target, blocks, maxCandidates := 1 }
     let cands ← s.toPlanner.plan req KaplaPhysics.physicsEngine KaplaSemantics.semanticEngine
-    IO.println s!"strategy {s.name}: {cands.length} candidates"
+    let effortNote := if KaplaPlanner.usesClaude s.name then s!" (effort {effort.name})" else ""
+    IO.println s!"strategy {s.name}{effortNote}: {cands.length} candidates"
     for c in cands do
       let physics := if c.physics.ok then "physics ok (verified)"
         else if c.physics.diagnostics.isEmpty then "physics not checked"
@@ -575,9 +578,12 @@ def standInTower : KaplaPlanner.Strategy :=
 /-- The planners the website offers. -/
 def sitePlanners : List KaplaPlanner.Strategy := standInTower :: KaplaPlanner.strategies
 
-/-- `GET /planners` -/
+/-- `GET /planners`: every planner, and the ones that ask Claude (they take an `effort`). -/
 def getPlanners : Reply :=
-  { json := (Json.mkObj [("planners", Json.arr (sitePlanners.map (Json.str ·.name)).toArray)]).compress }
+  let names := sitePlanners.map (·.name)
+  { json := (Json.mkObj
+      [ ("planners", Json.arr (names.map Json.str).toArray)
+      , ("claude", Json.arr ((names.filter KaplaPlanner.usesClaude).map Json.str).toArray) ]).compress }
 
 /-- How long the page waits for a planner, in seconds. -/
 def plannerSeconds : Nat := 900
@@ -595,21 +601,28 @@ def makeProposal (s : KaplaPlanner.Strategy) (m : KaplaCore.BubbleModel) (blocks
     let saved : SavedPlan := { planner := s.name, blocks, height := c.score.height, plan := c.plan }
     return Json.mkObj [("proposal", ← IO.ofExcept (proposalJson target saved))]
 
-/-- `POST /plan` with `planner`, `blocks` and `model`. The answer is `proposal`, or null if the
-planner made none. The page gets an answer even if a planner does not end. -/
+/-- `POST /plan` with `planner`, `blocks`, `model` and, for the planners that ask Claude, an
+optional `effort` (`low`, `medium` or `high`, default `high`). The answer is `proposal`, or null
+if the planner made none. The page gets an answer even if a planner does not end. -/
 def postPlan (body : String) : IO Reply := do
-  let parsed : Except String (String × Nat × KaplaCore.BubbleModel) := do
+  let parsed : Except String (String × KaplaPlanner.Claude.Effort × Nat × KaplaCore.BubbleModel) := do
     let j ← KaplaSemantics.parseJson body
     let planner ← (← j.getObjVal? "planner").getStr?
+    let effort ← match (j.getObjValAs? String "effort").toOption with
+      | none => pure .high
+      | some e => match KaplaPlanner.Claude.Effort.ofName? e with
+        | some e => pure e
+        | none => throw s!"the effort must be low, medium or high, not \"{e}\""
     let blocks ← j.getObjValAs? Nat "blocks"
     let m ← KaplaSemantics.decode (← j.getObjVal? "model").compress
-    return (planner, blocks, m)
+    return (planner, effort, blocks, m)
   match parsed with
   | .error e => return errorReply .badRequest s!"No proposal: {e}"
-  | .ok (name, blocks, m) =>
+  | .ok (name, effort, blocks, m) =>
     if blocks == 0 || blocks > defaultMaxBlocks then
       return errorReply .badRequest s!"The block limit must be a whole number from 1 to {defaultMaxBlocks}."
-    let some s := sitePlanners.find? (·.name == name)
+    let some s := (sitePlanners.find? (·.name == name)).map fun s =>
+        (KaplaPlanner.strategyWithEffort? s.name effort).getD s
       | return errorReply .badRequest s!"There is no planner named {name}."
     let task ← IO.asTask (makeProposal s m blocks) .dedicated
     let rec wait : Nat → IO Bool
@@ -742,7 +755,7 @@ def galleryCheck : IO UInt32 := do
 def usage : String :=
   "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
   "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]\n" ++
-  "       kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]\n" ++
+  "       kapla plan [--blocks N] [--strategy NAME] [--effort low|medium|high] [--target MODEL.json] [--out BLUEPRINT.json]\n" ++
   "       kapla serve [--port N]\n" ++
   "       kapla gallery-check"
 
@@ -757,17 +770,20 @@ def main (args : List String) : IO UInt32 := do
   | ["view", file] => view opts file "out"
   | ["view", file, "--out", out] => view opts file out
   | "plan" :: rest =>
-    let rec go (name : String) (blocks : Nat) (target out : Option String) :
-        List String → IO UInt32
-      | [] => plan name blocks target out
-      | "--strategy" :: n :: r => go n blocks target out r
-      | "--target" :: f :: r => go name blocks (some f) out r
-      | "--out" :: f :: r => go name blocks target (some f) r
+    let rec go (name : String) (effort : KaplaPlanner.Claude.Effort) (blocks : Nat)
+        (target out : Option String) : List String → IO UInt32
+      | [] => plan name effort blocks target out
+      | "--strategy" :: n :: r => go n effort blocks target out r
+      | "--effort" :: e :: r => match KaplaPlanner.Claude.Effort.ofName? e with
+        | some e => go name e blocks target out r
+        | none => do IO.eprintln usage; return 64
+      | "--target" :: f :: r => go name effort blocks (some f) out r
+      | "--out" :: f :: r => go name effort blocks target (some f) r
       | "--blocks" :: n :: r => match n.toNat? with
-        | some n => go name n target out r
+        | some n => go name effort n target out r
         | none => do IO.eprintln usage; return 64
       | _ => do IO.eprintln usage; return 64
-    go "empty" defaultMaxBlocks none none rest
+    go "empty" .high defaultMaxBlocks none none rest
   | ["gallery-check"] => galleryCheck
   | ["serve"] => serve 8000
   | ["serve", "--port", n] =>

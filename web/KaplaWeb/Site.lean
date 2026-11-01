@@ -27,8 +27,9 @@ header,main{max-width:none}
 #planBar select,#planBar input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:4px 8px;background:var(--card);color:var(--fg)}
 #planBlocks{width:5em}
 #generate{border-color:var(--accent);font-weight:600}
+#effort{margin-left:auto}
 button:disabled{opacity:.5;cursor:default}
-#planStatus{color:var(--muted)}#planStatus.bad{color:var(--bad);font-weight:600}
+#planStatus{color:var(--muted);flex-basis:100%}#planStatus:empty{display:none}#planStatus.bad{color:var(--bad);font-weight:600}
 #scores{margin:4px 0}#physicsNotes,#tooSmall{margin:6px 0;padding-left:1.2em;color:var(--muted)}
 #tooSmall button{margin-left:8px;font-size:.85rem;padding:1px 8px}
 #site main{padding:0;margin:0;min-width:0}
@@ -51,6 +52,13 @@ def siteJs : String := "
   const list = get('models'), form = get('saveForm'), nameBox = get('saveName'), saveButton = get('saveButton'), prButton = get('prButton');
   const statusLine = get('status'), ask = get('ask'), askText = get('askText');
   const generate = get('generate'), plannerBox = get('planner'), blocksBox = get('planBlocks'), planStatus = get('planStatus');
+  // How much Claude thinks, for the planners that ask Claude. One button: each click takes the next level.
+  const effortButton = get('effort'), efforts = ['low', 'medium', 'high'];
+  let effort = 'high', claudePlanners = [];
+  const showEffort = () => { effortButton.textContent = `Reasoning: ${effort}`;
+    effortButton.disabled = busy || !claudePlanners.includes(plannerBox.value); };
+  effortButton.onclick = () => { effort = efforts[(efforts.indexOf(effort) + 1) % efforts.length]; showEffort(); };
+  plannerBox.onchange = () => showEffort();
   const proposal = get('proposal'), badges = get('badges'), scores = get('scores'), physicsNotes = get('physicsNotes'), tooSmall = get('tooSmall');
   // The proposal on screen always belongs to the model on screen, so a new model clears it.
   // lastSaved is the proposal's plan as the server gave it: saving sends it back.
@@ -115,7 +123,7 @@ def siteJs : String := "
   const messages = [];
   const addMsg = (text, kind) => { const d = document.createElement('div'); d.className = 'msg ' + kind; d.textContent = text;
     log.append(d); log.scrollTop = log.scrollHeight; return d; };
-  const setBusy = on => { busy = on; chatSend.disabled = on; generate.disabled = on || !current; prButton.disabled = on || !openName; list.classList.toggle('busy', on); };
+  const setBusy = on => { busy = on; chatSend.disabled = on; generate.disabled = on || !current; prButton.disabled = on || !openName; list.classList.toggle('busy', on); showEffort(); };
   const sendChat = async () => { const text = chatText.value.trim(); if (!text || busy) return;
     chatText.value = ''; addMsg(text, 'user'); const waiting = addMsg('Claude is working...', 'note'); setBusy(true);
     try { const r = await send('/chat', {method:'POST', headers:{'Content-Type':'application/json'},
@@ -157,15 +165,21 @@ def siteJs : String := "
       b.type = 'button'; b.textContent = 'Remove'; b.onclick = () => removeBubble(label); li.append(b); });
     proposal.hidden = false; };
   generate.onclick = async () => { if (busy || !current) return; const model = current; setBusy(true);
-    proposal.hidden = true; planStatus.className = ''; planStatus.textContent = 'Working on a proposal. An AI planner can take several minutes...';
+    const usesClaude = claudePlanners.includes(plannerBox.value);
+    proposal.hidden = true; planStatus.className = '';
+    planStatus.textContent = !usesClaude ? 'Working on a proposal...'
+      : effort === 'low' ? 'Working on a proposal, with low reasoning. This takes about a minute...'
+      : `Working on a proposal, with ${effort} reasoning. This can take several minutes...`;
     try { const r = await send('/plan', {method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({planner: plannerBox.value, blocks: +blocksBox.value, model})});
+        body: JSON.stringify({planner: plannerBox.value, blocks: +blocksBox.value, model, ...(usesClaude ? {effort} : {})})});
       if (!r.ok) { planStatus.className = 'bad'; planStatus.textContent = r.body.error || 'Something went wrong.'; if (proposalHeight !== undefined) proposal.hidden = false; return; }
       if (!r.body.proposal) { clearProposal(); KaplaViewer.show(model); planStatus.textContent = 'This planner made no proposal. The terminal running kapla serve shows why.'; return; }
       planStatus.textContent = ''; showProposal(model, r.body.proposal);
     } catch (_) { planStatus.className = 'bad'; planStatus.textContent = noServer; }
     finally { setBusy(false); } };
-  send('/planners').then(r => { if (r.ok) r.body.planners.forEach(name => { const o = document.createElement('option'); o.textContent = name; plannerBox.append(o); }); }).catch(() => {});
+  send('/planners').then(r => { if (!r.ok) return; claudePlanners = r.body.claude || [];
+    r.body.planners.forEach(name => { const o = document.createElement('option'); o.textContent = name; plannerBox.append(o); });
+    showEffort(); }).catch(() => {});
   send('/status').then(r => { if (r.ok && !r.body.key)
     addMsg('The API key is missing, so the chat cannot work. Put it in semantics/dev/.env and start kapla serve again.', 'bad'); }).catch(() => {});
 })();
@@ -200,7 +214,9 @@ def sitePage : String :=
 <main>
 <div id=\"planBar\"><label>Planner <select id=\"planner\"></select></label>
 <label>Block limit <input id=\"planBlocks\" type=\"number\" min=\"1\" step=\"1\" value=\"40\"></label>
-<button id=\"generate\" type=\"button\" disabled>Generate proposal</button><span id=\"planStatus\" role=\"status\"></span></div>
+<button id=\"generate\" type=\"button\" disabled>Generate proposal</button>
+<button id=\"effort\" type=\"button\" disabled title=\"How much Claude thinks before it answers, for the planners that ask Claude. Click for the next level. Low is fastest, and fewer of its designs pass the checks. High is slowest, and most of its designs pass.\">Reasoning: high</button>
+<span id=\"planStatus\" role=\"status\"></span></div>
 <div id=\"error\" role=\"alert\" hidden></div>
 <div id=\"view\"></div>
 <div id=\"info\"></div>
@@ -223,5 +239,6 @@ def sitePage : String :=
 #guard sitePage.contains "id=\"prButton\""
 #guard sitePage.contains "id=\"chatForm\""
 #guard sitePage.contains "Generate proposal"
+#guard sitePage.contains "id=\"effort\""
 
 end KaplaWeb
