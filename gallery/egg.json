@@ -1,0 +1,20 @@
+{"name": "egg",
+ "model":
+  {
+    "comment": [
+      "For the planner: this file gives only the shape. In Lean, use TargetSpec.egg from KaplaCore; it holds the same numbers, and the build checks that they match. The rule for the cells is as follows.",
+      "1. Choose a height H. The height is the planner's choice.",
+      "2. Multiply every number in center and semi by H. All lengths are now in block units (a block is 15 x 3 x 1). The egg stands on the ground at z = 0, its middle is at x = 0, y = 0.",
+      "3. Lay a grid of cubes with side 1. Cube (i, j, k) has its middle at (i + 0.5, j + 0.5, k + 0.5). i and j can be negative.",
+      "4. Keep a cube if its middle is inside the egg: (x/a)^2 + (y/b)^2 + ((z-c)/d)^2 <= 1, where a, b, d are the scaled semi values and c is the scaled center z. A middle exactly on the surface counts as inside. Cubes below the ground (k < 0) never count. Use exact fractions, not floats.",
+      "5. The planner's blocks must end up inside the egg, wherever the egg stands. The egg always stands around x = 0, y = 0: the blocks are built to fit it, and it is never moved (Bubble.place and Bubble.contains in KaplaCore give the cubes). Cube (i, j, k) here is the same cube as cell (i, j, k) on the planner's grid.",
+      "6. Give the finished blocks as List Pose from KaplaCore, in these same coordinates (GridBlock.toPose gives this). Example: a flat block filling cubes 0-14 along x, 0-2 along y and level 0 is ⟨.flat, .id, ⟨15/2, 3/2, 1/2⟩⟩.",
+      "7. Pass H to SemanticEngine.score.",
+      "Test: at H = 30 there must be exactly 5152 cubes."
+    ],
+    "name": "egg",
+    "bubbles": [
+      {"label": "egg", "tags": ["tower"], "center": [0, 0, 0.5], "semi": [0.3, 0.3, 0.5]}
+    ]
+  }
+}

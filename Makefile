@@ -20,6 +20,7 @@ check:
 	scripts/check_forbidden.sh
 	lake build --fail-level=warning
 	lake build KaplaSpecs
+	lake exe kapla gallery-check
 
 clean:
 	lake clean
