@@ -1,3 +1,4 @@
+import Std.Http
 import KaplaCore
 import KaplaPhysics
 import KaplaSemantics
@@ -16,9 +17,12 @@ import KaplaWeb
 
 * `kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]`
   runs a planner strategy (default `empty`) on a bubble model (default: the egg), with the
-  verified physics engine and the verified scorer, and lists the candidates. `--out` writes the
-  best candidate as a blueprint for `kapla view`. The strategies `ai` and `ai-unchecked` call
+  verified physics engine and the verified scorer, and shows its plan. `--out` writes the
+  plan as a blueprint for `kapla view`. The strategies `ai` and `ai-unchecked` call
   Claude and need `ANTHROPIC_API_KEY`.
+
+* `kapla serve [--port N]` starts the website on this computer only (default port 8000). Run it
+  from the top folder of the repo: saved models are in `models/`. Requests: `web/README.md`.
 
 By default the engine also asks that a 3.9 mm error can never close a gap between two
 blocks, and that no block goes into a slot exactly its own width. `--no-clearance` turns
@@ -211,7 +215,7 @@ def plan (name : String) (blocks : Nat) (targetFile out : Option String) : IO UI
         | .ok m => pure (some (KaplaCore.TargetSpec.ofBubbles m))
         | .error e => IO.eprintln s!"{file}: {e}"; pure none
     let some target := target | return 1
-    let req : KaplaCore.PlanRequest := { target, blocks }
+    let req : KaplaCore.PlanRequest := { target, blocks, maxCandidates := 1 }
     let cands ← s.toPlanner.plan req KaplaPhysics.physicsEngine KaplaSemantics.semanticEngine
     IO.println s!"strategy {s.name}: {cands.length} candidates"
     for c in cands do
@@ -227,10 +231,333 @@ def plan (name : String) (blocks : Nat) (targetFile out : Option String) : IO UI
     | _, _ => pure ()
     return 0
 
+/-! ## The website
+
+`kapla serve` answers the page's requests. Only `Site.lean` in `web/` knows what the page looks
+like, and only `decode` decides what a good model is. -/
+
+/-- The folder for saved models, from the top folder of the repo. -/
+def modelsDir : System.FilePath := "models"
+
+/-- Make a name safe to use as a file name, so a save stays inside `models/`. It keeps small letters,
+digits, `-` and `_`. Capital letters become small. Anything else becomes one `-`. At most 64 letters.
+With nothing left, the result is empty. -/
+def cleanName (name : String) : String :=
+  let mapped := name.toList.map fun c =>
+    if c.isDigit || c == '_' then c
+    else if c.isAlpha then c.toLower
+    else '-'
+  let single := mapped.foldr (init := ([] : List Char)) fun c acc =>
+    match acc with
+    | '-' :: _ => if c == '-' then acc else c :: acc
+    | _ => c :: acc
+  let edge (c : Char) := c == '-' || c == '_'
+  let trim (l : List Char) := ((l.dropWhile edge).reverse.dropWhile edge).reverse
+  String.ofList (trim ((trim single).take 64))
+
+#guard cleanName "My Bunny!" == "my-bunny"
+#guard cleanName "../../etc/passwd" == "etc-passwd"
+#guard cleanName "a.json" == "a-json"
+#guard cleanName "egg_2" == "egg_2"
+#guard cleanName "..." == ""
+#guard (cleanName (String.ofList (List.replicate 100 'x'))).length == 64
+
+/-- Where a saved model with this clean name lives. -/
+def modelPath (name : String) : System.FilePath := modelsDir / (name ++ ".json")
+
+/-- The names of the saved models, in order. A file whose name is not clean is left out. -/
+def listModels : IO (List String) := do
+  let entries ← modelsDir.readDir
+  let names := entries.toList.filterMap fun e =>
+    let p := e.path
+    match p.extension, p.fileStem with
+    | some "json", some stem => if cleanName stem == stem then some stem else none
+    | _, _ => none
+  return names.toArray.qsort (· < ·) |>.toList
+
+/-- A reply: its status and JSON text. -/
+structure Reply where
+  status : Std.Http.Status := .ok
+  json : String
+
+/-- A reply with one message for the person. -/
+def errorReply (status : Std.Http.Status) (message : String) : Reply :=
+  { status, json := (Json.mkObj [("error", Json.str message)]).compress }
+
+/-- `GET /models` -/
+def getModels : IO Reply := do
+  let names ← listModels
+  return { json := (Json.mkObj [("models", Json.arr (names.map Json.str).toArray)]).compress }
+
+/-- `GET /models/NAME`: the model, after `decode` has checked the file. -/
+def getModel (name : String) : IO Reply := do
+  if cleanName name != name || name.isEmpty then
+    return errorReply .notFound "there is no model with this name"
+  let path := modelPath name
+  unless ← path.pathExists do
+    return errorReply .notFound "there is no model with this name"
+  match KaplaSemantics.decode (← IO.FS.readFile path) with
+  | .ok m => return { json := KaplaSemantics.encode m }
+  | .error e => return errorReply .unprocessableEntity s!"the file is not a good model: {e}"
+
+/-- `POST /models` with `name`, `model` and `overwrite`. The saved model takes the clean name. An
+existing name is replaced only with `overwrite` true; otherwise the reply is 409. -/
+def postModel (body : String) : IO Reply := do
+  let parsed : Except String (String × Bool × KaplaCore.BubbleModel) := do
+    let j ← KaplaSemantics.parseJson body
+    let name ← (← j.getObjVal? "name").getStr?
+    let overwrite := (j.getObjValAs? Bool "overwrite").toOption.getD false
+    let m ← KaplaSemantics.decode (← j.getObjVal? "model").compress
+    return (name, overwrite, m)
+  match parsed with
+  | .error e => return errorReply .badRequest s!"The model was not saved: {e}"
+  | .ok (typed, overwrite, m) =>
+    let name := cleanName typed
+    if name.isEmpty then
+      return errorReply .badRequest "Give a name with at least one letter or digit."
+    let path := modelPath name
+    if !overwrite && (← path.pathExists) then
+      return { status := .conflict, json := (Json.mkObj [("name", Json.str name)]).compress }
+    let saved := { m with name }
+    -- Write a new file first, so a failed write cannot damage a saved model.
+    let temp := modelsDir / s!".{name}.tmp"
+    IO.FS.writeFile temp (KaplaSemantics.encodePretty saved ++ "\n")
+    IO.FS.rename temp path
+    return { json := (Json.mkObj [("name", Json.str name),
+                                  ("model", KaplaSemantics.modelToJson saved)]).compress }
+
+/-- Is this request from our own page? Another website open in the browser can also send requests to
+this computer. The address it used (`Host`) and the page it came from (`Origin`) show that. -/
+def fromOurPage (port : Nat) (host origin : Option String) : Bool :=
+  let ours := [s!"localhost:{port}", s!"127.0.0.1:{port}"]
+  (host.any ours.contains) && (origin.all fun o => ours.any (fun h => o == s!"http://{h}"))
+
+#guard fromOurPage 8000 (some "localhost:8000") none
+#guard fromOurPage 8000 (some "127.0.0.1:8000") (some "http://127.0.0.1:8000")
+#guard !fromOurPage 8000 (some "localhost:8000") (some "https://example.com")
+#guard !fromOurPage 8000 (some "example.com") none
+#guard !fromOurPage 8000 none none
+
+/-- The file that holds the API key, from the top folder of the repo. -/
+def keyFile : System.FilePath := "semantics" / "dev" / ".env"
+
+/-- `GET /status`: does the server have a key? The key itself never leaves the server. -/
+def getStatus (key : Option String) : Reply :=
+  { json := (Json.mkObj [("key", Json.bool key.isSome)]).compress }
+
+/-- `POST /chat` with `text`, `messages` (the earlier conversation) and `model` (the model on screen, or
+null). The answer is `reply` and `model`; `model` is null when Claude only answered. -/
+def postChat (key : Option String) (body : String) : IO Reply := do
+  let some key := key
+    | return errorReply .serviceUnavailable
+        "The API key is missing. Put it in semantics/dev/.env and start kapla serve again."
+  let parsed : Except String (String × List KaplaSemantics.ChatMessage × Option KaplaCore.BubbleModel) := do
+    let j ← KaplaSemantics.parseJson body
+    let text ← (← j.getObjVal? "text").getStr?
+    let messages ← (← (← j.getObjVal? "messages").getArr?).toList.mapM fun m => do
+      let role ← (← m.getObjVal? "role").getStr?
+      unless role == "user" || role == "assistant" do throw s!"unknown role {role}"
+      return (⟨role, ← (← m.getObjVal? "text").getStr?⟩ : KaplaSemantics.ChatMessage)
+    let model ← match j.getObjVal? "model" with
+      | .ok .null | .error _ => pure none
+      | .ok m => some <$> KaplaSemantics.decode m.compress
+    return (text, messages, model)
+  match parsed with
+  | .error e => return errorReply .badRequest s!"The message was not sent: {e}"
+  | .ok (text, messages, model) =>
+    if text.trimAscii.isEmpty then
+      return errorReply .badRequest "The message is empty."
+    match ← KaplaSemantics.chat key messages model text with
+    | .error e => return errorReply .badGateway e
+    | .ok a =>
+      return { json := (Json.mkObj
+        [ ("reply", Json.str a.reply)
+        , ("model", match a.model with
+            | some m => KaplaSemantics.modelToJson m
+            | none => .null) ]).compress }
+
+/-! ### The proposal -/
+
+/-- A free and fast planner for testing the page: a pile of flat blocks at the middle. It makes no
+calls to Claude. -/
+def standInTower : KaplaPlanner.Strategy :=
+  ⟨"stand-in tower (test only)", fun req ph sem =>
+    let n := min req.blocks 30
+    let pose (k : Nat) : KaplaCore.Pose := ⟨.flat, .id, ⟨0, 0, (k : Q) + 1 / 2⟩⟩
+    let plan : BuildPlan := ⟨(List.range n).map fun k => { blocks := [pose k] }⟩
+    pure [{ plan, physics := ph.check req.human req.blocks plan
+            score := sem.score req.target n plan.blocks, difficulty := default }]⟩
+
+/-- The planners the website offers. -/
+def sitePlanners : List KaplaPlanner.Strategy := standInTower :: KaplaPlanner.strategies
+
+/-- `GET /planners` -/
+def getPlanners : Reply :=
+  { json := (Json.mkObj [("planners", Json.arr (sitePlanners.map (Json.str ·.name)).toArray)]).compress }
+
+/-- How long the page waits for a planner, in seconds. -/
+def plannerSeconds : Nat := 900
+
+/-- A plan in the blueprint format of `web/README.md`, for drawing. -/
+def planToViewJson (plan : BuildPlan) : Json :=
+  let up : Upright → String
+    | .flat => "flat" | .onEdge => "edge" | .standing => "upright"
+  let num := KaplaSemantics.ratToJson
+  let pose (b : KaplaCore.Pose) := Json.mkObj
+    [ ("up", Json.str (up b.up))
+    , ("rot", Json.mkObj [("c", num b.rot.cos), ("s", num b.rot.sin)])
+    , ("center", KaplaSemantics.q3ToJson b.center) ]
+  Json.mkObj [("steps", Json.arr (plan.steps.map fun st => Json.mkObj
+    [ ("blocks", Json.arr (st.blocks.map pose).toArray), ("phase", Json.str st.phase) ]).toArray)]
+
+/-- Run a planner and ask for one plan. Physics and the scorer are run here again, so the badges do not
+depend on what a planner reports about itself. The height is the one the planner chose. -/
+def makeProposal (s : KaplaPlanner.Strategy) (m : KaplaCore.BubbleModel) (blocks : Nat) :
+    IO Json := do
+  let target := KaplaCore.TargetSpec.ofBubbles m
+  let candidates ← s.toPlanner.plan { target, blocks, maxCandidates := 1 }
+    KaplaPhysics.physicsEngine KaplaSemantics.semanticEngine
+  match candidates.head? with
+  | none => return Json.mkObj [("proposal", .null)]
+  | some c =>
+    let opts : KaplaPhysics.PlanOptions := {}
+    let physics := runPhysics opts blocks c.plan
+    let score := KaplaSemantics.semanticEngine.score target c.score.height c.plan.blocks
+    let view ← IO.ofExcept ((KaplaWeb.readPlan (planToViewJson c.plan)).map KaplaWeb.pageData)
+    return Json.mkObj [("proposal", Json.mkObj
+      [ ("view", view)
+      , ("score", KaplaSemantics.reportToJson score)
+      , ("stands", Json.bool physics.ok)
+      , ("physics", Json.arr ((physicsLines opts c.plan physics).map Json.str).toArray) ])]
+
+/-- `POST /plan` with `planner`, `blocks` and `model`. The answer is `proposal`, or null if the
+planner made none. The page gets an answer even if a planner does not end. -/
+def postPlan (body : String) : IO Reply := do
+  let parsed : Except String (String × Nat × KaplaCore.BubbleModel) := do
+    let j ← KaplaSemantics.parseJson body
+    let planner ← (← j.getObjVal? "planner").getStr?
+    let blocks ← j.getObjValAs? Nat "blocks"
+    let m ← KaplaSemantics.decode (← j.getObjVal? "model").compress
+    return (planner, blocks, m)
+  match parsed with
+  | .error e => return errorReply .badRequest s!"No proposal: {e}"
+  | .ok (name, blocks, m) =>
+    if blocks == 0 || blocks > defaultMaxBlocks then
+      return errorReply .badRequest s!"The block limit must be a whole number from 1 to {defaultMaxBlocks}."
+    let some s := sitePlanners.find? (·.name == name)
+      | return errorReply .badRequest s!"There is no planner named {name}."
+    let task ← IO.asTask (makeProposal s m blocks) .dedicated
+    let rec wait : Nat → IO Bool
+      | 0 => return false
+      | n + 1 => do
+        if ← IO.hasFinished task then return true
+        IO.sleep 100
+        wait n
+    unless ← wait (plannerSeconds * 10) do
+      IO.cancel task
+      return errorReply .gatewayTimeout s!"The planner did not finish in {plannerSeconds / 60} minutes."
+    match task.get with
+    | .ok j => return { json := j.compress }
+    | .error e => return errorReply .internalServerError s!"The planner stopped with an error: {e}"
+
+/-- The biggest request we read. A model has at most 32 bubbles, so this is plenty. -/
+def maxBodyBytes : UInt64 := 1024 * 1024
+
+section Server
+open Std Async
+open Std Http Server
+
+/-- The website: its port, and the API key if there is one. -/
+structure Site where
+  port : Nat
+  key : Option String
+
+/-- Send a reply as JSON. A browser must not keep an old list of models. -/
+def sendJson (r : Reply) : ContextAsync (Response Body.Any) :=
+  Response.withStatus r.status |>.header! "Cache-Control" "no-store" |>.json r.json
+
+instance : Handler Site where
+  onRequest site req := do
+    let host := (req.line.headers.get? (.mk "host")).map toString
+    let origin := (req.line.headers.get? (.mk "origin")).map toString
+    unless fromOurPage site.port host origin do
+      return ← sendJson (errorReply .forbidden "this request did not come from the Defy Gravity page")
+    let path := (toString req.line.uri).takeWhile (· != '?') |>.toString
+    let method := req.line.method
+    let guarded (action : IO Reply) : ContextAsync (Response Body.Any) := do
+      let r ← (action.toBaseIO : BaseIO _)
+      match r with
+      | .ok reply => sendJson reply
+      | .error e =>
+        IO.eprintln s!"{path}: {e}"
+        sendJson (errorReply .internalServerError s!"The server could not do this: {e}")
+    if method == .get && path == "/" then
+      Response.ok |>.header! "Cache-Control" "no-store" |>.html KaplaWeb.sitePage
+    else if method == .get && path == "/status" then
+      sendJson (getStatus site.key)
+    else if method == .post && path == "/chat" then
+      try
+        let body : String ← req.body.readAll (maximumSize := some maxBodyBytes)
+        guarded (postChat site.key body)
+      catch e =>
+        sendJson (errorReply .badRequest s!"The message was not sent: could not read it: {e}")
+    else if method == .get && path == "/planners" then
+      sendJson getPlanners
+    else if method == .post && path == "/plan" then
+      try
+        let body : String ← req.body.readAll (maximumSize := some maxBodyBytes)
+        guarded (postPlan body)
+      catch e =>
+        sendJson (errorReply .badRequest s!"No proposal: could not read the request: {e}")
+    else if method == .get && path == "/models" then
+      guarded getModels
+    else if method == .get && path.startsWith "/models/" then
+      guarded (getModel (path.drop "/models/".length).toString)
+    else if method == .post && path == "/models" then
+      try
+        let body : String ← req.body.readAll (maximumSize := some maxBodyBytes)
+        guarded (postModel body)
+      catch e =>
+        sendJson (errorReply .badRequest s!"The model was not saved: could not read it: {e}")
+    else
+      sendJson (errorReply .notFound "no such page")
+
+/-- Start the website and keep it running. -/
+def serve (port : Nat) : IO UInt32 := do
+  unless ← modelsDir.isDir do
+    IO.eprintln "No models/ folder here. Run this from the top folder of the repo."
+    return 1
+  let key ← KaplaSemantics.loadApiKey keyFile
+  -- The AI planners read the key from the environment, and Lean cannot change the environment of a
+  -- running program. So start this program again once, with the key set.
+  if let some k := key then
+    if (← IO.getEnv "ANTHROPIC_API_KEY") != some k then
+      let child ← IO.Process.spawn
+        { cmd := ← IO.appPath |>.map toString, args := #["serve", "--port", toString port]
+          env := #[("ANTHROPIC_API_KEY", some k)] }
+      return ← child.wait
+  if key.isNone then
+    IO.println "No API key in semantics/dev/.env, so the chat will not work. The rest of the site does."
+  try
+    Async.block do
+      let addr : Net.SocketAddress := .v4 ⟨.ofParts 127 0 0 1, port.toUInt16⟩
+      let server ← Server.serve addr (Site.mk port key)
+      IO.println s!"Defy Gravity is running. Open http://localhost:{port}"
+      (← IO.getStdout).flush
+      server.waitShutdown
+    return 0
+  catch e =>
+    IO.eprintln s!"Could not start on port {port}: {e}"
+    IO.eprintln "If another program uses this port, try: lake exe kapla serve --port 8001"
+    return 1
+
+end Server
+
 def usage : String :=
   "usage: kapla check BLUEPRINT.json [--max N] [--no-clearance]\n" ++
   "       kapla view BLUEPRINT.json [--out DIR] [--no-clearance]\n" ++
-  "       kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]"
+  "       kapla plan [--blocks N] [--strategy NAME] [--target MODEL.json] [--out BLUEPRINT.json]\n" ++
+  "       kapla serve [--port N]"
 
 def main (args : List String) : IO UInt32 := do
   let opts : KaplaPhysics.PlanOptions := { clearance := !args.contains "--no-clearance" }
@@ -254,6 +581,15 @@ def main (args : List String) : IO UInt32 := do
         | none => do IO.eprintln usage; return 64
       | _ => do IO.eprintln usage; return 64
     go "empty" defaultMaxBlocks none none rest
+  | ["serve"] => serve 8000
+  | ["serve", "--port", n] =>
+    match n.toNat? with
+    | some n =>
+      if n == 0 || n > 65535 then
+        IO.eprintln usage
+        return 64
+      serve n
+    | none => IO.eprintln usage; return 64
   | [] =>
     IO.println "KaplaBuilder scaffold. Components:"
     for name in [KaplaPhysics.componentName, KaplaSemantics.componentName,
@@ -261,6 +597,7 @@ def main (args : List String) : IO UInt32 := do
       IO.println s!"  - {name}"
     IO.println "Check a blueprint: kapla check BLUEPRINT.json [--max N] [--no-clearance]"
     IO.println "Show a blueprint:  kapla view BLUEPRINT.json [--out DIR] [--no-clearance]"
+    IO.println "Start the website: kapla serve [--port N]"
     return 0
   | _ =>
     IO.eprintln usage

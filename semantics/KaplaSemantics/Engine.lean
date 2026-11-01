@@ -1,5 +1,6 @@
 import KaplaSemantics.Check
 import KaplaSemantics.Json
+import KaplaSemantics.Claude
 
 /-! # The score report
 
@@ -30,13 +31,25 @@ def scoreReport (m : BubbleModel) (height : Q) (plan : List Pose) : ScoreReport 
     uncovered := uncoveredBubbles placed built
     tooSmall := tooSmallBubbles placed }
 
-/-- The real semantic engine. Planners receive it as an argument, through the contract in Core.
-`score` is finished. `interpret` and `refine` need the Claude code (step 7), so until then they
-fail with a clear message and do not make up a target. -/
-def semanticEngine : SemanticEngine :=
-  { interpret := fun _ => throw (IO.userError "interpret is not built yet: it needs the Claude code")
-    refine := fun _ _ => throw (IO.userError "refine is not built yet: it needs the Claude code")
+/-- A target from one message to Claude, with no earlier conversation. -/
+private def askClaude (key : Option String) (current : Option BubbleModel) (text : String) :
+    IO TargetSpec := do
+  let some key := key
+    | throw (IO.userError "no API key: put it in semantics/dev/.env")
+  match ← chat key [] current text with
+  | .error e => throw (IO.userError e)
+  | .ok { model := some m, .. } => return .ofBubbles m
+  | .ok { reply, .. } => throw (IO.userError s!"Claude gave no model: {reply}")
+
+/-- The real semantic engine, with this API key. The website calls `chat` directly, because it also
+sends the earlier conversation, which this contract has no place for. -/
+def engineWithKey (key : Option String) : SemanticEngine :=
+  { interpret := fun req => askClaude key none req.prompt
+    refine := fun t remark => askClaude key (some t.model) remark
     score := fun t height blocks => scoreReport t.model height blocks }
+
+/-- The semantic engine for planners. They only need `score`, which needs no key. -/
+def semanticEngine : SemanticEngine := engineWithKey none
 
 /-- The verdict as a word. -/
 def verdictName : Verdict → String

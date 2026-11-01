@@ -11,10 +11,10 @@ One local website. You run `kapla serve` and open one address on your own comput
 1. A chat window. You describe a model ("an egg"). Claude makes the bubbles and the 3D view shows them.
 2. You change it in the chat ("make the ears longer") and the view changes by itself.
 3. You save models, open saved ones, change them and save again.
-4. You choose a planner, give a block limit and start it. The plans are listed.
-5. You click a plan and see its blocks with the bubbles, and a slider that adds the blocks one
-   step at a time.
-6. Each plan shows two separate badges and its scores. "Stands" comes from physics, which runs by
+4. You choose a planner, give a block limit and press "Generate proposal". The planner gives one plan.
+5. The page then shows its blocks with the bubbles, and a slider that adds the blocks one step at a
+   time.
+6. The plan shows two separate badges and its scores. "Stands" comes from physics, which runs by
    itself on each plan. "Accepted" comes from the scorer.
 
 ## Where the code goes
@@ -57,7 +57,15 @@ The person owns `app/` and `web/` for this work.
   and the chat says the key is missing. Never print the key or ask for it in the chat.
 - **Too-small bubbles:** listed next to each plan, because they depend on the height, with an action
   to remove one. Never run `normalize` after removing one.
-- **Several plans:** one row each with height, blocks, score and badges. Click a row to view it.
+- **One plan (replaces "several plans", 1 Nov 2026):** the planner's output is one plan, shown as soon
+  as it is ready. The website asks for it with `maxCandidates := 1` and uses only the first. There is
+  no list and no `POST /check`.
+- **Planner list (1 Nov 2026):** the website uses `KaplaPlanner.strategies`, which has Johannes's planners
+  `ai` and `ai-unchecked` (PR #41). `app/Main.lean` adds `standInTower`, website only, as a free and fast
+  test. It stays. `kapla serve` passes the key from `semantics/dev/.env` to the planners. The page waits
+  up to 15 minutes for a planner.
+- **Clearing:** a new model on screen (opened, from the chat, or a bubble removed) clears the proposal.
+- **Gaps:** the website uses the physics engine's default setting.
 - **Block limit:** a number box, starting at 40.
 - **Bad answers from Claude:** retry twice, then show the error in the chat and keep the current
   model on screen. The prompt gives the vertical reference in ROADMAP step 7.
@@ -81,8 +89,8 @@ The person owns `app/` and `web/` for this work.
 
 1. Server, page requests and saved models, with bubbles only. Needs no key and no planner.
 2. Chat with Claude (`interpret`, `refine`). Tell the person to add the key first.
-3. Plan button, blocks, slider, scores and badges, with a stand-in planner.
-4. Connect the real planner when PR #31 merges.
+3. Generate proposal button, blocks, slider, scores and badges, with a stand-in planner.
+4. Connect the real planners (PR #41).
 
 Done when: "an egg" shows in 3D, "make it taller" changes it, you save it, open it again, plan it,
 slide through the blocks, and see the badges and scores.
