@@ -669,18 +669,69 @@
     ]
    },
    {
-    "phase": "span 3",
+    "phase": "posts",
     "blocks": [
      {
-      "up": "flat",
+      "up": "upright",
       "rot": {
        "c": 1,
        "s": 0
       },
       "center": [
-       "0",
-       "0",
-       "39/2"
+       "-29/2",
+       "-2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "posts",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "29/2",
+       "-2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "posts",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "-29/2",
+       "2",
+       "15/2"
+      ]
+     }
+    ]
+   },
+   {
+    "phase": "posts",
+    "blocks": [
+     {
+      "up": "upright",
+      "rot": {
+       "c": 1,
+       "s": 0
+      },
+      "center": [
+       "29/2",
+       "2",
+       "15/2"
       ]
      }
     ]
